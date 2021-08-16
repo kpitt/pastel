@@ -5,6 +5,7 @@ use clap::ArgMatches;
 
 mod color_commands;
 mod colorcheck;
+mod contrast;
 mod distinct;
 mod format;
 mod gradient;
@@ -22,6 +23,7 @@ mod traits;
 use traits::{ColorCommand, GenericCommand};
 
 use colorcheck::ColorCheckCommand;
+use contrast::ContrastCommand;
 use distinct::DistinctCommand;
 use format::FormatCommand;
 use gradient::GradientCommand;
@@ -63,6 +65,7 @@ impl Command {
             "gradient" => Command::Generic(Box::new(GradientCommand)),
             "paint" => Command::Generic(Box::new(PaintCommand)),
             "format" => Command::WithColor(Box::new(FormatCommand)),
+            "contrast" => Command::WithColor(Box::new(ContrastCommand)),
             "colorcheck" => Command::Generic(Box::new(ColorCheckCommand)),
             _ => unreachable!("Unknown subcommand"),
         }

@@ -347,6 +347,21 @@ pub fn build_cli() -> App<'static, 'static> {
                 .arg(color_arg.clone()),
         )
         .subcommand(
+            SubCommand::with_name("contrast")
+                .about("Show the WCAG contrast ratio between two colors")
+                .long_about(
+                    "Show the contrast ratio between two colors as defined by the WCAG.\n\n\
+                     Example:\n  \
+                       pastel contrast red blue")
+                .arg(
+                    Arg::with_name("base")
+                        .value_name("color")
+                        .help("The base color over which the other colors will be presented")
+                        .required(true),
+                )
+                .arg(color_arg.clone()),
+        )
+        .subcommand(
             SubCommand::with_name("set")
                 .about("Set a color property to a specific value")
                 .long_about("Set the given property to a specific value\n\
