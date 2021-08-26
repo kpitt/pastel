@@ -272,7 +272,7 @@ impl Color {
     pub fn to_lch_string(&self, format: Format) -> String {
         let lch = LCh::from(self);
         format!(
-            "LCh({l:.0},{space}{c:.0},{space}{h:.0})",
+            "LCh({l:.1},{space}{c:.1},{space}{h:.0})",
             l = lch.l,
             c = lch.c,
             h = lch.h,
@@ -1517,7 +1517,7 @@ mod tests {
     #[test]
     fn to_lch_string() {
         let c = Color::from_lch(52.0, 44.0, 271.0, 1.0);
-        assert_eq!("LCh(52, 44, 271)", c.to_lch_string(Format::Spaces));
+        assert_eq!("LCh(52.0, 44.0, 271)", c.to_lch_string(Format::Spaces));
     }
 
     #[test]
