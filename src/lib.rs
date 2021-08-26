@@ -1517,7 +1517,7 @@ mod tests {
     #[test]
     fn to_lch_string() {
         let c = Color::from_lch(52.0, 44.0, 271.0, 1.0);
-        assert_eq!("LCh(52.0, 44.0, 271)", c.to_lch_string(Format::Spaces));
+        assert_eq!("LCh(52.1, 43.7, 271)", c.to_lch_string(Format::Spaces));
     }
 
     #[test]
