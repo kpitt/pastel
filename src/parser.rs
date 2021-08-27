@@ -178,6 +178,28 @@ fn parse_lab<'a>(input: &'a str) -> IResult<&'a str, Color> {
     Ok((input, c))
 }
 
+fn parse_lch<'a>(input: &'a str) -> IResult<&'a str, Color> {
+    let (input, _) = opt(tag_no_case("cie"))(input)?;
+    let (input, _) = tag_no_case("lch(")(input)?;
+    let (input, _) = space0(input)?;
+    let (input, l) = double(input)?;
+    let (input, _) = opt(char('%'))(input)?;
+    let (input, _) = parse_separator(input)?;
+    let (input, c) = double(input)?;
+    let (input, _) = parse_separator(input)?;
+    let (input, h) = parse_angle(input)?;
+    let (input, alpha) = opt(|input: &'a str| {
+        let (input, _) = parse_separator(input)?;
+        double(input)
+    })(input)?;
+    let (input, _) = space0(input)?;
+    let (input, _) = char(')')(input)?;
+
+    let color = Color::from_lch(l, c, h, alpha.unwrap_or(1.0));
+
+    Ok((input, color))
+}
+
 fn parse_named(input: &str) -> IResult<&str, Color> {
     let (input, color) = all_consuming(alpha1)(input)?;
     let nc = NAMED_COLORS
@@ -201,6 +223,7 @@ pub fn parse_color(input: &str) -> Option<Color> {
         all_consuming(parse_hsl),
         all_consuming(parse_gray),
         all_consuming(parse_lab),
+        all_consuming(parse_lch),
         all_consuming(parse_named),
     ))(input.trim())
     .ok()
