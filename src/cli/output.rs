@@ -22,33 +22,35 @@ impl Output<'_> {
         }
     }
 
-    pub fn show_color_tty(&mut self, config: &Config, color: &Color) -> Result<()> {
-        let checkerboard_size: usize = 16;
-        let color_panel_size: usize = 12;
+    pub fn show_color_tty(&mut self, config: &Config, color: &Color, compact: bool) -> Result<()> {
+        let checkerboard_width: usize = 16;
+        let color_panel_width: usize = 12;
+        let checkerboard_height: usize = if compact { 8 } else { checkerboard_width };
+        let color_panel_height: usize = if compact { 6 } else { color_panel_width };
 
         let checkerboard_position_y: usize = 0;
         let checkerboard_position_x: usize = config.padding;
         let color_panel_position_y: usize =
-            checkerboard_position_y + (checkerboard_size - color_panel_size) / 2;
+            checkerboard_position_y + (checkerboard_height - color_panel_height) / 2;
         let color_panel_position_x: usize =
-            config.padding + (checkerboard_size - color_panel_size) / 2;
-        let text_position_x: usize = checkerboard_size + 2 * config.padding;
+            config.padding + (checkerboard_width - color_panel_width) / 2;
+        let text_position_x: usize = checkerboard_width + 2 * config.padding;
         let text_position_y: usize = 0;
 
-        let mut canvas = Canvas::new(checkerboard_size, 51, config.brush);
+        let mut canvas = Canvas::new(checkerboard_height, 51, config.brush);
         canvas.draw_checkerboard(
             checkerboard_position_y,
             checkerboard_position_x,
-            checkerboard_size,
-            checkerboard_size,
+            checkerboard_height,
+            checkerboard_width,
             &Color::graytone(0.94),
             &Color::graytone(0.71),
         );
         canvas.draw_rect(
             color_panel_position_y,
             color_panel_position_x,
-            color_panel_size,
-            color_panel_size,
+            color_panel_height,
+            color_panel_width,
             color,
         );
 
@@ -66,14 +68,16 @@ impl Output<'_> {
                 continue;
             }
 
-            canvas.draw_text(text_position_y + 10 + 2 * i, text_position_x + 7, nc.name);
-            canvas.draw_rect(
-                text_position_y + 10 + 2 * i,
-                text_position_x + 1,
-                2,
-                5,
-                &nc.color,
-            );
+            if !compact {
+                canvas.draw_text(text_position_y + 10 + 2 * i, text_position_x + 7, nc.name);
+                canvas.draw_rect(
+                    text_position_y + 10 + 2 * i,
+                    text_position_x + 1,
+                    2,
+                    5,
+                    &nc.color,
+                );
+            }
         }
 
         #[allow(clippy::identity_op)]
@@ -93,11 +97,13 @@ impl Output<'_> {
             &format!("HSL: {}", color.to_hsl_string(Format::Spaces)),
         );
 
-        canvas.draw_text(
-            text_position_y + 8 + text_y_offset,
-            text_position_x,
-            "Most similar:",
-        );
+        if !compact {
+            canvas.draw_text(
+                text_position_y + 8 + text_y_offset,
+                text_position_x,
+                "Most similar:",
+            );
+        }
 
         canvas.print(self.handle)
     }
@@ -107,7 +113,7 @@ impl Output<'_> {
             if self.colors_shown < 1 {
                 writeln!(self.handle)?
             };
-            self.show_color_tty(config, color)?;
+            self.show_color_tty(config, color, true)?;  // TODO: --compact CLI option
             writeln!(self.handle)?;
         } else {
             writeln!(self.handle, "{}", color.to_hsl_string(Format::NoSpaces))?;
