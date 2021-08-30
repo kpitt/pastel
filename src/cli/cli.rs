@@ -507,4 +507,10 @@ pub fn build_cli() -> App<'static, 'static> {
                 .case_insensitive(true)
                 .help("Use a specific tool to pick the colors")
         )
+        .arg(
+            Arg::with_name("compact")
+                .short("c")
+                .long("compact")
+                .help("Use compact output format for multiple colors")
+        )
 }

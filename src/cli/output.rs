@@ -22,11 +22,11 @@ impl Output<'_> {
         }
     }
 
-    pub fn show_color_tty(&mut self, config: &Config, color: &Color, compact: bool) -> Result<()> {
+    pub fn show_color_tty(&mut self, config: &Config, color: &Color) -> Result<()> {
         let checkerboard_width: usize = 16;
         let color_panel_width: usize = 12;
-        let checkerboard_height: usize = if compact { 8 } else { checkerboard_width };
-        let color_panel_height: usize = if compact { 6 } else { color_panel_width };
+        let checkerboard_height: usize = if config.compact { 8 } else { checkerboard_width };
+        let color_panel_height: usize = if config.compact { 6 } else { color_panel_width };
 
         let checkerboard_position_y: usize = 0;
         let checkerboard_position_x: usize = config.padding;
@@ -68,7 +68,7 @@ impl Output<'_> {
                 continue;
             }
 
-            if !compact {
+            if !config.compact {
                 canvas.draw_text(text_position_y + 10 + 2 * i, text_position_x + 7, nc.name);
                 canvas.draw_rect(
                     text_position_y + 10 + 2 * i,
@@ -97,7 +97,7 @@ impl Output<'_> {
             &format!("HSL: {}", color.to_hsl_string(Format::Spaces)),
         );
 
-        if !compact {
+        if !config.compact {
             canvas.draw_text(
                 text_position_y + 8 + text_y_offset,
                 text_position_x,
@@ -113,7 +113,7 @@ impl Output<'_> {
             if self.colors_shown < 1 {
                 writeln!(self.handle)?
             };
-            self.show_color_tty(config, color, true)?;  // TODO: --compact CLI option
+            self.show_color_tty(config, color)?;
             writeln!(self.handle)?;
         } else {
             writeln!(self.handle, "{}", color.to_hsl_string(Format::NoSpaces))?;
