@@ -185,7 +185,7 @@ fn parse_lch<'a>(input: &'a str) -> IResult<&'a str, Color> {
     let (input, l) = double(input)?;
     let (input, _) = opt(char('%'))(input)?;
     let (input, _) = parse_separator(input)?;
-    let (input, c) = double(input)?;
+    let (input, c) = verify(double, |&d| d >= 0.)(input)?;
     let (input, _) = parse_separator(input)?;
     let (input, h) = parse_angle(input)?;
     let (input, alpha) = opt(|input: &'a str| {
