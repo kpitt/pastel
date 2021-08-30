@@ -178,6 +178,28 @@ fn parse_lab<'a>(input: &'a str) -> IResult<&'a str, Color> {
     Ok((input, c))
 }
 
+fn parse_lch<'a>(input: &'a str) -> IResult<&'a str, Color> {
+    let (input, _) = opt(tag_no_case("cie"))(input)?;
+    let (input, _) = tag_no_case("lch(")(input)?;
+    let (input, _) = space0(input)?;
+    let (input, l) = double(input)?;
+    let (input, _) = opt(char('%'))(input)?;
+    let (input, _) = parse_separator(input)?;
+    let (input, c) = verify(double, |&d| d >= 0.)(input)?;
+    let (input, _) = parse_separator(input)?;
+    let (input, h) = parse_angle(input)?;
+    let (input, alpha) = opt(|input: &'a str| {
+        let (input, _) = parse_separator(input)?;
+        double(input)
+    })(input)?;
+    let (input, _) = space0(input)?;
+    let (input, _) = char(')')(input)?;
+
+    let color = Color::from_lch(l, c, h, alpha.unwrap_or(1.0));
+
+    Ok((input, color))
+}
+
 fn parse_named(input: &str) -> IResult<&str, Color> {
     let (input, color) = all_consuming(alpha1)(input)?;
     let nc = NAMED_COLORS
@@ -201,6 +223,7 @@ pub fn parse_color(input: &str) -> Option<Color> {
         all_consuming(parse_hsl),
         all_consuming(parse_gray),
         all_consuming(parse_lab),
+        all_consuming(parse_lch),
         all_consuming(parse_named),
     ))(input.trim())
     .ok()
@@ -414,6 +437,110 @@ fn parse_lab_syntax() {
     assert_eq!(
         Some(Color::from_lab(15.0, 23.0, -43.0, 1.0)),
         parse_color("CIELab(        15,  23,-43   )")
+    );
+}
+
+#[test]
+fn parse_lch_syntax() {
+    assert_eq!(
+        Some(Color::from_lch(60.0, 50.0, 280.0, 1.0)),
+        parse_color("lch(60,50,280)")
+    );
+    assert_eq!(
+        Some(Color::from_lch(60.0, 50.0, 280.0, 1.0)),
+        parse_color("lch(60,50,280deg)")
+    );
+    assert_eq!(
+        Some(Color::from_lch(60.0, 50.0, 280.0, 1.0)),
+        parse_color("lch(60,50,280°)")
+    );
+    assert_eq!(
+        Some(Color::from_lch(23.3, 45.6, 280.33, 1.0)),
+        parse_color("lch(23.3,45.6,280.33001)")
+    );
+    assert_eq!(
+        Some(Color::from_lch(60.0, 50.0, 280.0, 0.5)),
+        parse_color("lch(60,50,280,0.5)")
+    );
+    assert_eq!(
+        Some(Color::from_lch(60.0, 50.0, 280.0, 1.0)),
+        parse_color("lch( 60 , 50,  280 )")
+    );
+    assert_eq!(
+        Some(Color::from_lch(60.0, 50.0, 270.0, 1.0)),
+        parse_color("lch(60 50 270)")
+    );
+    assert_eq!(
+        Some(Color::from_lch(60.0, 50.0, 270.0, 1.0)),
+        parse_color("lch(60% 50 270)")
+    );
+
+    assert_eq!(
+        Some(Color::from_lch(50.0, 30.0, -140.0, 1.0)),
+        parse_color("lch(50,30,-140°)")
+    );
+    assert_eq!(
+        Some(Color::from_lch(50.0, 30.0, 220.0, 1.0)),
+        parse_color("lch(50,30,-140)")
+    );
+
+    assert_eq!(
+        Some(Color::from_lch(50.0, 30.0, 90.0, 1.0)),
+        parse_color("lch(50,30,100grad)")
+    );
+    assert_eq!(
+        Some(Color::from_lch(50.0, 30.0, 90.05, 1.0)),
+        parse_color("lch(50,30,1.5717rad)")
+    );
+    assert_eq!(
+        Some(Color::from_lch(50.0, 30.0, 90.0, 1.0)),
+        parse_color("lch(50,30,0.25turn)")
+    );
+    assert_eq!(
+        Some(Color::from_lch(50.0, 30.0, 45.0, 1.0)),
+        parse_color("lch(50,30,50grad)")
+    );
+    assert_eq!(
+        Some(Color::from_lch(50.0, 30.0, 45.0, 1.0)),
+        parse_color("lch(50,30,0.7854rad)")
+    );
+    assert_eq!(
+        Some(Color::from_lch(50.0, 30.0, 45.0, 1.0)),
+        parse_color("lch(50,30,0.125turn)")
+    );
+
+    assert_eq!(None, parse_color("lch(50,30%,280)"));
+    assert_eq!(None, parse_color("lch(50,-30,280)"));
+    assert_eq!(None, parse_color("lch(50,30,280%)"));
+    assert_eq!(None, parse_color("lch(50,30)"));
+
+    assert_eq!(
+        Some(Color::from_lch(60.0, 40.0, 150.0, 1.0)),
+        parse_color("LCh(60,40,150)")
+    );
+    assert_eq!(
+        Some(Color::from_lch(60.0, 40.0, 150.0, 1.0)),
+        parse_color("CIELCh(60,40,150)")
+    );
+    assert_eq!(
+        Some(Color::from_lch(60.0, 40.0, 150.0, 1.0)),
+        parse_color("CIELch(60,40,150)")
+    );
+    assert_eq!(
+        Some(Color::from_lch(60.0, 40.0, 150.0, 0.4)),
+        parse_color("cieLch(60,40,150,0.4)")
+    );
+    assert_eq!(
+        Some(Color::from_lch(60.0, 40.0, 150.0, 1.0)),
+        parse_color("LCh(        60,  40,150   )")
+    );
+    assert_eq!(
+        Some(Color::from_lch(60.0, 40.0, 150.0, 0.4)),
+        parse_color("CieLch(60,40,150,0.4)")
+    );
+    assert_eq!(
+        Some(Color::from_lch(60.0, 40.0, 150.0, 1.0)),
+        parse_color("CIELCh(        60,  40,150   )")
     );
 }
 
