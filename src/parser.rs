@@ -441,6 +441,32 @@ fn parse_hsv_syntax() {
 }
 
 #[test]
+fn parse_hsb_syntax() {
+    assert_eq!(
+        Some(Color::from_hsv(280.0, 0.2, 0.5)),
+        parse_color("hsb(280,20%,50%)")
+    );
+    assert_eq!(
+        Some(Color::from_hsv(280.0, 0.2, 0.5)),
+        parse_color("hsb(280deg,20%,50%)")
+    );
+    assert_eq!(
+        Some(Color::from_hsv(280.0, 0.2, 0.5)),
+        parse_color("hsb(280°,20%,50%)")
+    );
+    assert_eq!(
+        Some(Color::from_hsv(280.0, 0.2, 0.5)),
+        parse_color("hsb(280, 20%, 50%)")
+    );
+    assert_eq!(
+        Some(Color::from_hsv(270.0, 0.6, 0.7)),
+        parse_color("hsb(270 60% 70%)")
+    );
+
+    assert_eq!(None, parse_color("hsb(280,20%)"));
+}
+
+#[test]
 fn parse_gray_syntax() {
     assert_eq!(Some(Color::graytone(0.2)), parse_color("gray(0.2)"));
     assert_eq!(Some(Color::black()), parse_color("gray(0.0)"));
