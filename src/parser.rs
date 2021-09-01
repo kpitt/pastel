@@ -378,6 +378,69 @@ fn parse_hsl_syntax() {
 }
 
 #[test]
+fn parse_hsv_syntax() {
+    assert_eq!(
+        Some(Color::from_hsv(280.0, 0.2, 0.5)),
+        parse_color("hsv(280,20%,50%)")
+    );
+    assert_eq!(
+        Some(Color::from_hsv(280.0, 0.2, 0.5)),
+        parse_color("hsv(280deg,20%,50%)")
+    );
+    assert_eq!(
+        Some(Color::from_hsv(280.0, 0.2, 0.5)),
+        parse_color("hsv(280°,20%,50%)")
+    );
+    assert_eq!(
+        Some(Color::from_hsv(280.33, 0.123, 0.456)),
+        parse_color("hsv(280.33001,12.3%,45.6%)")
+    );
+    assert_eq!(
+        Some(Color::from_hsv(280.0, 0.2, 0.5)),
+        parse_color("hsv(  280 , 20% , 50%)")
+    );
+    assert_eq!(
+        Some(Color::from_hsv(270.0, 0.6, 0.7)),
+        parse_color("hsv(270 60% 70%)")
+    );
+
+    assert_eq!(
+        Some(Color::from_hsv(-140.0, 0.2, 0.5)),
+        parse_color("hsv(-140°,20%,50%)")
+    );
+
+    assert_eq!(
+        Some(Color::from_hsv(90.0, 0.2, 0.5)),
+        parse_color("hsv(100grad,20%,50%)")
+    );
+    assert_eq!(
+        Some(Color::from_hsv(90.05, 0.2, 0.5)),
+        parse_color("hsv(1.5708rad,20%,50%)")
+    );
+    assert_eq!(
+        Some(Color::from_hsv(90.0, 0.2, 0.5)),
+        parse_color("hsv(0.25turn,20%,50%)")
+    );
+    assert_eq!(
+        Some(Color::from_hsv(45.0, 0.2, 0.5)),
+        parse_color("hsv(50grad,20%,50%)")
+    );
+    assert_eq!(
+        Some(Color::from_hsv(45.0, 0.2, 0.5)),
+        parse_color("hsv(0.7854rad,20%,50%)")
+    );
+    assert_eq!(
+        Some(Color::from_hsv(45.0, 0.2, 0.5)),
+        parse_color("hsv(0.125turn,20%,50%)")
+    );
+
+    assert_eq!(None, parse_color("hsv(280,20%,50)"));
+    assert_eq!(None, parse_color("hsv(280,20,50%)"));
+    assert_eq!(None, parse_color("hsv(280%,20%,50%)"));
+    assert_eq!(None, parse_color("hsv(280,20%)"));
+}
+
+#[test]
 fn parse_gray_syntax() {
     assert_eq!(Some(Color::graytone(0.2)), parse_color("gray(0.2)"));
     assert_eq!(Some(Color::black()), parse_color("gray(0.0)"));
