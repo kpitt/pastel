@@ -145,6 +145,22 @@ fn parse_hsl(input: &str) -> IResult<&str, Color> {
     Ok((input, c))
 }
 
+fn parse_hsv(input: &str) -> IResult<&str, Color> {
+    let (input, _) = tag("hsv(")(input)?;
+    let (input, _) = space0(input)?;
+    let (input, h) = parse_angle(input)?;
+    let (input, _) = parse_separator(input)?;
+    let (input, s) = parse_percentage(input)?;
+    let (input, _) = parse_separator(input)?;
+    let (input, l) = parse_percentage(input)?;
+    let (input, _) = space0(input)?;
+    let (input, _) = char(')')(input)?;
+
+    let c = Color::from_hsv(h, s, l);
+
+    Ok((input, c))
+}
+
 fn parse_gray(input: &str) -> IResult<&str, Color> {
     let (input, _) = tag("gray(")(input)?;
     let (input, _) = space0(input)?;
@@ -221,6 +237,7 @@ pub fn parse_color(input: &str) -> Option<Color> {
         all_consuming(parse_numeric_rgb),
         all_consuming(parse_percentage_rgb),
         all_consuming(parse_hsl),
+        all_consuming(parse_hsv),
         all_consuming(parse_gray),
         all_consuming(parse_lab),
         all_consuming(parse_lch),
