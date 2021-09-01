@@ -1663,6 +1663,13 @@ mod tests {
     }
 
     #[test]
+    fn to_hsv_string() {
+        let c = Color::from_hsv(91.3, 0.541, 0.983);
+        assert_eq!("hsv(91, 54.1%, 98.3%)", c.to_hsv_string(Format::Spaces));
+        assert_eq!("hsv(91,54.1%,98.3%)", c.to_hsv_string(Format::NoSpaces));
+    }
+
+    #[test]
     fn to_lab_string() {
         let c = Color::from_lab(41.0, 83.0, -93.0, 1.0);
         assert_eq!("Lab(41, 83, -93)", c.to_lab_string(Format::Spaces));
