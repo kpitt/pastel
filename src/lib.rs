@@ -1425,6 +1425,53 @@ mod tests {
     }
 
     #[test]
+    fn hsv_conversion() {
+        assert_eq!(Color::white(), Color::from_hsv(0.0, 0.0, 1.0));
+        assert_eq!(Color::white(), Color::from_hsv(120.0, 0.0, 1.0));
+        assert_eq!(Color::gray(), Color::from_hsv(0.0, 0.0, 0.5));
+        assert_eq!(Color::gray(), Color::from_hsv(300.0, 0.0, 0.5));
+        assert_eq!(Color::black(), Color::from_hsv(0.0, 0.0, 0.0));
+        assert_eq!(Color::black(), Color::from_hsv(240.0, 0.0, 0.0));
+        assert_eq!(Color::red(), Color::from_hsv(0.0, 1.0, 1.0));
+        assert_eq!(
+            Color::from_hsl(60.0, 1.0, 0.375),
+            Color::from_hsv(60.0, 1.0, 0.75)
+        ); //yellow-green
+        assert_eq!(Color::green(), Color::from_hsv(120.0, 1.0, 0.5));
+        assert_eq!(
+            Color::from_hsl(240.0, 1.0, 0.75),
+            Color::from_hsv(240.0, 0.5, 1.0)
+        ); // blue-ish
+        assert_eq!(
+            Color::from_hsl(49.5, 0.893, 0.497),
+            Color::from_hsv(49.5, 0.943, 0.941)
+        ); // yellow
+        assert_eq!(
+            Color::from_hsl(162.4, 0.779, 0.447),
+            Color::from_hsv(162.4, 0.876, 0.795)
+        ); // cyan 2
+
+        assert_eq!(
+            Color::from_rgba_float(0.75, 0.0, 0.75, 0.4),
+            Color::from_hsva(300.0, 1.0, 0.75, 0.4)
+        )
+    }
+
+    #[test]
+    fn hsv_roundtrip_conversion() {
+        let roundtrip = |h, s, l| {
+            let color1 = Color::from_hsl(h, s, l);
+            let hsv1 = color1.to_hsva();
+            let color2 = Color::from_hsv(hsv1.h, hsv1.s, hsv1.v);
+            assert_almost_equal(&color1, &color2);
+        };
+
+        for hue in 0..360 {
+            roundtrip(Scalar::from(hue), 0.2, 0.8);
+        }
+    }
+
+    #[test]
     fn xyz_conversion() {
         assert_eq!(Color::white(), Color::from_xyz(0.9505, 1.0, 1.0890, 1.0));
         assert_eq!(Color::red(), Color::from_xyz(0.4123, 0.2126, 0.01933, 1.0));
