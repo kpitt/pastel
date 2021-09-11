@@ -136,6 +136,22 @@ color_command!(SetCommand, config, matches, color, {
             }
             Color::from_hsla(hsla.h, hsla.s, hsla.l, hsla.alpha)
         }
+        "hsv-hue" | "hsv-saturation" | "hsv-value" => {
+            let mut hsva = color.to_hsva();
+            match property {
+                "hsv-hue" => {
+                    hsva.h = value;
+                }
+                "hsv-saturation" => {
+                    hsva.s = value;
+                }
+                "hsv-value" => {
+                    hsva.v = value;
+                }
+                _ => unreachable!(),
+            }
+            Color::from_hsva(hsva.h, hsva.s, hsva.v, hsva.alpha)
+        }
         "lightness" | "lab-a" | "lab-b" => {
             let mut lab = color.to_lab();
             match property {

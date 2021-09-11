@@ -358,7 +358,8 @@ pub fn build_cli() -> App<'static, 'static> {
                         .possible_values(&["lightness", "hue", "chroma",
                                            "lab-a", "lab-b",
                                            "red", "green", "blue",
-                                           "hsl-hue", "hsl-saturation", "hsl-lightness"])
+                                           "hsl-hue", "hsl-saturation", "hsl-lightness",
+                                           "hsv-hue", "hsv-saturation", "hsv-value"])
                         .case_insensitive(true)
                         .required(true),
                 )
