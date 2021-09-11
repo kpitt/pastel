@@ -92,6 +92,27 @@ impl Color {
         })
     }
 
+    /// Create a `Color` from hue, saturation and value coordinates in the HSV color space
+    /// and a floating point alpha value between 0.0 and 1.0.
+    pub fn from_hsva(hue: Scalar, saturation: Scalar, value: Scalar, alpha: Scalar) -> Color {
+        Self::from(&HSVA {
+            h: hue,
+            s: saturation,
+            v: value,
+            alpha,
+        })
+    }
+
+    /// Create a `Color` from hue, saturation and value coordinates in the HSV color space.
+    pub fn from_hsv(hue: Scalar, saturation: Scalar, value: Scalar) -> Color {
+        Self::from(&HSVA {
+            h: hue,
+            s: saturation,
+            v: value,
+            alpha: 1.0,
+        })
+    }
+
     /// Create a `Color` from XYZ coordinates in the CIE 1931 color space. Note that a `Color`
     /// always represents a color in the sRGB gamut (colors that can be represented on a typical
     /// computer screen) while the XYZ color space is bigger. This function will tend to create
@@ -166,6 +187,25 @@ impl Color {
             r = rgba.r,
             g = rgba.g,
             b = rgba.b,
+            space = if format == Format::Spaces { " " } else { "" }
+        )
+    }
+
+    /// Convert a `Color` to its hue, saturation, value/brightness and alpha values. The hue is given
+    /// in degrees, as a number between 0.0 and 360.0. Saturation, value and alpha are numbers
+    /// between 0.0 and 1.0.
+    pub fn to_hsva(&self) -> HSVA {
+        HSVA::from(self)
+    }
+
+    /// Format the color as a HSV-representation string (`hsv(123, 50.3%, 80.1%)`).
+    pub fn to_hsv_string(&self, format: Format) -> String {
+        let hsva = HSVA::from(self);
+        format!(
+            "hsv({h:.0},{space}{s:.1}%,{space}{v:.1}%)",
+            h = hsva.h,
+            s = 100.0 * hsva.s,
+            v = 100.0 * hsva.v,
             space = if format == Format::Spaces { " " } else { "" }
         )
     }
@@ -631,6 +671,21 @@ impl From<&RGBA<f64>> for Color {
     }
 }
 
+impl From<&HSVA> for Color {
+    fn from(color: &HSVA) -> Self {
+        let sv = clamp(0.0, 1.0, color.s);
+        let v = clamp(0.0, 1.0, color.v);
+        let l = v * (1.0 - sv / 2.0);
+        let sl = if l == 0.0 || l == 1.0 { 0.0 } else { (v - l) / f64::min(l, 1.0 - l) };
+        Color {
+            hue: Hue::from(color.h),
+            saturation: sl,
+            lightness: l,
+            alpha: clamp(0.0, 1.0, color.alpha),
+        }
+    }
+}
+
 impl From<&XYZ> for Color {
     fn from(color: &XYZ) -> Self {
         #![allow(clippy::many_single_char_names)]
@@ -864,6 +919,58 @@ impl From<&Color> for HSLA {
 impl fmt::Display for HSLA {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "hsl({h}, {s}, {l})", h = self.h, s = self.s, l = self.l,)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct HSVA {
+    pub h: Scalar,
+    pub s: Scalar,
+    pub v: Scalar,
+    pub alpha: Scalar,
+}
+
+impl ColorSpace for HSVA {
+    fn from_color(c: &Color) -> Self {
+        c.to_hsva()
+    }
+
+    fn into_color(self) -> Color {
+        Color::from_hsva(self.h, self.s, self.v, self.alpha)
+    }
+
+    fn mix(&self, other: &Self, fraction: Fraction) -> Self {
+        // make sure that the hue is preserved when mixing with gray colors
+        let self_hue = if self.s < 0.0001 { other.h } else { self.h };
+        let other_hue = if other.s < 0.0001 { self.h } else { other.h };
+
+        Self {
+            h: interpolate_angle(self_hue, other_hue, fraction),
+            s: interpolate(self.s, other.s, fraction),
+            v: interpolate(self.v, other.v, fraction),
+            alpha: interpolate(self.alpha, other.alpha, fraction),
+        }
+    }
+}
+
+impl From<&Color> for HSVA {
+    fn from(color: &Color) -> Self {
+        #![allow(clippy::many_single_char_names)]
+        let l = color.lightness;
+        let v = l + color.saturation * f64::min(l, 1.0 - l);
+        let sv = if v == 0.0 { 0.0 } else { 2.0 * (1.0 - l / v) };
+        HSVA {
+            h: color.hue.value(),
+            s: sv,
+            v: v,
+            alpha: color.alpha,
+        }
+    }
+}
+
+impl fmt::Display for HSVA {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "hsv({h}, {s}, {v})", h = self.h, s = self.s, v = self.v,)
     }
 }
 
@@ -1318,6 +1425,53 @@ mod tests {
     }
 
     #[test]
+    fn hsv_conversion() {
+        assert_eq!(Color::white(), Color::from_hsv(0.0, 0.0, 1.0));
+        assert_eq!(Color::white(), Color::from_hsv(120.0, 0.0, 1.0));
+        assert_eq!(Color::gray(), Color::from_hsv(0.0, 0.0, 0.5));
+        assert_eq!(Color::gray(), Color::from_hsv(300.0, 0.0, 0.5));
+        assert_eq!(Color::black(), Color::from_hsv(0.0, 0.0, 0.0));
+        assert_eq!(Color::black(), Color::from_hsv(240.0, 0.0, 0.0));
+        assert_eq!(Color::red(), Color::from_hsv(0.0, 1.0, 1.0));
+        assert_eq!(
+            Color::from_hsl(60.0, 1.0, 0.375),
+            Color::from_hsv(60.0, 1.0, 0.75)
+        ); //yellow-green
+        assert_eq!(Color::green(), Color::from_hsv(120.0, 1.0, 0.5));
+        assert_eq!(
+            Color::from_hsl(240.0, 1.0, 0.75),
+            Color::from_hsv(240.0, 0.5, 1.0)
+        ); // blue-ish
+        assert_eq!(
+            Color::from_hsl(49.5, 0.893, 0.497),
+            Color::from_hsv(49.5, 0.943, 0.941)
+        ); // yellow
+        assert_eq!(
+            Color::from_hsl(162.4, 0.779, 0.447),
+            Color::from_hsv(162.4, 0.876, 0.795)
+        ); // cyan 2
+
+        assert_eq!(
+            Color::from_rgba_float(0.75, 0.0, 0.75, 0.4),
+            Color::from_hsva(300.0, 1.0, 0.75, 0.4)
+        )
+    }
+
+    #[test]
+    fn hsv_roundtrip_conversion() {
+        let roundtrip = |h, s, l| {
+            let color1 = Color::from_hsl(h, s, l);
+            let hsv1 = color1.to_hsva();
+            let color2 = Color::from_hsv(hsv1.h, hsv1.s, hsv1.v);
+            assert_almost_equal(&color1, &color2);
+        };
+
+        for hue in 0..360 {
+            roundtrip(Scalar::from(hue), 0.2, 0.8);
+        }
+    }
+
+    #[test]
     fn xyz_conversion() {
         assert_eq!(Color::white(), Color::from_xyz(0.9505, 1.0, 1.0890, 1.0));
         assert_eq!(Color::red(), Color::from_xyz(0.4123, 0.2126, 0.01933, 1.0));
@@ -1506,6 +1660,13 @@ mod tests {
         let c = Color::from_rgb(255, 127, 4);
         assert_eq!("ff7f04", c.to_rgb_hex_string(false));
         assert_eq!("#ff7f04", c.to_rgb_hex_string(true));
+    }
+
+    #[test]
+    fn to_hsv_string() {
+        let c = Color::from_hsv(91.3, 0.541, 0.983);
+        assert_eq!("hsv(91, 54.1%, 98.3%)", c.to_hsv_string(Format::Spaces));
+        assert_eq!("hsv(91,54.1%,98.3%)", c.to_hsv_string(Format::NoSpaces));
     }
 
     #[test]
