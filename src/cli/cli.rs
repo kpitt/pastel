@@ -215,6 +215,7 @@ pub fn build_cli() -> App<'static, 'static> {
                                            "hsv", "hsv-hue", "hsv-saturation", "hsv-value",
                                            "lch", "lch-lightness", "lch-chroma", "lch-hue",
                                            "lab", "lab-a", "lab-b",
+                                           "luv", "luv-u", "luv-v",
                                            "luminance", "brightness",
                                            "ansi-8bit", "ansi-24bit",
                                            "ansi-8bit-escapecode", "ansi-24bit-escapecode",
