@@ -149,6 +149,14 @@ impl Color {
         Self::from(&LCh { l, c, h, alpha })
     }
 
+    /// Create a `Color` from L, u and v coordinates coordinates in the CIE Luv color
+    /// space. Note: See documentation for `from_xyz`. The same restrictions apply here.
+    ///
+    /// See: https://en.wikipedia.org/wiki/CIELUV
+    pub fn from_luv(l: Scalar, u: Scalar, v: Scalar, alpha: Scalar) -> Color {
+        Self::from(&Luv { l, u, v, alpha })
+    }
+
     /// Create a `Color` from  the four colours of the CMYK model: Cyan, Magenta, Yellow and Black.
     /// The CMYK colours are subtractive. This means the colours get darker as you blend them together
     pub fn from_cmyk(c: Scalar, m: Scalar, y: Scalar, k: Scalar) -> Color {
@@ -316,6 +324,25 @@ impl Color {
             l = lch.l,
             c = lch.c,
             h = lch.h,
+            space = if format == Format::Spaces { " " } else { "" }
+        )
+    }
+
+    /// Get L, u and v coordinates according to the CIE Luv color space.
+    ///
+    /// See: https://en.wikipedia.org/wiki/CIELUV
+    pub fn to_luv(&self) -> Luv {
+        Luv::from(self)
+    }
+
+    /// Format the color as a Luv-representation string (`Luv(49, 67, 10)`).
+    pub fn to_luv_string(&self, format: Format) -> String {
+        let luv = Luv::from(self);
+        format!(
+            "Luv({l:.0},{space}{u:.0},{space}{v:.0})",
+            l = luv.l,
+            u = luv.u,
+            v = luv.v,
             space = if format == Format::Spaces { " " } else { "" }
         )
     }
@@ -769,6 +796,36 @@ impl From<&LCh> for Color {
     }
 }
 
+impl From<&Luv> for Color {
+    fn from(color: &Luv) -> Self {
+        #![allow(clippy::many_single_char_names)]
+        let uprime = |x, y, z| {
+            4.0 * x / (x + 15.0 * y + 3.0 * z)
+        };
+        let vprime = |x, y, z| {
+            9.0 * y / (x + 15.0 * y + 3.0 * z)
+        };
+
+        let u_ = color.u / (13.0 * color.l) + uprime(D65_XN, D65_YN, D65_ZN);
+        let v_ = color.v / (13.0 * color.l) + vprime(D65_XN, D65_YN, D65_ZN);
+
+        let y = if color.l > 8.0 {
+            D65_YN * Scalar::powf((color.l + 16.0) / 116.0, 3.0)
+        } else {
+            D65_YN * color.l * Scalar::powf(3.0 / 29.0, 3.0)
+        };
+        let x = y * (9.0 * u_) / (4.0 * v_);
+        let z = y * (12.0 - 3.0 * u_ - 20.0 * v_) / (4.0 * v_);
+
+        Self::from(&XYZ {
+            x,
+            y,
+            z,
+            alpha: color.alpha,
+        })
+    }
+}
+
 // from CMYK to Color so you can do -> let new_color = Color::from(&some_cmyk);
 impl From<&CMYK> for Color {
     fn from(color: &CMYK) -> Self {
@@ -1153,6 +1210,73 @@ impl From<&Color> for LCh {
 impl fmt::Display for LCh {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "LCh({l}, {c}, {h})", l = self.l, c = self.c, h = self.h,)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Luv {
+    pub l: Scalar,
+    pub u: Scalar,
+    pub v: Scalar,
+    pub alpha: Scalar,
+}
+
+impl ColorSpace for Luv {
+    fn from_color(c: &Color) -> Self {
+        c.to_luv()
+    }
+
+    fn into_color(self) -> Color {
+        Color::from_luv(self.l, self.u, self.v, self.alpha)
+    }
+
+    fn mix(&self, other: &Self, fraction: Fraction) -> Self {
+        Self {
+            l: interpolate(self.l, other.l, fraction),
+            u: interpolate(self.u, other.u, fraction),
+            v: interpolate(self.v, other.v, fraction),
+            alpha: interpolate(self.alpha, other.alpha, fraction),
+        }
+    }
+}
+
+impl From<&Color> for Luv {
+    fn from(color: &Color) -> Self {
+        let rec = XYZ::from(color);
+
+        let yr = rec.y / D65_YN;
+
+        let cut = Scalar::powf(6.0 / 29.0, 3.0);
+        let l = if yr > cut {
+            116.0 * Scalar::powf(yr, 1.0 / 3.0) - 16.0
+        } else {
+            Scalar::powf(29.0 / 3.0, 3.0) * yr
+        };
+
+        let uprime = |x, y, z| {
+            4.0 * x / (x + 15.0 * y + 3.0 * z)
+        };
+        let vprime = |x, y, z| {
+            9.0 * y / (x + 15.0 * y + 3.0 * z)
+        };
+
+        let u = 13.0 * l *
+                (uprime(rec.x, rec.y, rec.z) - uprime(D65_XN, D65_YN, D65_ZN));
+        let v = 13.0 * l *
+                (vprime(rec.x, rec.y, rec.z) - vprime(D65_XN, D65_YN, D65_ZN));
+
+        Luv {
+            l,
+            u,
+            v,
+            alpha: color.alpha,
+        }
+    }
+}
+
+impl fmt::Display for Luv {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Luv({l}, {u}, {v})", l = self.l, u = self.u, v = self.v,)
     }
 }
 
@@ -1542,6 +1666,22 @@ mod tests {
     }
 
     #[test]
+    fn luv_conversion() {
+        assert_eq!(Color::red(), Color::from_luv(53.233, 175.053, 37.751, 1.0));
+
+        let roundtrip = |h, s, l| {
+            let color1 = Color::from_hsl(h, s, l);
+            let luv1 = color1.to_luv();
+            let color2 = Color::from_luv(luv1.l, luv1.u, luv1.v, 1.0);
+            assert_almost_equal(&color1, &color2);
+        };
+
+        for hue in 0..360 {
+            roundtrip(Scalar::from(hue), 0.2, 0.8);
+        }
+    }
+
+    #[test]
     fn rotate_hue() {
         assert_eq!(Color::lime(), Color::red().rotate_hue(120.0));
     }
@@ -1679,6 +1819,12 @@ mod tests {
     fn to_lch_string() {
         let c = Color::from_lch(52.0, 44.0, 271.0, 1.0);
         assert_eq!("LCh(52.1, 43.7, 271)", c.to_lch_string(Format::Spaces));
+    }
+
+    #[test]
+    fn to_luv_string() {
+        let c = Color::from_luv(41.0, 23.0, -39.0, 1.0);
+        assert_eq!("Luv(41, 23, -39)", c.to_luv_string(Format::Spaces));
     }
 
     #[test]
