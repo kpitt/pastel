@@ -181,6 +181,19 @@ color_command!(SetCommand, config, matches, color, {
             }
             Color::from_lch(lch.l, lch.c, lch.h, lch.alpha)
         }
+        "luv-u" | "luv-v" => {
+            let mut luv = color.to_luv();
+            match property {
+                "luv-u" => {
+                    luv.u = value;
+                }
+                "luv-v" => {
+                    luv.v = value;
+                }
+                _ => unreachable!(),
+            }
+            Color::from_luv(luv.l, luv.u, luv.v, luv.alpha)
+        }
         &_ => {
             unreachable!("Unknown property");
         }

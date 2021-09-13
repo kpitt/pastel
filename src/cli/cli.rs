@@ -35,7 +35,7 @@ pub fn build_cli() -> App<'static, 'static> {
         .short("s")
         .value_name("name")
         .help("The colorspace in which to interpolate")
-        .possible_values(&["Lab", "LCh", "RGB", "HSL", "HSV"])
+        .possible_values(&["Lab", "LCh", "Luv", "RGB", "HSL", "HSV"])
         .case_insensitive(true)
         .default_value("Lab")
         .required(true);
@@ -213,8 +213,9 @@ pub fn build_cli() -> App<'static, 'static> {
                         .possible_values(&["rgb", "rgb-float", "hex",
                                            "hsl", "hsl-hue", "hsl-saturation", "hsl-lightness",
                                            "hsv", "hsv-hue", "hsv-saturation", "hsv-value",
-                                           "lch", "lch-lightness", "lch-chroma", "lch-hue",
-                                           "lab", "lab-a", "lab-b",
+                                           "lch", "lch-chroma", "lch-hue",
+                                           "lab", "lab-lightness", "lab-a", "lab-b",
+                                           "luv", "luv-lightness", "luv-u", "luv-v",
                                            "luminance", "brightness",
                                            "ansi-8bit", "ansi-24bit",
                                            "ansi-8bit-escapecode", "ansi-24bit-escapecode",
@@ -357,6 +358,7 @@ pub fn build_cli() -> App<'static, 'static> {
                         .help("The property that should be changed")
                         .possible_values(&["lightness", "hue", "chroma",
                                            "lab-a", "lab-b",
+                                           "luv-u", "luv-v",
                                            "red", "green", "blue",
                                            "hsl-hue", "hsl-saturation", "hsl-lightness",
                                            "hsv-hue", "hsv-saturation", "hsv-value"])
