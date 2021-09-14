@@ -216,6 +216,27 @@ fn parse_lch<'a>(input: &'a str) -> IResult<&'a str, Color> {
     Ok((input, color))
 }
 
+fn parse_luv<'a>(input: &'a str) -> IResult<&'a str, Color> {
+    let (input, _) = opt(tag_no_case("cie"))(input)?;
+    let (input, _) = tag_no_case("luv(")(input)?;
+    let (input, _) = space0(input)?;
+    let (input, l) = double(input)?;
+    let (input, _) = parse_separator(input)?;
+    let (input, u) = double(input)?;
+    let (input, _) = parse_separator(input)?;
+    let (input, v) = double(input)?;
+    let (input, alpha) = opt(|input: &'a str| {
+        let (input, _) = parse_separator(input)?;
+        double(input)
+    })(input)?;
+    let (input, _) = space0(input)?;
+    let (input, _) = char(')')(input)?;
+
+    let c = Color::from_luv(l, u, v, alpha.unwrap_or(1.0));
+
+    Ok((input, c))
+}
+
 fn parse_named(input: &str) -> IResult<&str, Color> {
     let (input, color) = all_consuming(alpha1)(input)?;
     let nc = NAMED_COLORS
@@ -241,6 +262,7 @@ pub fn parse_color(input: &str) -> Option<Color> {
         all_consuming(parse_gray),
         all_consuming(parse_lab),
         all_consuming(parse_lch),
+        all_consuming(parse_luv),
         all_consuming(parse_named),
     ))(input.trim())
     .ok()
@@ -647,6 +669,42 @@ fn parse_lch_syntax() {
     assert_eq!(
         Some(Color::from_lch(60.0, 40.0, 150.0, 1.0)),
         parse_color("CIELCh(        60,  40,150   )")
+    );
+}
+
+#[test]
+fn parse_luv_syntax() {
+    assert_eq!(
+        Some(Color::from_luv(12.43, -35.5, 43.4, 1.0)),
+        parse_color("Luv(12.43,-35.5,43.4)")
+    );
+    assert_eq!(
+        Some(Color::from_luv(15.0, -23.0, 43.0, 0.5)),
+        parse_color("luv(15,-23,43,0.5)")
+    );
+    assert_eq!(
+        Some(Color::from_luv(15.0, 23.0, -43.0, 1.0)),
+        parse_color("CIELuv(15,23,-43)")
+    );
+    assert_eq!(
+        Some(Color::from_luv(15.0, 35.5, -43.4, 1.0)),
+        parse_color("CIELuv(15,35.5,-43.4)")
+    );
+    assert_eq!(
+        Some(Color::from_luv(15.0, -35.5, -43.4, 0.4)),
+        parse_color("cieLuv(15,-35.5,-43.4,0.4)")
+    );
+    assert_eq!(
+        Some(Color::from_luv(15.0, 23.0, -43.0, 1.0)),
+        parse_color("Luv(        15,  23,-43   )")
+    );
+    assert_eq!(
+        Some(Color::from_luv(15.0, -35.5, -43.4, 0.4)),
+        parse_color("CieLuv(15,-35.5,-43.4,0.4)")
+    );
+    assert_eq!(
+        Some(Color::from_luv(15.0, 23.0, -43.0, 1.0)),
+        parse_color("CIELuv(        15,  23,-43   )")
     );
 }
 
