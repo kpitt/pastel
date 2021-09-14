@@ -359,6 +359,7 @@ pub fn build_cli() -> App<'static, 'static> {
                         .help("The property that should be changed")
                         .possible_values(&["lightness", "hue", "chroma",
                                            "lab-a", "lab-b",
+                                           "lab-hue", "lab-chroma",
                                            "luv-u", "luv-v",
                                            "luv-hue", "luv-chroma",
                                            "red", "green", "blue",

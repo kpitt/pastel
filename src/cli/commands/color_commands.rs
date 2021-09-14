@@ -168,13 +168,13 @@ color_command!(SetCommand, config, matches, color, {
             }
             Color::from_lab(lab.l, lab.a, lab.b, lab.alpha)
         }
-        "hue" | "chroma" => {
+        "hue" | "chroma" | "lab-hue" | "lab-chroma" => {
             let mut lch = color.to_lch();
             match property {
-                "hue" => {
+                "hue" | "lab-hue" => {
                     lch.h = value;
                 }
-                "chroma" => {
+                "chroma" | "lab-chroma" => {
                     lch.c = value;
                 }
                 _ => unreachable!(),
