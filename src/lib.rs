@@ -181,11 +181,12 @@ impl Color {
 
     /// Format the color as a HSL-representation string (`hsl(123, 50.3%, 80.1%)`).
     pub fn to_hsl_string(&self, format: Format) -> String {
+        let hsl = HSLA::from(self);
         format!(
             "hsl({:.0},{space}{:.1}%,{space}{:.1}%)",
-            self.hue.value(),
-            100.0 * self.saturation,
-            100.0 * self.lightness,
+            hsl.h,
+            100.0 * hsl.s,
+            100.0 * hsl.l,
             space = if format == Format::Spaces { " " } else { "" }
         )
     }
@@ -474,10 +475,11 @@ impl Color {
 
     /// Rotate along the "hue" axis.
     pub fn rotate_hue(&self, delta: Scalar) -> Color {
+        let hsl = HSLA::from(self);
         Self::from_hsla(
-            self.hue.value() + delta,
-            self.saturation,
-            self.lightness,
+            hsl.h + delta,
+            hsl.s,
+            hsl.l,
             self.alpha,
         )
     }
@@ -490,10 +492,11 @@ impl Color {
     /// Lighten a color by adding a certain amount (number between -1.0 and 1.0) to the lightness
     /// channel. If the number is negative, the color is darkened.
     pub fn lighten(&self, f: Scalar) -> Color {
+        let hsl = HSLA::from(self);
         Self::from_hsla(
-            self.hue.value(),
-            self.saturation,
-            self.lightness + f,
+            hsl.h,
+            hsl.s,
+            hsl.l + f,
             self.alpha,
         )
     }
@@ -507,10 +510,11 @@ impl Color {
     /// Increase the saturation of a color by adding a certain amount (number between -1.0 and 1.0)
     /// to the saturation channel. If the number is negative, the color is desaturated.
     pub fn saturate(&self, f: Scalar) -> Color {
+        let hsl = HSLA::from(self);
         Self::from_hsla(
-            self.hue.value(),
-            self.saturation + f,
-            self.lightness,
+            hsl.h,
+            hsl.s + f,
+            hsl.l,
             self.alpha,
         )
     }
@@ -744,12 +748,12 @@ impl From<&HSVA> for Color {
         let v = clamp(0.0, 1.0, color.v);
         let l = v * (1.0 - sv / 2.0);
         let sl = if l == 0.0 || l == 1.0 { 0.0 } else { (v - l) / f64::min(l, 1.0 - l) };
-        Color {
-            hue: Hue::from(color.h),
-            saturation: sl,
-            lightness: l,
-            alpha: clamp(0.0, 1.0, color.alpha),
-        }
+        Self::from(&HSLA {
+            h: color.h,
+            s: sl,
+            l,
+            alpha: color.alpha,
+        })
     }
 }
 
