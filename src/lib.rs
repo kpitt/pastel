@@ -375,6 +375,18 @@ impl Color {
         )
     }
 
+    /// Format the color as a HCL-representation string (`HCL(126, 95.4, 80.7)`).
+    pub fn to_hcl_string(&self, format: Format) -> String {
+        let lch = LChuv::from(self);
+        format!(
+            "HCL({h:.0},{space}{c:.1},{space}{l:.1})",
+            l = lch.l,
+            c = lch.c,
+            h = lch.h,
+            space = if format == Format::Spaces { " " } else { "" }
+        )
+    }
+
     /// Pure black.
     pub fn black() -> Color {
         Color::from_hsl(0.0, 0.0, 0.0)
@@ -1946,6 +1958,13 @@ mod tests {
         // some minor rounding errors are to be expected here
         let c = Color::from_lchuv(52.0, 44.0, 271.0, 1.0);
         assert_eq!("LChuv(52.0, 44.2, 271)", c.to_lchuv_string(Format::Spaces));
+    }
+
+    #[test]
+    fn to_hcl_string() {
+        // some minor rounding errors are to be expected here
+        let c = Color::from_lchuv(52.0, 44.0, 271.0, 1.0);
+        assert_eq!("HCL(271, 44.2, 52.0)", c.to_hcl_string(Format::Spaces));
     }
 
     #[test]

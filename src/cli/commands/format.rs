@@ -45,6 +45,7 @@ impl ColorCommand for FormatCommand {
             "lchuv" => color.to_lchuv_string(Format::Spaces),
             "luv-chroma" => format!("{:.2}", color.to_lchuv().c),
             "luv-hue" => format!("{:.2}", color.to_lchuv().h),
+            "hcl" => color.to_hcl_string(Format::Spaces),
             "luminance" => format!("{:.3}", color.luminance()),
             "brightness" => format!("{:.3}", color.brightness()),
             "ansi-8bit" => replace_escape(&color.to_ansi_sequence(Mode::Ansi8Bit)),

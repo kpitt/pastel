@@ -35,7 +35,7 @@ pub fn build_cli() -> App<'static, 'static> {
         .short("s")
         .value_name("name")
         .help("The colorspace in which to interpolate")
-        .possible_values(&["Lab", "LCh", "Luv", "LChuv", "RGB", "HSL", "HSV"])
+        .possible_values(&["Lab", "LCh", "Luv", "LChuv", "HCL", "RGB", "HSL", "HSV"])
         .case_insensitive(true)
         .default_value("Lab")
         .required(true);
@@ -216,7 +216,7 @@ pub fn build_cli() -> App<'static, 'static> {
                                            "lab", "lab-lightness", "lab-a", "lab-b",
                                            "lch", "lab-chroma", "lab-hue",
                                            "luv", "luv-lightness", "luv-u", "luv-v",
-                                           "lchuv", "luv-chroma", "luv-hue",
+                                           "lchuv", "luv-chroma", "luv-hue", "hcl",
                                            "luminance", "brightness",
                                            "ansi-8bit", "ansi-24bit",
                                            "ansi-8bit-escapecode", "ansi-24bit-escapecode",

@@ -259,6 +259,27 @@ fn parse_lchuv<'a>(input: &'a str) -> IResult<&'a str, Color> {
     Ok((input, color))
 }
 
+fn parse_hcl<'a>(input: &'a str) -> IResult<&'a str, Color> {
+    let (input, _) = tag_no_case("hcl(")(input)?;
+    let (input, _) = space0(input)?;
+    let (input, h) = parse_angle(input)?;
+    let (input, _) = parse_separator(input)?;
+    let (input, c) = verify(double, |&d| d >= 0.)(input)?;
+    let (input, _) = parse_separator(input)?;
+    let (input, l) = double(input)?;
+    let (input, _) = opt(char('%'))(input)?;
+    let (input, alpha) = opt(|input: &'a str| {
+        let (input, _) = parse_separator(input)?;
+        double(input)
+    })(input)?;
+    let (input, _) = space0(input)?;
+    let (input, _) = char(')')(input)?;
+
+    let color = Color::from_lchuv(l, c, h, alpha.unwrap_or(1.0));
+
+    Ok((input, color))
+}
+
 fn parse_named(input: &str) -> IResult<&str, Color> {
     let (input, color) = all_consuming(alpha1)(input)?;
     let nc = NAMED_COLORS
@@ -286,6 +307,7 @@ pub fn parse_color(input: &str) -> Option<Color> {
         all_consuming(parse_lch),
         all_consuming(parse_luv),
         all_consuming(parse_lchuv),
+        all_consuming(parse_hcl),
         all_consuming(parse_named),
     ))(input.trim())
     .ok()
@@ -800,6 +822,47 @@ fn parse_lchuv_syntax() {
     assert_eq!(
         Some(Color::from_lchuv(60.0, 40.0, 150.0, 1.0)),
         parse_color("CIELChuv(        60,  40,150   )")
+    );
+}
+
+#[test]
+fn parse_hcl_syntax() {
+    assert_eq!(
+        Some(Color::from_lchuv(60.0, 50.0, 280.0, 1.0)),
+        parse_color("hcl(280,50,60)")
+    );
+    assert_eq!(
+        Some(Color::from_lchuv(60.0, 50.0, 280.0, 1.0)),
+        parse_color("hcl(280deg,50,60)")
+    );
+    assert_eq!(
+        Some(Color::from_lchuv(23.3, 45.6, 280.4, 1.0)),
+        parse_color("hcl(280.4,45.6,23.3)")
+    );
+    assert_eq!(
+        Some(Color::from_lchuv(60.0, 50.0, 280.0, 0.5)),
+        parse_color("hcl(280,50,60,0.5)")
+    );
+    assert_eq!(
+        Some(Color::from_lchuv(60.0, 50.0, 270.0, 1.0)),
+        parse_color("hcl(270 50 60)")
+    );
+    assert_eq!(
+        Some(Color::from_lchuv(60.0, 50.0, 270.0, 1.0)),
+        parse_color("hcl(270 50 60%)")
+    );
+
+    assert_eq!(
+        Some(Color::from_lchuv(60.0, 40.0, 150.0, 1.0)),
+        parse_color("HCL(150,40,60)")
+    );
+    assert_eq!(
+        Some(Color::from_lchuv(60.0, 40.0, 150.0, 1.0)),
+        parse_color("hCL(150,40,60)")
+    );
+    assert_eq!(
+        Some(Color::from_lchuv(60.0, 40.0, 150.0, 1.0)),
+        parse_color("HCL(        150,  40,60   )")
     );
 }
 
