@@ -157,6 +157,15 @@ impl Color {
         Self::from(&Luv { l, u, v, alpha })
     }
 
+    /// Create a `Color` from lightness, chroma and hue coordinates in the CIE LCh(uv) color
+    /// space. This is a cylindrical transform of the Luv color space. Note: See documentation
+    /// for `from_xyz`. The same restrictions apply here.
+    ///
+    /// See: https://en.wikipedia.org/wiki/CIELUV#Cylindrical_representation_(CIELCh)
+    pub fn from_lchuv(l: Scalar, c: Scalar, h: Scalar, alpha: Scalar) -> Color {
+        Self::from(&LChuv { l, c, h, alpha })
+    }
+
     /// Create a `Color` from  the four colours of the CMYK model: Cyan, Magenta, Yellow and Black.
     /// The CMYK colours are subtractive. This means the colours get darker as you blend them together
     pub fn from_cmyk(c: Scalar, m: Scalar, y: Scalar, k: Scalar) -> Color {
@@ -316,7 +325,7 @@ impl Color {
         LCh::from(self)
     }
 
-    /// Format the color as a LCh-representation string (`LCh(0.3, 0.2, 0.1)`).
+    /// Format the color as a LCh-representation string (`LCh(80.7, 95.4, 126)`).
     pub fn to_lch_string(&self, format: Format) -> String {
         let lch = LCh::from(self);
         format!(
@@ -343,6 +352,37 @@ impl Color {
             l = luv.l,
             u = luv.u,
             v = luv.v,
+            space = if format == Format::Spaces { " " } else { "" }
+        )
+    }
+
+    /// Get L, C and h coordinates according to the CIE LCh(uv) color space.
+    ///
+    /// See: https://en.wikipedia.org/wiki/CIELUV#Cylindrical_representation_(CIELCh)
+    pub fn to_lchuv(&self) -> LChuv {
+        LChuv::from(self)
+    }
+
+    /// Format the color as a LCh(uv)-representation string (`LChuv(80.7, 95.4, 126)`).
+    pub fn to_lchuv_string(&self, format: Format) -> String {
+        let lch = LChuv::from(self);
+        format!(
+            "LChuv({l:.1},{space}{c:.1},{space}{h:.0})",
+            l = lch.l,
+            c = lch.c,
+            h = lch.h,
+            space = if format == Format::Spaces { " " } else { "" }
+        )
+    }
+
+    /// Format the color as a HCL-representation string (`HCL(126, 95.4, 80.7)`).
+    pub fn to_hcl_string(&self, format: Format) -> String {
+        let lch = LChuv::from(self);
+        format!(
+            "HCL({h:.0},{space}{c:.1},{space}{l:.1})",
+            l = lch.l,
+            c = lch.c,
+            h = lch.h,
             space = if format == Format::Spaces { " " } else { "" }
         )
     }
@@ -826,6 +866,23 @@ impl From<&Luv> for Color {
     }
 }
 
+impl From<&LChuv> for Color {
+    fn from(color: &LChuv) -> Self {
+        #![allow(clippy::many_single_char_names)]
+        const DEG2RAD: Scalar = std::f64::consts::PI / 180.0;
+
+        let u = color.c * Scalar::cos(color.h * DEG2RAD);
+        let v = color.c * Scalar::sin(color.h * DEG2RAD);
+
+        Self::from(&Luv {
+            l: color.l,
+            u,
+            v,
+            alpha: color.alpha,
+        })
+    }
+}
+
 // from CMYK to Color so you can do -> let new_color = Color::from(&some_cmyk);
 impl From<&CMYK> for Color {
     fn from(color: &CMYK) -> Self {
@@ -1281,6 +1338,56 @@ impl fmt::Display for Luv {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct LChuv {
+    pub l: Scalar,
+    pub c: Scalar,
+    pub h: Scalar,
+    pub alpha: Scalar,
+}
+
+impl ColorSpace for LChuv {
+    fn from_color(c: &Color) -> Self {
+        c.to_lchuv()
+    }
+
+    fn into_color(self) -> Color {
+        Color::from_lchuv(self.l, self.c, self.h, self.alpha)
+    }
+
+    fn mix(&self, other: &Self, fraction: Fraction) -> Self {
+        // make sure that the hue is preserved when mixing with gray colors
+        let self_hue = if self.c < 0.1 { other.h } else { self.h };
+        let other_hue = if other.c < 0.1 { self.h } else { other.h };
+
+        Self {
+            l: interpolate(self.l, other.l, fraction),
+            c: interpolate(self.c, other.c, fraction),
+            h: interpolate_angle(self_hue, other_hue, fraction),
+            alpha: interpolate(self.alpha, other.alpha, fraction),
+        }
+    }
+}
+
+impl From<&Color> for LChuv {
+    fn from(color: &Color) -> Self {
+        let Luv { l, u, v, alpha } = Luv::from(color);
+
+        const RAD2DEG: Scalar = 180.0 / std::f64::consts::PI;
+
+        let c = Scalar::sqrt(u * u + v * v);
+        let h = mod_positive(Scalar::atan2(v, u) * RAD2DEG, 360.0);
+
+        LChuv { l, c, h, alpha }
+    }
+}
+
+impl fmt::Display for LChuv {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "LChuv({l}, {c}, {h})", l = self.l, c = self.c, h = self.h,)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct CMYK {
     pub c: Scalar,
     pub m: Scalar,
@@ -1682,6 +1789,25 @@ mod tests {
     }
 
     #[test]
+    fn lchuv_conversion() {
+        assert_eq!(
+            Color::from_hsl(0.0, 1.0, 0.245),
+            Color::from_lchuv(24.82, 83.48, 12.17, 1.0)
+        );
+
+        let roundtrip = |h, s, l| {
+            let color1 = Color::from_hsl(h, s, l);
+            let lch1 = color1.to_lchuv();
+            let color2 = Color::from_lchuv(lch1.l, lch1.c, lch1.h, 1.0);
+            assert_almost_equal(&color1, &color2);
+        };
+
+        for hue in 0..360 {
+            roundtrip(Scalar::from(hue), 0.2, 0.8);
+        }
+    }
+
+    #[test]
     fn rotate_hue() {
         assert_eq!(Color::lime(), Color::red().rotate_hue(120.0));
     }
@@ -1825,6 +1951,20 @@ mod tests {
     fn to_luv_string() {
         let c = Color::from_luv(41.0, 23.0, -39.0, 1.0);
         assert_eq!("Luv(41, 23, -39)", c.to_luv_string(Format::Spaces));
+    }
+
+    #[test]
+    fn to_lchuv_string() {
+        // some minor rounding errors are to be expected here
+        let c = Color::from_lchuv(52.0, 44.0, 271.0, 1.0);
+        assert_eq!("LChuv(52.0, 44.2, 271)", c.to_lchuv_string(Format::Spaces));
+    }
+
+    #[test]
+    fn to_hcl_string() {
+        // some minor rounding errors are to be expected here
+        let c = Color::from_lchuv(52.0, 44.0, 271.0, 1.0);
+        assert_eq!("HCL(271, 44.2, 52.0)", c.to_hcl_string(Format::Spaces));
     }
 
     #[test]

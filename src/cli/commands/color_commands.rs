@@ -168,13 +168,13 @@ color_command!(SetCommand, config, matches, color, {
             }
             Color::from_lab(lab.l, lab.a, lab.b, lab.alpha)
         }
-        "hue" | "chroma" => {
+        "hue" | "chroma" | "lab-hue" | "lab-chroma" => {
             let mut lch = color.to_lch();
             match property {
-                "hue" => {
+                "hue" | "lab-hue" => {
                     lch.h = value;
                 }
-                "chroma" => {
+                "chroma" | "lab-chroma" => {
                     lch.c = value;
                 }
                 _ => unreachable!(),
@@ -193,6 +193,19 @@ color_command!(SetCommand, config, matches, color, {
                 _ => unreachable!(),
             }
             Color::from_luv(luv.l, luv.u, luv.v, luv.alpha)
+        }
+        "luv-hue" | "luv-chroma" => {
+            let mut lch = color.to_lchuv();
+            match property {
+                "luv-hue" => {
+                    lch.h = value;
+                }
+                "luv-chroma" => {
+                    lch.c = value;
+                }
+                _ => unreachable!(),
+            }
+            Color::from_lchuv(lch.l, lch.c, lch.h, lch.alpha)
         }
         &_ => {
             unreachable!("Unknown property");
