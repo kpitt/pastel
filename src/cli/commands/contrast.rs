@@ -18,7 +18,7 @@ impl ColorCommand for ContrastCommand {
             &mut print_spectrum,
         )?;
 
-        let output = format!("{:.1}:1", base.contrast_ratio(color));
+        let output = format!("{:.2}:1", base.contrast_ratio(color));
         writeln!(
             out.handle,
             "{}",
