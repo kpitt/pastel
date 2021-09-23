@@ -13,7 +13,7 @@ use std::fmt;
 use colorspace::ColorSpace;
 pub use helper::Fraction;
 use helper::{clamp, interpolate, interpolate_angle, mod_positive};
-use types::{Hue, Scalar};
+use types::Scalar;
 
 /// The representation of a color.
 ///
@@ -26,9 +26,9 @@ use types::{Hue, Scalar};
 ///   saturation values).
 #[derive(Clone)]
 pub struct Color {
-    hue: Hue,
-    saturation: Scalar,
-    lightness: Scalar,
+    red: Scalar,
+    green: Scalar,
+    blue: Scalar,
     alpha: Scalar,
 }
 
@@ -674,48 +674,49 @@ impl PartialEq for Color {
 
 impl From<&HSLA> for Color {
     fn from(color: &HSLA) -> Self {
+        let h_s = mod_positive(color.h, 360.0) / 60.0;
+        let l = clamp(0.0, 1.0, color.l);
+        let s = clamp(0.0, 1.0, color.s);
+        let chr = (1.0 - Scalar::abs(2.0 * l - 1.0)) * s;
+        let m = l - chr / 2.0;
+        let x = chr * (1.0 - Scalar::abs(h_s % 2.0 - 1.0));
+
+        #[allow(clippy::upper_case_acronyms)]
+        struct RGB(Scalar, Scalar, Scalar);
+
+        let col = if h_s < 1.0 {
+            RGB(chr, x, 0.0)
+        } else if (1.0..2.0).contains(&h_s) {
+            RGB(x, chr, 0.0)
+        } else if (2.0..3.0).contains(&h_s) {
+            RGB(0.0, chr, x)
+        } else if (3.0..4.0).contains(&h_s) {
+            RGB(0.0, x, chr)
+        } else if (4.0..5.0).contains(&h_s) {
+            RGB(x, 0.0, chr)
+        } else {
+            RGB(chr, 0.0, x)
+        };
+
         Color {
-            hue: Hue::from(color.h),
-            saturation: clamp(0.0, 1.0, color.s),
-            lightness: clamp(0.0, 1.0, color.l),
-            alpha: clamp(0.0, 1.0, color.alpha),
+            red: col.0 + m,
+            green: col.1 + m,
+            blue: col.2 + m,
+            alpha: color.alpha,
         }
     }
 }
 
 impl From<&RGBA<u8>> for Color {
     fn from(color: &RGBA<u8>) -> Self {
-        let max_chroma = u8::max(u8::max(color.r, color.g), color.b);
-        let min_chroma = u8::min(u8::min(color.r, color.g), color.b);
+        let r = Scalar::from(color.r) / 255.0;
+        let g = Scalar::from(color.g) / 255.0;
+        let b = Scalar::from(color.b) / 255.0;
 
-        let chroma = max_chroma - min_chroma;
-        let chroma_s = Scalar::from(chroma) / 255.0;
-
-        let r_s = Scalar::from(color.r) / 255.0;
-        let g_s = Scalar::from(color.g) / 255.0;
-        let b_s = Scalar::from(color.b) / 255.0;
-
-        let hue = 60.0
-            * (if chroma == 0 {
-                0.0
-            } else if color.r == max_chroma {
-                mod_positive((g_s - b_s) / chroma_s, 6.0)
-            } else if color.g == max_chroma {
-                (b_s - r_s) / chroma_s + 2.0
-            } else {
-                (r_s - g_s) / chroma_s + 4.0
-            });
-
-        let lightness = (Scalar::from(max_chroma) + Scalar::from(min_chroma)) / (255.0 * 2.0);
-        let saturation = if chroma == 0 {
-            0.0
-        } else {
-            chroma_s / (1.0 - Scalar::abs(2.0 * lightness - 1.0))
-        };
-        Self::from(&HSLA {
-            h: hue,
-            s: saturation,
-            l: lightness,
+        Self::from(&RGBA::<f64> {
+            r,
+            g,
+            b,
             alpha: color.alpha,
         })
     }
@@ -723,15 +724,12 @@ impl From<&RGBA<u8>> for Color {
 
 impl From<&RGBA<f64>> for Color {
     fn from(color: &RGBA<f64>) -> Self {
-        let r = Scalar::round(clamp(0.0, 255.0, 255.0 * color.r)) as u8;
-        let g = Scalar::round(clamp(0.0, 255.0, 255.0 * color.g)) as u8;
-        let b = Scalar::round(clamp(0.0, 255.0, 255.0 * color.b)) as u8;
-        Self::from(&RGBA::<u8> {
-            r,
-            g,
-            b,
+        Color {
+            red: color.r,
+            green: color.g,
+            blue: color.b,
             alpha: color.alpha,
-        })
+        }
     }
 }
 
@@ -926,32 +924,10 @@ impl ColorSpace for RGBA<f64> {
 
 impl From<&Color> for RGBA<f64> {
     fn from(color: &Color) -> Self {
-        let h_s = color.hue.value() / 60.0;
-        let chr = (1.0 - Scalar::abs(2.0 * color.lightness - 1.0)) * color.saturation;
-        let m = color.lightness - chr / 2.0;
-        let x = chr * (1.0 - Scalar::abs(h_s % 2.0 - 1.0));
-
-        #[allow(clippy::upper_case_acronyms)]
-        struct RGB(Scalar, Scalar, Scalar);
-
-        let col = if h_s < 1.0 {
-            RGB(chr, x, 0.0)
-        } else if (1.0..2.0).contains(&h_s) {
-            RGB(x, chr, 0.0)
-        } else if (2.0..3.0).contains(&h_s) {
-            RGB(0.0, chr, x)
-        } else if (3.0..4.0).contains(&h_s) {
-            RGB(0.0, x, chr)
-        } else if (4.0..5.0).contains(&h_s) {
-            RGB(x, 0.0, chr)
-        } else {
-            RGB(chr, 0.0, x)
-        };
-
         RGBA {
-            r: col.0 + m,
-            g: col.1 + m,
-            b: col.2 + m,
+            r: color.red,
+            g: color.green,
+            b: color.blue,
             alpha: color.alpha,
         }
     }
@@ -960,9 +936,9 @@ impl From<&Color> for RGBA<f64> {
 impl From<&Color> for RGBA<u8> {
     fn from(color: &Color) -> Self {
         let c = RGBA::<f64>::from(color);
-        let r = Scalar::round(255.0 * c.r) as u8;
-        let g = Scalar::round(255.0 * c.g) as u8;
-        let b = Scalar::round(255.0 * c.b) as u8;
+        let r = Scalar::round(clamp(0.0, 255.0, 255.0 * c.r)) as u8;
+        let g = Scalar::round(clamp(0.0, 255.0, 255.0 * c.g)) as u8;
+        let b = Scalar::round(clamp(0.0, 255.0, 255.0 * c.b)) as u8;
 
         RGBA {
             r,
@@ -1018,10 +994,36 @@ impl ColorSpace for HSLA {
 
 impl From<&Color> for HSLA {
     fn from(color: &Color) -> Self {
+        let r_s = clamp(0.0, 1.0, color.red);
+        let g_s = clamp(0.0, 1.0, color.green);
+        let b_s = clamp(0.0, 1.0, color.blue);
+
+        let max_chroma = f64::max(f64::max(r_s, g_s), b_s);
+        let min_chroma = f64::min(f64::min(r_s, g_s), b_s);
+
+        let chroma_s = max_chroma - min_chroma;
+
+        let hue = 60.0
+            * (if chroma_s == 0.0 {
+                0.0
+            } else if r_s == max_chroma {
+                mod_positive((g_s - b_s) / chroma_s, 6.0)
+            } else if g_s == max_chroma {
+                (b_s - r_s) / chroma_s + 2.0
+            } else {
+                (r_s - g_s) / chroma_s + 4.0
+            });
+
+        let lightness = (max_chroma + min_chroma) / 2.0;
+        let saturation = if chroma_s == 0.0 {
+            0.0
+        } else {
+            chroma_s / (1.0 - Scalar::abs(2.0 * lightness - 1.0))
+        };
         HSLA {
-            h: color.hue.value(),
-            s: color.saturation,
-            l: color.lightness,
+            h: hue,
+            s: saturation,
+            l: lightness,
             alpha: color.alpha,
         }
     }
@@ -1067,14 +1069,14 @@ impl ColorSpace for HSVA {
 impl From<&Color> for HSVA {
     fn from(color: &Color) -> Self {
         #![allow(clippy::many_single_char_names)]
-        let l = color.lightness;
-        let v = l + color.saturation * f64::min(l, 1.0 - l);
+        let HSLA { h, s, l, alpha } = HSLA::from(color);
+        let v = l + s * f64::min(l, 1.0 - l);
         let sv = if v == 0.0 { 0.0 } else { 2.0 * (1.0 - l / v) };
         HSVA {
-            h: color.hue.value(),
+            h,
             s: sv,
-            v: v,
-            alpha: color.alpha,
+            v,
+            alpha,
         }
     }
 }
@@ -1910,10 +1912,9 @@ mod tests {
             Color::white().to_rgb_float_string(Format::Spaces)
         );
 
-        // some minor rounding errors here, but that is to be expected:
         let c = Color::from_rgb_float(0.12, 0.45, 0.78);
         assert_eq!(
-            "rgb(0.122, 0.451, 0.780)",
+            "rgb(0.120, 0.450, 0.780)",
             c.to_rgb_float_string(Format::Spaces)
         );
     }
@@ -1941,7 +1942,7 @@ mod tests {
     #[test]
     fn to_lch_string() {
         let c = Color::from_lch(52.0, 44.0, 271.0, 1.0);
-        assert_eq!("LCh(52.1, 43.7, 271)", c.to_lch_string(Format::Spaces));
+        assert_eq!("LCh(52.0, 44.0, 271)", c.to_lch_string(Format::Spaces));
     }
 
     #[test]
@@ -1952,16 +1953,14 @@ mod tests {
 
     #[test]
     fn to_lchuv_string() {
-        // some minor rounding errors are to be expected here
         let c = Color::from_lchuv(52.0, 44.0, 271.0, 1.0);
-        assert_eq!("LChuv(52.0, 44.2, 271)", c.to_lchuv_string(Format::Spaces));
+        assert_eq!("LChuv(52.0, 44.0, 271)", c.to_lchuv_string(Format::Spaces));
     }
 
     #[test]
     fn to_hcl_string() {
-        // some minor rounding errors are to be expected here
         let c = Color::from_lchuv(52.0, 44.0, 271.0, 1.0);
-        assert_eq!("HCL(271, 44.2, 52.0)", c.to_hcl_string(Format::Spaces));
+        assert_eq!("HCL(271, 44.0, 52.0)", c.to_hcl_string(Format::Spaces));
     }
 
     #[test]
