@@ -12,18 +12,19 @@ use std::fmt;
 
 use colorspace::ColorSpace;
 pub use helper::Fraction;
-use helper::{clamp, interpolate, interpolate_angle, mod_positive};
+use helper::{clamp, interpolate, interpolate_angle, mod_positive, round_to};
 use types::Scalar;
 
 /// The representation of a color.
 ///
 /// Note:
-/// - Colors outside the sRGB gamut (which cannot be displayed on a typical
-///   computer screen) can not be represented by `Color`.
-/// - The `PartialEq` instance compares two `Color`s by comparing their (integer)
-///   RGB values. This is different from comparing the HSL values. For example,
-///   HSL has many different representations of black (arbitrary hue and
-///   saturation values).
+/// - Colors are stored as unclamped sRGB values, which means it is possible to
+///   have out-of-gamut colors (C < 0.0 or C > 1.0) that cannot be displayed on
+///   a typical computer screen.
+/// - The `PartialEq` implementation compares two `Color`s by checking if the
+///   difference between corresponding RGB values is less than the precision of
+///   a 16-bit integer channel value (about 5 decimal places).  Any difference
+///   beyond this precision is unlikely to be visually perceptible.
 #[derive(Clone)]
 pub struct Color {
     red: Scalar,
@@ -662,13 +663,38 @@ impl fmt::Display for Color {
 
 impl fmt::Debug for Color {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Color::from_{}", self.to_rgb_string(Format::NoSpaces))
+        // Color components must be equal within the precision of a 16-bit
+        // integer channel value (1.0 / 65536.0), which is about 5 decimal
+        // places.  Showing 6 decimal places for debugging ensures that the
+        // displayed values will always be different if two colors don't
+        // compare as equal.
+        let rd = |v| { round_to(v, 6) };
+
+        let r = rd(self.red);
+        let g = rd(self.green);
+        let b = rd(self.blue);
+        if self.alpha == 1.0 {
+            write!(f, "Color::from_rgb_float({},{},{})", r, g, b)
+        } else {
+            write!(f,
+                "Color::from_rgba_float({},{},{},{})",
+                r, g, b, rd(self.alpha)
+            )
+        }
     }
 }
 
 impl PartialEq for Color {
     fn eq(&self, other: &Color) -> bool {
-        self.to_rgba() == other.to_rgba()
+        use approx::abs_diff_eq;
+
+        // Check if components are equal within the precision of a 16-bit
+        // channel value.
+        let eq = |x, y| { abs_diff_eq!(x, y, epsilon = 1.0 / 65536.0) };
+        eq(self.red, other.red) &&
+        eq(self.green, other.green) &&
+        eq(self.blue, other.blue) &&
+        eq(self.alpha, other.alpha)
     }
 }
 
