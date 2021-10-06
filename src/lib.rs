@@ -735,14 +735,20 @@ impl From<&HSLA> for Color {
 
 impl From<&RGBA<u8>> for Color {
     fn from(color: &RGBA<u8>) -> Self {
-        let r = Scalar::from(color.r) / 255.0;
-        let g = Scalar::from(color.g) / 255.0;
-        let b = Scalar::from(color.b) / 255.0;
+        let rgbf = |v| {
+            let vf = Scalar::from(v);
+            if v % 64 == 0 {
+                // Scale 0x40, 0x80, 0xC0 by 256 to get 0.25, 0.5, 0.75
+                vf / 256.0
+            } else {
+                vf / 255.0
+            }
+        };
 
         Self::from(&RGBA::<f64> {
-            r,
-            g,
-            b,
+            r: rgbf(color.r),
+            g: rgbf(color.g),
+            b: rgbf(color.b),
             alpha: color.alpha,
         })
     }
@@ -972,16 +978,34 @@ impl From<&Color> for RGBA<f64> {
 }
 
 impl From<&Color> for RGBA<u8> {
+    // FLoating point channel values are typically scaled by 255 to convert the
+    // range [0.0, 1.0] into the 8-bit integer range of [0,255], but this
+    // presents some interesting challenges if we want to be as accurate as
+    // possible with common color sets.  The 216 "web-safe" colors are based on
+    // multiples of 0.2, which corresponds exactly to multiples of hex 0x33.
+    // On the other hand, the 16 basic ANSI colors use multiples of 0.25, and
+    // 0.25 does not have an exact integer representation.  Conventionally, the
+    // values 0x00, 0x80, 0xC0, and 0xFF are used for the ANSI colors, which
+    // are actually based on a scale of 256 (with clamping to a max of 255).
+    //
+    // To allow for slightly more accurate calculations involving the ANSI
+    // colors, we actually special-case the 0x40, 0x80, and 0xC0 values and
+    // scale them down to exactly 0.25, 0.5, and 0.75.  When scaling up to an
+    // 8-bit integer, we actually scale the floating point values by 255.5
+    // instead of 255.0.  This shifts the natural rounding just enough to make
+    // sure that the multiples of 0.25 will round to 0x40, 0x80, and 0xC0 for
+    // the ANSI colors, but not enough to change the rounded result for the
+    // exact multiples of 0.2 used in the web-safe colors.
     fn from(color: &Color) -> Self {
-        let c = RGBA::<f64>::from(color);
-        let r = Scalar::round(clamp(0.0, 255.0, 255.0 * c.r)) as u8;
-        let g = Scalar::round(clamp(0.0, 255.0, 255.0 * c.g)) as u8;
-        let b = Scalar::round(clamp(0.0, 255.0, 255.0 * c.b)) as u8;
+        let rgb255 = |v| {
+            clamp(0.0, 255.0, Scalar::round(255.5 * v)) as u8
+        };
 
+        let c = RGBA::<f64>::from(color);
         RGBA {
-            r,
-            g,
-            b,
+            r: rgb255(c.r),
+            g: rgb255(c.g),
+            b: rgb255(c.b),
             alpha: color.alpha,
         }
     }
@@ -1642,6 +1666,38 @@ mod tests {
         assert_ne!(
             Color::from_rgba(1, 2, 3, 0.3),
             Color::from_rgba(1, 2, 4, 0.3),
+        );
+    }
+
+    #[test]
+    fn round_to_8bit() {
+        let rgb8 = |r, g, b| {
+            RGBA::<u8> { r, g, b, alpha: 1.0 }
+        };
+
+        // By convention, a value of 0.5 should convert to 128 (hex 80).
+        assert_eq!(
+            Color::from_rgb_float(0.5, 0.5, 0.0).to_rgba(),
+            rgb8(128, 128, 0)
+        );
+        assert_eq!(Color::gray().to_rgba(), rgb8(128, 128, 128));
+        assert_eq!(Color::teal().to_rgba(), rgb8(0, 128, 128));
+        // By convention, a value of 0.75 should convert to 192 (hex C0).
+        assert_eq!(
+            Color::from_rgb_float(0.0, 0.75, 0.0).to_rgba(),
+            rgb8(0, 192, 0)
+        );
+        assert_eq!(Color::silver().to_rgba(), rgb8(192, 192, 192));
+
+        // 50% values with some rounding error should still round up to 128,
+        // not down to 127.
+        assert_eq!(
+            Color::from_rgb_float(0.0, 0.499_999_99, 0.0).to_rgba(),
+            rgb8(0, 128, 0)
+        );
+        assert_eq!(
+            Color::from_rgb_float(0.499_999_99, 0.0, 0.499_999_95).to_rgba(),
+            rgb8(128, 0, 128)
         );
     }
 
