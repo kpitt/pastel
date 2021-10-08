@@ -18,6 +18,10 @@ fn rgb(r: u8, g: u8, b: u8) -> Color {
     Color::from_rgb(r, g, b)
 }
 
+fn rgbf(r: f64, g: f64, b: f64) -> Color {
+    Color::from_rgb_float(r, g, b)
+}
+
 fn comma_separated(input: &str) -> IResult<&str, &str> {
     let (input, _) = space0(input)?;
     let (input, _) = char(',')(input)?;
@@ -107,7 +111,7 @@ fn parse_numeric_rgb(input: &str) -> IResult<&str, Color> {
     let r = r / 255.0;
     let g = g / 255.0;
     let b = b / 255.0;
-    let c = Color::from_rgb_float(r, g, b);
+    let c = rgbf(r, g, b);
 
     Ok((input, c))
 }
@@ -124,7 +128,7 @@ fn parse_percentage_rgb(input: &str) -> IResult<&str, Color> {
     let (input, _) = space0(input)?;
     let (input, _) = cond(is_prefixed, char(')'))(input)?;
 
-    let c = Color::from_rgb_float(r, g, b);
+    let c = rgbf(r, g, b);
 
     Ok((input, c))
 }
@@ -168,7 +172,7 @@ fn parse_gray(input: &str) -> IResult<&str, Color> {
     let (input, _) = space0(input)?;
     let (input, _) = char(')')(input)?;
 
-    let c = Color::from_rgb_float(g, g, g);
+    let c = rgbf(g, g, g);
 
     Ok((input, c))
 }
@@ -343,15 +347,23 @@ fn parse_rgb_functional_syntax() {
     assert_eq!(Some(rgb(255, 0, 153)), parse_color("rgb(255, 0, 153.0)"));
     assert_eq!(Some(rgb(255, 0, 153)), parse_color("rgb(255 0 153)"));
 
+    assert_eq!(Some(rgbf(1.0, 0.0, 0.467)), parse_color("rgb(255,0,119.085)"));
+
     assert_eq!(
         Some(rgb(255, 8, 119)),
         parse_color("  rgb( 255  ,  8  ,  119 )  ")
     );
 
-    assert_eq!(Some(rgb(255, 0, 127)), parse_color("rgb(100%,0%,49.8%)"));
+    assert_eq!(Some(rgbf(1.0, 0.0, 0.498)), parse_color("rgb(100%,0%,49.8%)"));
+    assert_eq!(Some(rgb(255, 0, 127)), parse_color("rgb(100%,0%,49.804%)"));
+    assert_eq!(Some(rgb(255, 0, 128)), parse_color("rgb(100%,0%,50%)"));
+    assert_eq!(Some(rgb(255, 0, 129)), parse_color("rgb(100%,0%,50.588%)"));
     assert_eq!(Some(rgb(255, 0, 153)), parse_color("rgb(100%,0%,60%)"));
-    assert_eq!(Some(rgb(255, 0, 119)), parse_color("rgb(100%,0%,46.7%)"));
-    assert_eq!(Some(rgb(3, 54, 119)), parse_color("rgb(1%,21.2%,46.7%)"));
+    assert_eq!(Some(rgbf(1.0, 0.0, 0.467)), parse_color("rgb(100%,0%,46.7%)"));
+    assert_eq!(
+        Some(rgbf(0.01, 0.212, 0.467)),
+        parse_color("rgb(1%,21.2%,46.7%)")
+    );
     assert_eq!(Some(rgb(255, 0, 119)), parse_color("rgb(255 0 119)"));
     assert_eq!(
         Some(rgb(255, 0, 119)),
@@ -366,11 +378,18 @@ fn parse_rgb_functional_syntax() {
     );
     assert_eq!(Some(rgb(255, 0, 153)), parse_color("rgb(100% 0% 60%)"));
 
-    assert_eq!(Some(rgb(100, 5, 1)), parse_color("rgb(1e2, .5e1, .5e0)"));
-    assert_eq!(Some(rgb(140, 0, 153)), parse_color("rgb(55% 0% 60%)"));
-    assert_eq!(Some(rgb(142, 0, 153)), parse_color("rgb(55.5% 0% 60%)"));
-    assert_eq!(Some(rgb(255, 0, 0)), parse_color("rgb(256,0,0)"));
-    assert_eq!(Some(rgb(255, 255, 0)), parse_color("rgb(100%,100%,-45%)"));
+    assert_ne!(Some(rgb(100, 5, 1)), parse_color("rgb(1e2, .5e1, .5e0)"));
+    assert_eq!(
+        Some(rgbf(100.0 / 255.0, 5.0 / 255.0, 0.5 / 255.0)),
+        parse_color("rgb(1e2, .5e1, .5e0)")
+    );
+    assert_eq!(Some(rgb(140, 0, 153)), parse_color("rgb(54.902% 0% 60%)"));
+    assert_ne!(Some(rgb(140, 0, 153)), parse_color("rgb(55% 0% 60%)"));
+    assert_eq!(Some(rgb(141, 0, 153)), parse_color("rgb(55.294% 0% 60%)"));
+
+    // out-of-gamut not clipped
+    assert_ne!(Some(rgb(255, 0, 0)), parse_color("rgb(256,0,0)"));
+    assert_ne!(Some(rgb(255, 255, 0)), parse_color("rgb(100%,100%,-45%)"));
 
     assert_eq!(None, parse_color("rgb(255,0)"));
     assert_eq!(None, parse_color("rgb(255,0,0"));
@@ -435,6 +454,18 @@ fn parse_hsl_syntax() {
         parse_color("hsl(100grad,20%,50%)")
     );
     assert_eq!(
+        Some(Color::from_hsl(90.0, 0.2, 0.5)),
+        parse_color("hsl(1.5708rad,20%,50%)")
+    );
+    assert_eq!(
+        Some(Color::from_hsl(90.05, 0.2, 0.5)),
+        parse_color("hsl(1.5717rad,20%,50%)")
+    );
+    assert_ne!(
+        Some(Color::from_hsl(90.05, 0.2, 0.5)),
+        parse_color("hsl(1.572rad,20%,50%)")
+    );
+    assert_ne!(
         Some(Color::from_hsl(90.05, 0.2, 0.5)),
         parse_color("hsl(1.5708rad,20%,50%)")
     );
@@ -498,6 +529,10 @@ fn parse_hsv_syntax() {
         parse_color("hsv(100grad,20%,50%)")
     );
     assert_eq!(
+        Some(Color::from_hsv(90.0, 0.2, 0.5)),
+        parse_color("hsv(1.5708rad,20%,50%)")
+    );
+    assert_ne!(
         Some(Color::from_hsv(90.05, 0.2, 0.5)),
         parse_color("hsv(1.5708rad,20%,50%)")
     );
@@ -557,7 +592,7 @@ fn parse_gray_syntax() {
     assert_eq!(Some(Color::black()), parse_color("gray(0)"));
     assert_eq!(Some(Color::white()), parse_color("gray(1.0)"));
     assert_eq!(Some(Color::white()), parse_color("gray(1)"));
-    assert_eq!(Some(Color::white()), parse_color("gray(7.3)"));
+    assert_eq!(Some(rgbf(7.3, 7.3, 7.3)), parse_color("gray(7.3)"));
 
     assert_eq!(Some(Color::graytone(0.32)), parse_color("gray(.32)"));
 
@@ -625,7 +660,7 @@ fn parse_lch_syntax() {
     );
     assert_eq!(
         Some(Color::from_lch(23.3, 45.6, 280.33, 1.0)),
-        parse_color("lch(23.3,45.6,280.33001)")
+        parse_color("lch(23.3,45.6,280.33)")
     );
     assert_eq!(
         Some(Color::from_lch(60.0, 50.0, 280.0, 0.5)),
@@ -659,7 +694,7 @@ fn parse_lch_syntax() {
     );
     assert_eq!(
         Some(Color::from_lch(50.0, 30.0, 90.05, 1.0)),
-        parse_color("lch(50,30,1.5717rad)")
+        parse_color("lch(50,30,1.571669rad)")
     );
     assert_eq!(
         Some(Color::from_lch(50.0, 30.0, 90.0, 1.0)),
@@ -671,7 +706,7 @@ fn parse_lch_syntax() {
     );
     assert_eq!(
         Some(Color::from_lch(50.0, 30.0, 45.0, 1.0)),
-        parse_color("lch(50,30,0.7854rad)")
+        parse_color("lch(50,30,0.785398rad)")
     );
     assert_eq!(
         Some(Color::from_lch(50.0, 30.0, 45.0, 1.0)),
@@ -790,8 +825,8 @@ fn parse_lchuv_syntax() {
         parse_color("lchuv(50,30,100grad)")
     );
     assert_eq!(
-        Some(Color::from_lchuv(50.0, 30.0, 90.05, 1.0)),
-        parse_color("lchuv(50,30,1.5717rad)")
+        Some(Color::from_lchuv(50.0, 30.0, 90.0, 1.0)),
+        parse_color("lchuv(50,30,1.570796rad)")
     );
     assert_eq!(
         Some(Color::from_lchuv(50.0, 30.0, 45.0, 1.0)),
