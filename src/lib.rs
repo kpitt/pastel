@@ -344,6 +344,19 @@ impl Color {
         XYZ::from(self)
     }
 
+    /// Format the color as a XYZ-representation string (`XYZ(0.9504, 1, 1.0889)`).
+    pub fn to_xyz_string(&self, format: Format) -> String {
+        let rd = |v| { round_to(v, 6) };
+        let xyz = XYZ::from(self);
+        format!(
+            "XYZ({x},{space}{y},{space}{z})",
+            x = rd(xyz.x),
+            y = rd(xyz.y),
+            z = rd(xyz.z),
+            space = if format == Format::Spaces { " " } else { "" }
+        )
+    }
+
     /// Get coordinates according to the LSM color space
     ///
     /// See https://en.wikipedia.org/wiki/LMS_color_space for info on the color space as well as an

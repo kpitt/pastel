@@ -31,6 +31,7 @@ impl ColorCommand for FormatCommand {
             "hsv-hue" => format!("{:.0}", color.to_hsva().h),
             "hsv-saturation" => format!("{:.4}", color.to_hsva().s),
             "hsv-value" => format!("{:.4}", color.to_hsva().v),
+            "xyz" => color.to_xyz_string(Format::Spaces),
             "lab" => color.to_lab_string(Format::Spaces),
             "lab-lightness" => format!("{:.2}", color.to_lab().l),
             "lab-a" => format!("{:.2}", color.to_lab().a),
