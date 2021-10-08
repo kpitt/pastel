@@ -1467,10 +1467,10 @@ pub struct CMYK {
 
 impl From<&Color> for CMYK {
     fn from(color: &Color) -> Self {
-        let rgba = RGBA::<u8>::from(color);
-        let r = (rgba.r as f64) / 255.0;
-        let g = (rgba.g as f64) / 255.0;
-        let b = (rgba.b as f64) / 255.0;
+        let rgba = RGBA::<f64>::from(color);
+        let r = clamp(0.0, 1.0, rgba.r);
+        let g = clamp(0.0, 1.0, rgba.g);
+        let b = clamp(0.0, 1.0, rgba.b);
         let biggest = if r >= g && r >= b {
             r
         } else if g >= r && g >= b {
