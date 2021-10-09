@@ -13,7 +13,7 @@ fn color_reads_colors_from_args() {
         .arg("red")
         .assert()
         .success()
-        .stdout("hsl(0,100.0%,50.0%)\n");
+        .stdout("rgb(255,0,0)\n");
 
     pastel()
         .arg("color")
@@ -21,7 +21,7 @@ fn color_reads_colors_from_args() {
         .arg("blue")
         .assert()
         .success()
-        .stdout("hsl(0,100.0%,50.0%)\nhsl(240,100.0%,50.0%)\n");
+        .stdout("rgb(255,0,0)\nrgb(0,0,255)\n");
 
     pastel().arg("color").arg("no color").assert().failure();
 }
@@ -33,7 +33,7 @@ fn color_reads_colors_from_stdin() {
         .write_stdin("red\nblue\n")
         .assert()
         .success()
-        .stdout("hsl(0,100.0%,50.0%)\nhsl(240,100.0%,50.0%)\n");
+        .stdout("rgb(255,0,0)\nrgb(0,0,255)\n");
 
     pastel()
         .arg("color")
@@ -91,7 +91,7 @@ fn sort_by_basic() {
         .arg("black")
         .assert()
         .success()
-        .stdout("hsl(0,0.0%,0.0%)\nhsl(0,0.0%,50.2%)\nhsl(0,0.0%,100.0%)\n");
+        .stdout("rgb(0,0,0)\nrgb(127.5,127.5,127.5)\nrgb(255,255,255)\n");
 }
 
 #[test]
@@ -103,16 +103,16 @@ fn set_basic() {
         .arg("red")
         .assert()
         .success()
-        .stdout("hsl(120,100.0%,50.0%)\n");
+        .stdout("rgb(0,255,0)\n");
 
     pastel()
         .arg("set")
         .arg("hsl-saturation")
-        .arg("0.1")
+        .arg("0.2")
         .arg("red")
         .assert()
         .success()
-        .stdout("hsl(0,10.0%,50.0%)\n");
+        .stdout("rgb(153,102,102)\n");
 
     pastel()
         .arg("set")
@@ -121,5 +121,5 @@ fn set_basic() {
         .arg("white")
         .assert()
         .success()
-        .stdout("hsl(0,0.0%,50.0%)\n");
+        .stdout("rgb(127.5,127.5,127.5)\n");
 }
