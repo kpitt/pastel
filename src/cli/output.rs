@@ -94,7 +94,7 @@ impl Output<'_> {
         canvas.draw_text(
             text_position_y + 4 + text_y_offset,
             text_position_x,
-            &format!("HSL: {}", color.to_hsl_string(Format::Spaces)),
+            &format!("HSL: {}", color.to_hsl_string_short(Format::Spaces)),
         );
 
         if !config.compact {
