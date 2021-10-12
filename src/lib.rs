@@ -277,6 +277,40 @@ impl Color {
         )
     }
 
+    /// Format the color as a floating point representation that can be parsed
+    /// as an input color with minimal loss of precision.  This is used as the
+    /// output format when piping color values to another `pastel` command.
+    /// 
+    /// The format used is the CSS Color Level 4 serialization format for RGB
+    /// (see https://www.w3.org/TR/css-color-4/#serializing-sRGB-values).  RGB
+    /// channel values are scaled from [0.0, 1.0] to [0.0, 255.0] with no
+    /// clamping of out-of-range values.  The alpha value is written as a
+    /// number, not a percentage, in the [0.0, 1.0] range, and is omitted if it
+    /// is exactly 1.  Values have up to 12 decimal places.
+    pub fn to_precise_input_string(&self) -> String {
+        let rd = |v| { round_to(v, 12) };
+        let rd255 = |v| { rd(255.0 * v) };
+
+        let rgba = RGBA::<f64>::from(self);
+        let r255 = rd255(rgba.r);
+        let g255 = rd255(rgba.g);
+        let b255 = rd255(rgba.b);
+        if self.alpha == 1.0 {
+            format!("rgb({r},{g},{b})",
+                r = r255,
+                g = g255,
+                b = b255,
+            )
+        } else {
+            format!("rgba({r},{g},{b},{alpha})",
+                r = r255,
+                g = g255,
+                b = b255,
+                alpha = rd(self.alpha)
+            )
+        }
+    }
+
     /// Format the color as a RGB-representation string (`#fc0070`).
     pub fn to_rgb_hex_string(&self, leading_hash: bool) -> String {
         let rgba = self.to_rgba();
