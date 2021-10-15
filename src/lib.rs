@@ -1605,15 +1605,6 @@ mod tests {
     use super::*;
     use approx::assert_relative_eq;
 
-    fn assert_almost_equal(c1: &Color, c2: &Color) {
-        let c1 = c1.to_rgba();
-        let c2 = c2.to_rgba();
-
-        assert!((c1.r as i32 - c2.r as i32).abs() <= 1);
-        assert!((c1.g as i32 - c2.g as i32).abs() <= 1);
-        assert!((c1.b as i32 - c2.b as i32).abs() <= 1);
-    }
-
     #[test]
     fn color_partial_eq() {
         assert_eq!(
@@ -1789,7 +1780,7 @@ mod tests {
             let color1 = Color::from_hsl(h, s, l);
             let hsv1 = color1.to_hsva();
             let color2 = Color::from_hsv(hsv1.h, hsv1.s, hsv1.v);
-            assert_almost_equal(&color1, &color2);
+            assert_eq!(&color1, &color2);
         };
 
         for hue in 0..360 {
@@ -1810,7 +1801,7 @@ mod tests {
             let color1 = Color::from_hsl(h, s, l);
             let xyz1 = color1.to_xyz();
             let color2 = Color::from_xyz(xyz1.x, xyz1.y, xyz1.z);
-            assert_almost_equal(&color1, &color2);
+            assert_eq!(&color1, &color2);
         };
 
         for hue in 0..360 {
@@ -1824,7 +1815,7 @@ mod tests {
             let color1 = Color::from_hsl(h, s, l);
             let lms1 = color1.to_lms();
             let color2 = Color::from_lms(lms1.l, lms1.m, lms1.s, 1.0);
-            assert_almost_equal(&color1, &color2);
+            assert_eq!(&color1, &color2);
         };
 
         for hue in 0..360 {
@@ -1840,7 +1831,7 @@ mod tests {
             let color1 = Color::from_hsl(h, s, l);
             let lab1 = color1.to_lab();
             let color2 = Color::from_lab(lab1.l, lab1.a, lab1.b, 1.0);
-            assert_almost_equal(&color1, &color2);
+            assert_eq!(&color1, &color2);
         };
 
         for hue in 0..360 {
@@ -1859,7 +1850,7 @@ mod tests {
             let color1 = Color::from_hsl(h, s, l);
             let lch1 = color1.to_lch();
             let color2 = Color::from_lch(lch1.l, lch1.c, lch1.h, 1.0);
-            assert_almost_equal(&color1, &color2);
+            assert_eq!(&color1, &color2);
         };
 
         for hue in 0..360 {
@@ -1875,7 +1866,7 @@ mod tests {
             let color1 = Color::from_hsl(h, s, l);
             let luv1 = color1.to_luv();
             let color2 = Color::from_luv(luv1.l, luv1.u, luv1.v, 1.0);
-            assert_almost_equal(&color1, &color2);
+            assert_eq!(&color1, &color2);
         };
 
         for hue in 0..360 {
@@ -1898,7 +1889,7 @@ mod tests {
             let color1 = Color::from_hsl(h, s, l);
             let lch1 = color1.to_lchuv();
             let color2 = Color::from_lchuv(lch1.l, lch1.c, lch1.h, 1.0);
-            assert_almost_equal(&color1, &color2);
+            assert_eq!(&color1, &color2);
         };
 
         for hue in 0..360 {
