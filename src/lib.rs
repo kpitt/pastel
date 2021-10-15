@@ -285,6 +285,33 @@ impl Color {
         u32::from(rgba.r).wrapping_shl(16) + u32::from(rgba.g).wrapping_shl(8) + u32::from(rgba.b)
     }
 
+    /// Convert a `Color` to its linear sRGB component values.  Several operations require
+    /// linear RGB values, and XYZ colors are already in linear form, so we can reduce
+    /// error propagation by converting XYZ directly to linear RGB instead of converting to
+    /// standard gamma-compressed sRGB and then converting back to linear form.
+    pub fn to_linear_srgb(&self) -> RGBA<f64> {
+        #![allow(clippy::many_single_char_names)]
+        let r =
+              3.240_969_941_904_522_60 * self.x
+            - 1.537_383_177_570_094_00 * self.y
+            - 0.498_610_760_293_003_40 * self.z;
+        let g =
+            - 0.969_243_636_280_879_60 * self.x
+            + 1.875_967_501_507_720_20 * self.y
+            + 0.041_555_057_407_175_59 * self.z;
+        let b =
+              0.055_630_079_696_993_66 * self.x
+            - 0.203_976_958_888_976_52 * self.y
+            + 1.056_971_514_242_878_60 * self.z;
+
+        RGBA {
+            r,
+            g,
+            b,
+            alpha: self.alpha,
+        }
+    }
+
     /// Get XYZ coordinates according to the CIE 1931 color space.
     ///
     /// See:
@@ -581,20 +608,8 @@ impl Color {
     ///
     /// See: https://www.w3.org/TR/2008/REC-WCAG20-20081211/#relativeluminancedef
     pub fn luminance(&self) -> Scalar {
-        fn f(s: Scalar) -> Scalar {
-            if s <= 0.03928 {
-                s / 12.92
-            } else {
-                Scalar::powf((s + 0.055) / 1.055, 2.4)
-            }
-        }
-
-        let c = self.to_rgba_float();
-        let r = f(c.r);
-        let g = f(c.g);
-        let b = f(c.b);
-
-        0.2126 * r + 0.7152 * g + 0.0722 * b
+        let c = self.to_linear_srgb();
+        0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b
     }
 
     /// Contrast ratio between two colors as defined by the WCAG. The ratio can range from 1.0
@@ -973,21 +988,10 @@ impl From<&Color> for RGBA<f64> {
             }
         };
 
-        let r = f(
-              3.240_969_941_904_522_60 * color.x
-            - 1.537_383_177_570_094_00 * color.y
-            - 0.498_610_760_293_003_40 * color.z
-        );
-        let g = f(
-            - 0.969_243_636_280_879_60 * color.x
-            + 1.875_967_501_507_720_20 * color.y
-            + 0.041_555_057_407_175_59 * color.z
-        );
-        let b = f(
-              0.055_630_079_696_993_66 * color.x
-            - 0.203_976_958_888_976_52 * color.y
-            + 1.056_971_514_242_878_60 * color.z
-        );
+        let lin_rgb = color.to_linear_srgb();
+        let r = f(lin_rgb.r);
+        let g = f(lin_rgb.g);
+        let b = f(lin_rgb.b);
 
         RGBA {
             r,
