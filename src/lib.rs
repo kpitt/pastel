@@ -850,10 +850,12 @@ impl From<&XYZ> for Color {
     fn from(color: &XYZ) -> Self {
         #![allow(clippy::many_single_char_names)]
         let f = |c| {
-            if c <= 0.003_130_8 {
+            let sign = Scalar::signum(c);
+            let abs = Scalar::abs(c);
+            if abs <= 0.003_130_8 {
                 12.92 * c
             } else {
-                1.055 * Scalar::powf(c, 1.0 / 2.4) - 0.055
+                sign * (1.055 * Scalar::powf(abs, 1.0 / 2.4) - 0.055)
             }
         };
 
@@ -1227,10 +1229,12 @@ impl From<&Color> for XYZ {
     fn from(color: &Color) -> Self {
         #![allow(clippy::many_single_char_names)]
         let finv = |c_: f64| {
-            if c_ <= 0.04045 {
+            let sign = Scalar::signum(c_);
+            let abs = Scalar::abs(c_);
+            if abs <= 0.04045 {
                 c_ / 12.92
             } else {
-                Scalar::powf((c_ + 0.055) / 1.055, 2.4)
+                sign * Scalar::powf((abs + 0.055) / 1.055, 2.4)
             }
         };
 
@@ -2344,5 +2348,14 @@ mod tests {
             "cmyk(0, 22.3776, 46.8531, 43.9216)",
             c3.to_cmyk_string(Format::Spaces)
         );
+    }
+
+    #[test]
+    fn out_of_gamut() {
+        let c = Color::from_lch(50.0, 75.0, 60.0, 1.0);
+        assert_eq!(c, Color::from_rgb_float(0.755768, 0.349482, -0.075965));
+
+        let c2 = c.to_rgba();
+        assert_eq!(c2, RGBA { r: 193, g: 89, b: 0, alpha: 1.0 });
     }
 }
