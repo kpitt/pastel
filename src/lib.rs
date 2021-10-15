@@ -1623,6 +1623,10 @@ mod tests {
         );
         assert_eq!(Color::black(), Color::from_hsl(123.0, 0.3, 0.0));
         assert_eq!(Color::white(), Color::from_hsl(123.0, 0.3, 1.0));
+        assert_eq!(
+            Color::from_rgb_float(0.3, 0.5, 0.7),
+            Color::from_rgb_float(0.300_000_001, 0.500_000_001, 0.700_000_001),
+        );
 
         assert_ne!(
             Color::from_hsl(120.0, 0.3, 0.5),
@@ -1652,39 +1656,69 @@ mod tests {
             Color::from_rgba(1, 2, 3, 0.3),
             Color::from_rgba(1, 2, 4, 0.3),
         );
+        assert_ne!(
+            Color::from_rgb_float(0.3, 0.5, 0.7),
+            Color::from_rgb_float(0.300_1, 0.5, 0.7),
+        );
+        assert_eq!(  // equal within 16-bit precision
+            Color::from_rgb_float(0.3, 0.5, 0.7),
+            Color::from_rgb_float(0.300_001, 0.5, 0.7),
+        );
+        assert_ne!(
+            Color::from_rgb_float(0.3, 0.5, 0.7),
+            Color::from_rgb_float(0.3, 0.500_1, 0.7),
+        );
+        assert_ne!(
+            Color::from_rgb_float(0.3, 0.5, 0.7),
+            Color::from_rgb_float(0.3, 0.5, 0.700_1),
+        );
+        assert_ne!(
+            Color::from_rgb_float(0.3, 0.5, 0.7),
+            Color::from_rgb_float(0.3, 0.499_9, 0.7),
+        );
+        assert_eq!(  // equal within 16-bit precision
+            Color::from_rgb_float(0.3, 0.5, 0.7),
+            Color::from_rgb_float(0.3, 0.499_999, 0.7),
+        );
     }
 
     #[test]
-    fn rgb_to_hsl_conversion() {
+    fn rgb_conversion() {
+        let rgb128 = 128.0 / 255.0;
+
         assert_eq!(Color::white(), Color::from_rgb_float(1.0, 1.0, 1.0));
-        assert_eq!(Color::gray(), Color::from_rgb_float(0.5, 0.5, 0.5));
+        assert_eq!(Color::gray(), Color::from_rgb_float(rgb128, rgb128, rgb128));
         assert_eq!(Color::black(), Color::from_rgb_float(0.0, 0.0, 0.0));
         assert_eq!(Color::red(), Color::from_rgb_float(1.0, 0.0, 0.0));
         assert_eq!(
             Color::from_hsl(60.0, 1.0, 0.375),
             Color::from_rgb_float(0.75, 0.75, 0.0)
         ); //yellow-green
-        assert_eq!(Color::green(), Color::from_rgb_float(0.0, 0.5, 0.0));
+        assert_eq!(Color::green(), Color::from_rgb_float(0.0, rgb128, 0.0));
         assert_eq!(
             Color::from_hsl(240.0, 1.0, 0.75),
             Color::from_rgb_float(0.5, 0.5, 1.0)
         ); // blue-ish
         assert_eq!(
             Color::from_hsl(49.5, 0.893, 0.497),
-            Color::from_rgb_float(0.941, 0.785, 0.053)
+            Color::from_rgb_float(0.94082, 0.78548, 0.05318)
         ); // yellow
         assert_eq!(
             Color::from_hsl(162.4, 0.779, 0.447),
-            Color::from_rgb_float(0.099, 0.795, 0.591)
+            Color::from_rgb_float(0.09879, 0.79521, 0.59093)
         ); // cyan 2
     }
 
     #[test]
-    fn rgb_roundtrip_conversion() {
+    fn rgb_hsl_roundtrip_conversion() {
         let roundtrip = |h, s, l| {
+            // generate a color from an HSL value, which is stored as RGB
             let color1 = Color::from_hsl(h, s, l);
-            let rgb = color1.to_rgba();
-            let color2 = Color::from_rgb(rgb.r, rgb.g, rgb.b);
+            // convert the stored RGB color to HSL
+            let hsl = color1.to_hsla();
+            // convert the calculated HSL back to a Color value and compare
+            // it to the original HSL color
+            let color2 = Color::from(&hsl);
             assert_eq!(color1, color2);
         };
 
@@ -1712,10 +1746,13 @@ mod tests {
 
     #[test]
     fn hsv_conversion() {
+        let rgbf = |r, g, b| { Color::from_rgb_float(r, g, b) };
+        let rgb128 = 128.0 / 255.0;
+
         assert_eq!(Color::white(), Color::from_hsv(0.0, 0.0, 1.0));
         assert_eq!(Color::white(), Color::from_hsv(120.0, 0.0, 1.0));
-        assert_eq!(Color::gray(), Color::from_hsv(0.0, 0.0, 0.5));
-        assert_eq!(Color::gray(), Color::from_hsv(300.0, 0.0, 0.5));
+        assert_eq!(rgbf(0.5, 0.5, 0.5), Color::from_hsv(0.0, 0.0, 0.5));
+        assert_eq!(Color::gray(), Color::from_hsv(300.0, 0.0, rgb128));
         assert_eq!(Color::black(), Color::from_hsv(0.0, 0.0, 0.0));
         assert_eq!(Color::black(), Color::from_hsv(240.0, 0.0, 0.0));
         assert_eq!(Color::red(), Color::from_hsv(0.0, 1.0, 1.0));
@@ -1723,18 +1760,18 @@ mod tests {
             Color::from_hsl(60.0, 1.0, 0.375),
             Color::from_hsv(60.0, 1.0, 0.75)
         ); //yellow-green
-        assert_eq!(Color::green(), Color::from_hsv(120.0, 1.0, 0.5));
+        assert_eq!(Color::green(), Color::from_hsv(120.0, 1.0, rgb128));
         assert_eq!(
             Color::from_hsl(240.0, 1.0, 0.75),
             Color::from_hsv(240.0, 0.5, 1.0)
         ); // blue-ish
         assert_eq!(
-            Color::from_hsl(49.5, 0.893, 0.497),
-            Color::from_hsv(49.5, 0.943, 0.941)
+            Color::from_hsl(49.5, 0.8922, 0.4973),
+            Color::from_hsv(49.5, 0.94303, 0.94099)
         ); // yellow
         assert_eq!(
-            Color::from_hsl(162.4, 0.779, 0.447),
-            Color::from_hsv(162.4, 0.876, 0.795)
+            Color::from_hsl(162.4, 0.7794, 0.4468),
+            Color::from_hsv(162.4, 0.87603, 0.79504)
         ); // cyan 2
 
         assert_eq!(
@@ -1759,11 +1796,11 @@ mod tests {
 
     #[test]
     fn xyz_conversion() {
-        assert_eq!(Color::white(), Color::from_xyz(0.9505, 1.0, 1.0890));
-        assert_eq!(Color::red(), Color::from_xyz(0.4123, 0.2126, 0.01933));
+        assert_eq!(Color::white(), Color::from_xyz(0.950_46, 1.0, 1.089_06));
+        assert_eq!(Color::red(), Color::from_xyz(0.412_391, 0.212_639, 0.019_331));
         assert_eq!(
-            Color::from_hsl(109.999, 0.08654, 0.407843),
-            Color::from_xyz(0.13123, 0.15372, 0.13174)
+            Color::from_hsl(109.99, 0.0865, 0.4078),
+            Color::from_xyz(0.130_045, 0.152_291, 0.130_798)
         );
 
         let roundtrip = |h, s, l| {
@@ -1794,7 +1831,7 @@ mod tests {
 
     #[test]
     fn lab_conversion() {
-        assert_eq!(Color::red(), Color::from_lab(53.233, 80.109, 67.22, 1.0));
+        assert_eq!(Color::red(), Color::from_lab(53.2371, 80.0882, 67.1996, 1.0));
 
         let roundtrip = |h, s, l| {
             let color1 = Color::from_hsl(h, s, l);
@@ -1812,7 +1849,7 @@ mod tests {
     fn lch_conversion() {
         assert_eq!(
             Color::from_hsl(0.0, 1.0, 0.245),
-            Color::from_lch(24.829, 60.093, 38.18, 1.0)
+            Color::from_lch(24.818, 60.063, 38.177, 1.0)
         );
 
         let roundtrip = |h, s, l| {
@@ -1829,7 +1866,7 @@ mod tests {
 
     #[test]
     fn luv_conversion() {
-        assert_eq!(Color::red(), Color::from_luv(53.233, 175.053, 37.751, 1.0));
+        assert_eq!(Color::red(), Color::from_luv(53.237, 175.003, 37.754, 1.0));
 
         let roundtrip = |h, s, l| {
             let color1 = Color::from_hsl(h, s, l);
@@ -1846,6 +1883,10 @@ mod tests {
     #[test]
     fn lchuv_conversion() {
         assert_eq!(
+            Color::from_hsl(0.0, 1.0, 0.245),
+            Color::from_lchuv(24.818, 83.460, 12.174, 1.0)
+        );
+        assert_ne!(
             Color::from_hsl(0.0, 1.0, 0.245),
             Color::from_lchuv(24.82, 83.48, 12.17, 1.0)
         );
@@ -1900,17 +1941,17 @@ mod tests {
 
     #[test]
     fn brightness() {
-        assert_eq!(0.0, Color::black().brightness());
-        assert_eq!(1.0, Color::white().brightness());
-        assert_eq!(0.5, Color::graytone(0.5).brightness());
+        assert_relative_eq!(0.0, Color::black().brightness());
+        assert_relative_eq!(1.0, Color::white().brightness());
+        assert_relative_eq!(0.5, Color::graytone(0.5).brightness());
     }
 
     #[test]
     fn luminance() {
-        assert_eq!(1.0, Color::white().luminance());
+        assert_relative_eq!(1.0, Color::white().luminance());
         let hotpink = Color::from_rgb(255, 105, 180);
         assert_relative_eq!(0.347, hotpink.luminance(), max_relative = 0.01);
-        assert_eq!(0.0, Color::black().luminance());
+        assert_relative_eq!(0.0, Color::black().luminance());
     }
 
     #[test]
@@ -2022,7 +2063,7 @@ mod tests {
     #[test]
     fn mix() {
         assert_eq!(
-            Color::purple(),
+            Color::from_rgb_float(0.5, 0.0, 0.5),  // purple
             Color::red().mix::<RGBA<f64>>(&Color::blue(), Fraction::from(0.5))
         );
         assert_eq!(
@@ -2039,10 +2080,10 @@ mod tests {
 
         let hue_after_mixing = |other| input.mix::<HSLA>(&other, Fraction::from(0.5)).to_hsla().h;
 
-        assert_eq!(hue, hue_after_mixing(Color::black()));
-        assert_eq!(hue, hue_after_mixing(Color::graytone(0.2)));
-        assert_eq!(hue, hue_after_mixing(Color::graytone(0.7)));
-        assert_eq!(hue, hue_after_mixing(Color::white()));
+        assert_relative_eq!(hue, hue_after_mixing(Color::black()), epsilon=1.0e-6);
+        assert_relative_eq!(hue, hue_after_mixing(Color::graytone(0.2)), epsilon=1.0e-6);
+        assert_relative_eq!(hue, hue_after_mixing(Color::graytone(0.7)), epsilon=1.0e-6);
+        assert_relative_eq!(hue, hue_after_mixing(Color::white()), epsilon=1.0e-6);
     }
 
     #[test]
