@@ -104,9 +104,9 @@ fn parse_numeric_rgb(input: &str) -> IResult<&str, Color> {
     let (input, _) = space0(input)?;
     let (input, _) = cond(is_prefixed, char(')'))(input)?;
 
-    let r = r / 255.;
-    let g = g / 255.;
-    let b = b / 255.;
+    let r = r / 255.0;
+    let g = g / 255.0;
+    let b = b / 255.0;
     let c = Color::from_rgb_float(r, g, b);
 
     Ok((input, c))
