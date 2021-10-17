@@ -12,12 +12,26 @@ pub fn clamp(lower: Scalar, upper: Scalar, x: Scalar) -> Scalar {
     Scalar::max(Scalar::min(upper, x), lower)
 }
 
+/// Round a number to the given number of decimal places.
 pub fn round_to(value: Scalar, places: i32) -> Scalar {
     if places == 0 {
         Scalar::round(value)
     } else {
         let scale = Scalar::powi(10.0, places);
         Scalar::round(value * scale) / scale
+    }
+}
+
+/// Round a number to the given number of significant figures.
+pub fn round_sig(value: Scalar, places: i32) -> Scalar {
+    if places == 0 {
+        // Zero significant figures doesn't make any sense.
+        Scalar::NAN
+    } else if value == 0.0 {
+        0.0
+    } else {
+        let leading = (value.log10().floor() as i32) + 1;
+        round_to(value, places - leading)
     }
 }
 
@@ -83,4 +97,22 @@ fn test_round_to() {
     assert_eq!(4.0, round_to(4.285714, 0));
     assert_eq!(4.286, round_to(4.285714, 3));
     assert_eq!(4.2857, round_to(4.285714, 4));
+}
+
+#[test]
+fn test_round_sig() {
+    assert_eq!(5.0, round_sig(4.571428, 1));
+    assert_eq!(4.6, round_sig(4.571428, 2));
+    assert_eq!(4.57143, round_sig(4.571428, 6));
+
+    assert_eq!(40.0, round_sig(42.85714, 1));
+    assert_eq!(43.0, round_sig(42.85714, 2));
+    assert_eq!(42.9, round_sig(42.85714, 3));
+    assert_eq!(42.86, round_sig(42.85714, 4));
+
+    assert_eq!(123_000_000.0, round_sig(123_456_789.987_654_321, 3));
+
+    assert_eq!(0.0, round_sig(0.0, 10));
+
+    assert!(round_sig(4.571428, 0).is_nan());
 }

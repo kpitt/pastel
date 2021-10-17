@@ -116,7 +116,7 @@ impl Output<'_> {
             self.show_color_tty(config, color)?;
             writeln!(self.handle)?;
         } else {
-            writeln!(self.handle, "{}", color.to_hsl_string(Format::NoSpaces))?;
+            writeln!(self.handle, "{}", color.to_precise_input_string())?;
         }
         self.colors_shown += 1;
 

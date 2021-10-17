@@ -12,7 +12,7 @@ use std::fmt;
 
 use colorspace::ColorSpace;
 pub use helper::Fraction;
-use helper::{clamp, interpolate, interpolate_angle, mod_positive, round_to};
+use helper::{clamp, interpolate, interpolate_angle, mod_positive, round_to, round_sig};
 use types::Scalar;
 
 /// The representation of a color.
@@ -276,6 +276,28 @@ impl Color {
             b = rd(rgba.b),
             space = if format == Format::Spaces { " " } else { "" }
         )
+    }
+
+    /// Format the color as a floating point representation that can be parsed
+    /// as an input color with minimal loss of precision.  This is used as the
+    /// output format when piping color values to another `pastel` command.
+    ///
+    /// To avoid an unnecessary conversion step, we output the XYZ color values
+    /// used in the common `Color` representation.  The format of an `f64` value
+    /// can represent at least 15 significant digits, but we want to preserve
+    /// at least one guard digit to compensate for rounding error, so we round
+    /// all values to 14 significant digits.
+    pub fn to_precise_input_string(&self) -> String {
+        let rd = |v| { round_sig(v, 14) };
+
+        let x = rd(self.x);
+        let y = rd(self.y);
+        let z = rd(self.z);
+        if self.alpha == 1.0 {
+            format!("xyz({},{},{})", x, y, z)
+        } else {
+            format!("xyz({},{},{},{})", x, y, z, rd(self.alpha))
+        }
     }
 
     /// Format the color as a RGB-representation string (`#fc0070`).
