@@ -1067,6 +1067,9 @@ impl ColorSpace for HSLA {
 
 impl From<&Color> for HSLA {
     fn from(color: &Color) -> Self {
+        use approx::relative_eq;
+        let is_zero = |v| { relative_eq!(v, 0.0, epsilon = 1.0e-15) };
+
         let c = RGBA::<f64>::from(color);
         let r_s = clamp(0.0, 1.0, c.r);
         let g_s = clamp(0.0, 1.0, c.g);
@@ -1078,7 +1081,7 @@ impl From<&Color> for HSLA {
         let chroma_s = max_chroma - min_chroma;
 
         let hue = 60.0
-            * (if chroma_s == 0.0 {
+            * (if is_zero(chroma_s) {
                 0.0
             } else if r_s == max_chroma {
                 mod_positive((g_s - b_s) / chroma_s, 6.0)
@@ -1089,7 +1092,7 @@ impl From<&Color> for HSLA {
             });
 
         let lightness = (max_chroma + min_chroma) / 2.0;
-        let saturation = if chroma_s == 0.0 {
+        let saturation = if is_zero(chroma_s) {
             0.0
         } else {
             chroma_s / (1.0 - Scalar::abs(2.0 * lightness - 1.0))
