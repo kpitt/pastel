@@ -12,18 +12,19 @@ use std::fmt;
 
 use colorspace::ColorSpace;
 pub use helper::Fraction;
-use helper::{clamp, interpolate, interpolate_angle, mod_positive};
+use helper::{clamp, interpolate, interpolate_angle, mod_positive, round_to};
 use types::Scalar;
 
 /// The representation of a color.
 ///
 /// Note:
-/// - Colors outside the sRGB gamut (which cannot be displayed on a typical
-///   computer screen) can not be represented by `Color`.
-/// - The `PartialEq` instance compares two `Color`s by comparing their (integer)
-///   RGB values. This is different from comparing the HSL values. For example,
-///   HSL has many different representations of black (arbitrary hue and
-///   saturation values).
+/// - Colors are stored as CIE XYZ coordinates, which allows all possible colors
+///   to be represented including out-of-gamut colors that cannot be displayed
+///   on a typical computer screen.
+/// - The `PartialEq` implementation compares two `Color`s by checking if the
+///   difference between corresponding XYZ values is less than the precision of
+///   a 16-bit integer channel value (about 5 decimal places), which is the
+///   minimum round-trip precision required by the CSS Color Level 4 draft spec.
 #[derive(Clone)]
 pub struct Color {
     x: Scalar,
@@ -113,16 +114,17 @@ impl Color {
         })
     }
 
-    /// Create a `Color` from XYZ coordinates in the CIE 1931 color space. Note that a `Color`
-    /// always represents a color in the sRGB gamut (colors that can be represented on a typical
-    /// computer screen) while the XYZ color space is bigger. This function will tend to create
-    /// fully saturated colors at the edge of the sRGB gamut if the coordinates lie outside the
-    /// sRGB range.
+    /// Create a `Color` from XYZ coordinates in the CIE 1931 color space.
     ///
     /// See:
     /// - https://en.wikipedia.org/wiki/CIE_1931_color_space
-    /// - https://en.wikipedia.org/wiki/SRGB
-    pub fn from_xyz(x: Scalar, y: Scalar, z: Scalar, alpha: Scalar) -> Color {
+    pub fn from_xyz(x: Scalar, y: Scalar, z: Scalar) -> Color {
+        Self::from_xyza(x, y, z, 1.0)
+    }
+
+    /// Create a `Color` from XYZ coordinates in the CIE 1931 color space and a
+    /// floating point alpha value between 0.0 and 1.0.
+    pub fn from_xyza(x: Scalar, y: Scalar, z: Scalar, alpha: Scalar) -> Color {
         Self::from(&XYZ { x, y, z, alpha })
     }
 
@@ -662,13 +664,38 @@ impl fmt::Display for Color {
 
 impl fmt::Debug for Color {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Color::from_{}", self.to_rgb_string(Format::NoSpaces))
+        // Color components must be equal within the precision of a 16-bit
+        // integer channel value (1.0 / 65536.0), which is about 5 decimal
+        // places.  Showing 6 decimal places for debugging ensures that the
+        // displayed values will always be different if two colors don't
+        // compare as equal.
+        let rd = |v| { round_to(v, 6) };
+
+        let x = rd(self.x);
+        let y = rd(self.y);
+        let z = rd(self.z);
+        if self.alpha == 1.0 {
+            write!(f, "Color::from_xyz({}, {}, {})", x, y, z)
+        } else {
+            write!(f,
+                "Color::from_xyza({}, {}, {}, {})",
+                x, y, z, rd(self.alpha)
+            )
+        }
     }
 }
 
 impl PartialEq for Color {
     fn eq(&self, other: &Color) -> bool {
-        self.to_rgba() == other.to_rgba()
+        use approx::abs_diff_eq;
+
+        // Check if components are equal within the precision of a 16-bit
+        // channel value.
+        let eq = |x, y| { abs_diff_eq!(x, y, epsilon = 1.0 / 65536.0) };
+        eq(self.x, other.x) &&
+        eq(self.y, other.y) &&
+        eq(self.z, other.z) &&
+        eq(self.alpha, other.alpha)
     }
 }
 
@@ -1724,17 +1751,17 @@ mod tests {
 
     #[test]
     fn xyz_conversion() {
-        assert_eq!(Color::white(), Color::from_xyz(0.9505, 1.0, 1.0890, 1.0));
-        assert_eq!(Color::red(), Color::from_xyz(0.4123, 0.2126, 0.01933, 1.0));
+        assert_eq!(Color::white(), Color::from_xyz(0.9505, 1.0, 1.0890));
+        assert_eq!(Color::red(), Color::from_xyz(0.4123, 0.2126, 0.01933));
         assert_eq!(
             Color::from_hsl(109.999, 0.08654, 0.407843),
-            Color::from_xyz(0.13123, 0.15372, 0.13174, 1.0)
+            Color::from_xyz(0.13123, 0.15372, 0.13174)
         );
 
         let roundtrip = |h, s, l| {
             let color1 = Color::from_hsl(h, s, l);
             let xyz1 = color1.to_xyz();
-            let color2 = Color::from_xyz(xyz1.x, xyz1.y, xyz1.z, 1.0);
+            let color2 = Color::from_xyz(xyz1.x, xyz1.y, xyz1.z);
             assert_almost_equal(&color1, &color2);
         };
 
