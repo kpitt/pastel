@@ -55,20 +55,20 @@ impl Output<'_> {
         );
 
         let mut text_y_offset = 0;
-        let similar = similar_colors(color);
 
-        for (i, nc) in similar.iter().enumerate().take(3) {
-            if nc.color == *color {
-                canvas.draw_text(
-                    text_position_y,
-                    text_position_x,
-                    &format!("Name: {}", nc.name),
-                );
-                text_y_offset = 2;
-                continue;
-            }
+        if !config.compact {
+            let similar = similar_colors(color);
+            for (i, nc) in similar.iter().enumerate().take(3) {
+                if nc.color == *color {
+                    canvas.draw_text(
+                        text_position_y,
+                        text_position_x,
+                        &format!("Name: {}", nc.name),
+                    );
+                    text_y_offset = 2;
+                    continue;
+                }
 
-            if !config.compact {
                 canvas.draw_text(text_position_y + 10 + 2 * i, text_position_x + 7, nc.name);
                 canvas.draw_rect(
                     text_position_y + 10 + 2 * i,
@@ -78,6 +78,12 @@ impl Output<'_> {
                     &nc.color,
                 );
             }
+
+            canvas.draw_text(
+                text_position_y + 8 + text_y_offset,
+                text_position_x,
+                "Most similar:",
+            );
         }
 
         #[allow(clippy::identity_op)]
@@ -97,14 +103,6 @@ impl Output<'_> {
             &format!("HSL: {}", color.to_hsl_string_short(Format::Spaces)),
         );
 
-        if !config.compact {
-            canvas.draw_text(
-                text_position_y + 8 + text_y_offset,
-                text_position_x,
-                "Most similar:",
-            );
-        }
-
         canvas.print(self.handle)
     }
 
@@ -114,7 +112,9 @@ impl Output<'_> {
                 writeln!(self.handle)?
             };
             self.show_color_tty(config, color)?;
-            writeln!(self.handle)?;
+            if !config.compact {
+                writeln!(self.handle)?;
+            }
         } else {
             writeln!(self.handle, "{}", color.to_precise_input_string())?;
         }
