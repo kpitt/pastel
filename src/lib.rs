@@ -12,23 +12,24 @@ use std::fmt;
 
 use colorspace::ColorSpace;
 pub use helper::Fraction;
-use helper::{clamp, interpolate, interpolate_angle, mod_positive};
-use types::{Hue, Scalar};
+use helper::{clamp, interpolate, interpolate_angle, mod_positive, round_to, round_sig};
+use types::Scalar;
 
 /// The representation of a color.
 ///
 /// Note:
-/// - Colors outside the sRGB gamut (which cannot be displayed on a typical
-///   computer screen) can not be represented by `Color`.
-/// - The `PartialEq` instance compares two `Color`s by comparing their (integer)
-///   RGB values. This is different from comparing the HSL values. For example,
-///   HSL has many different representations of black (arbitrary hue and
-///   saturation values).
+/// - Colors are stored as CIE XYZ coordinates, which allows all possible colors
+///   to be represented including out-of-gamut colors that cannot be displayed
+///   on a typical computer screen.
+/// - The `PartialEq` implementation compares two `Color`s by checking if the
+///   difference between corresponding XYZ values is less than the precision of
+///   a 16-bit integer channel value (about 5 decimal places), which is the
+///   minimum round-trip precision required by the CSS Color Level 4 draft spec.
 #[derive(Clone)]
 pub struct Color {
-    hue: Hue,
-    saturation: Scalar,
-    lightness: Scalar,
+    x: Scalar,
+    y: Scalar,
+    z: Scalar,
     alpha: Scalar,
 }
 
@@ -113,16 +114,17 @@ impl Color {
         })
     }
 
-    /// Create a `Color` from XYZ coordinates in the CIE 1931 color space. Note that a `Color`
-    /// always represents a color in the sRGB gamut (colors that can be represented on a typical
-    /// computer screen) while the XYZ color space is bigger. This function will tend to create
-    /// fully saturated colors at the edge of the sRGB gamut if the coordinates lie outside the
-    /// sRGB range.
+    /// Create a `Color` from XYZ coordinates in the CIE 1931 color space.
     ///
     /// See:
     /// - https://en.wikipedia.org/wiki/CIE_1931_color_space
-    /// - https://en.wikipedia.org/wiki/SRGB
-    pub fn from_xyz(x: Scalar, y: Scalar, z: Scalar, alpha: Scalar) -> Color {
+    pub fn from_xyz(x: Scalar, y: Scalar, z: Scalar) -> Color {
+        Self::from_xyza(x, y, z, 1.0)
+    }
+
+    /// Create a `Color` from XYZ coordinates in the CIE 1931 color space and a
+    /// floating point alpha value between 0.0 and 1.0.
+    pub fn from_xyza(x: Scalar, y: Scalar, z: Scalar, alpha: Scalar) -> Color {
         Self::from(&XYZ { x, y, z, alpha })
     }
 
@@ -181,11 +183,26 @@ impl Color {
 
     /// Format the color as a HSL-representation string (`hsl(123, 50.3%, 80.1%)`).
     pub fn to_hsl_string(&self, format: Format) -> String {
+        let hsl100 = |v| { round_to(100.0 * v, 4) };
+        let hsl = HSLA::from(self);
         format!(
-            "hsl({:.0},{space}{:.1}%,{space}{:.1}%)",
-            self.hue.value(),
-            100.0 * self.saturation,
-            100.0 * self.lightness,
+            "hsl({h},{space}{s}%,{space}{l}%)",
+            h = round_to(hsl.h, 3),
+            s = hsl100(hsl.s),
+            l = hsl100(hsl.l),
+            space = if format == Format::Spaces { " " } else { "" }
+        )
+    }
+
+    /// Format the color as the shorter original HSL string for use with color
+    /// block output.
+    pub fn to_hsl_string_short(&self, format: Format) -> String {
+        let hsl = HSLA::from(self);
+        format!(
+            "hsl({h},{space}{s}%,{space}{l}%)",
+            h = hsl.h.round(),
+            s = round_to(100.0 * hsl.s, 1),
+            l = round_to(100.0 * hsl.l, 1),
             space = if format == Format::Spaces { " " } else { "" }
         )
     }
@@ -217,12 +234,13 @@ impl Color {
 
     /// Format the color as a HSV-representation string (`hsv(123, 50.3%, 80.1%)`).
     pub fn to_hsv_string(&self, format: Format) -> String {
-        let hsva = HSVA::from(self);
+        let hsv100 = |v| { round_to(100.0 * v, 4) };
+        let hsv = HSVA::from(self);
         format!(
-            "hsv({h:.0},{space}{s:.1}%,{space}{v:.1}%)",
-            h = hsva.h,
-            s = 100.0 * hsva.s,
-            v = 100.0 * hsva.v,
+            "hsv({h},{space}{s}%,{space}{v}%)",
+            h = round_to(hsv.h, 3),
+            s = hsv100(hsv.s),
+            v = hsv100(hsv.v),
             space = if format == Format::Spaces { " " } else { "" }
         )
     }
@@ -235,27 +253,51 @@ impl Color {
 
     /// Format the color as a CMYK-representation string (`cmyk(0, 50, 100, 100)`).
     pub fn to_cmyk_string(&self, format: Format) -> String {
+        let cmyk100 = |v| { round_to(100.0 * v, 4) };
         let cmyk = CMYK::from(self);
         format!(
             "cmyk({c},{space}{m},{space}{y},{space}{k})",
-            c = (cmyk.c * 100.0).round(),
-            m = (cmyk.m * 100.0).round(),
-            y = (cmyk.y * 100.0).round(),
-            k = (cmyk.k * 100.0).round(),
+            c = cmyk100(cmyk.c),
+            m = cmyk100(cmyk.m),
+            y = cmyk100(cmyk.y),
+            k = cmyk100(cmyk.k),
             space = if format == Format::Spaces { " " } else { "" }
         )
     }
 
     /// Format the color as a floating point RGB-representation string (`rgb(1.0, 0.5,  0)`).
     pub fn to_rgb_float_string(&self, format: Format) -> String {
+        let rd = |v| { round_to(v, 6) };
         let rgba = RGBA::<f64>::from(self);
         format!(
-            "rgb({r:.3},{space}{g:.3},{space}{b:.3})",
-            r = rgba.r,
-            g = rgba.g,
-            b = rgba.b,
+            "rgb({r},{space}{g},{space}{b})",
+            r = rd(rgba.r),
+            g = rd(rgba.g),
+            b = rd(rgba.b),
             space = if format == Format::Spaces { " " } else { "" }
         )
+    }
+
+    /// Format the color as a floating point representation that can be parsed
+    /// as an input color with minimal loss of precision.  This is used as the
+    /// output format when piping color values to another `pastel` command.
+    ///
+    /// To avoid an unnecessary conversion step, we output the XYZ color values
+    /// used in the common `Color` representation.  The format of an `f64` value
+    /// can represent at least 15 significant digits, but we want to preserve
+    /// at least one guard digit to compensate for rounding error, so we round
+    /// all values to 14 significant digits.
+    pub fn to_precise_input_string(&self) -> String {
+        let rd = |v| { round_sig(v, 14) };
+
+        let x = rd(self.x);
+        let y = rd(self.y);
+        let z = rd(self.z);
+        if self.alpha == 1.0 {
+            format!("xyz({},{},{})", x, y, z)
+        } else {
+            format!("xyz({},{},{},{})", x, y, z, rd(self.alpha))
+        }
     }
 
     /// Format the color as a RGB-representation string (`#fc0070`).
@@ -282,6 +324,33 @@ impl Color {
         u32::from(rgba.r).wrapping_shl(16) + u32::from(rgba.g).wrapping_shl(8) + u32::from(rgba.b)
     }
 
+    /// Convert a `Color` to its linear sRGB component values.  Several operations require
+    /// linear RGB values, and XYZ colors are already in linear form, so we can reduce
+    /// error propagation by converting XYZ directly to linear RGB instead of converting to
+    /// standard gamma-compressed sRGB and then converting back to linear form.
+    pub fn to_linear_srgb(&self) -> RGBA<f64> {
+        #![allow(clippy::many_single_char_names)]
+        let r =
+              3.240_969_941_904_522_60 * self.x
+            - 1.537_383_177_570_094_00 * self.y
+            - 0.498_610_760_293_003_40 * self.z;
+        let g =
+            - 0.969_243_636_280_879_60 * self.x
+            + 1.875_967_501_507_720_20 * self.y
+            + 0.041_555_057_407_175_59 * self.z;
+        let b =
+              0.055_630_079_696_993_66 * self.x
+            - 0.203_976_958_888_976_52 * self.y
+            + 1.056_971_514_242_878_60 * self.z;
+
+        RGBA {
+            r,
+            g,
+            b,
+            alpha: self.alpha,
+        }
+    }
+
     /// Get XYZ coordinates according to the CIE 1931 color space.
     ///
     /// See:
@@ -289,6 +358,19 @@ impl Color {
     /// - https://en.wikipedia.org/wiki/SRGB
     pub fn to_xyz(&self) -> XYZ {
         XYZ::from(self)
+    }
+
+    /// Format the color as a XYZ-representation string (`XYZ(0.9504, 1, 1.0889)`).
+    pub fn to_xyz_string(&self, format: Format) -> String {
+        let rd = |v| { round_to(v, 6) };
+        let xyz = XYZ::from(self);
+        format!(
+            "XYZ({x},{space}{y},{space}{z})",
+            x = rd(xyz.x),
+            y = rd(xyz.y),
+            z = rd(xyz.z),
+            space = if format == Format::Spaces { " " } else { "" }
+        )
     }
 
     /// Get coordinates according to the LSM color space
@@ -308,12 +390,13 @@ impl Color {
 
     /// Format the color as a Lab-representation string (`Lab(41, 83, -93)`).
     pub fn to_lab_string(&self, format: Format) -> String {
+        let rd = |v| { round_to(v, 4) };
         let lab = Lab::from(self);
         format!(
-            "Lab({l:.0},{space}{a:.0},{space}{b:.0})",
-            l = lab.l,
-            a = lab.a,
-            b = lab.b,
+            "Lab({l},{space}{a},{space}{b})",
+            l = rd(lab.l),
+            a = rd(lab.a),
+            b = rd(lab.b),
             space = if format == Format::Spaces { " " } else { "" }
         )
     }
@@ -329,10 +412,10 @@ impl Color {
     pub fn to_lch_string(&self, format: Format) -> String {
         let lch = LCh::from(self);
         format!(
-            "LCh({l:.1},{space}{c:.1},{space}{h:.0})",
-            l = lch.l,
-            c = lch.c,
-            h = lch.h,
+            "LCh({l},{space}{c},{space}{h})",
+            l = round_to(lch.l, 4),
+            c = round_to(lch.c, 4),
+            h = round_to(lch.h, 3),
             space = if format == Format::Spaces { " " } else { "" }
         )
     }
@@ -346,12 +429,13 @@ impl Color {
 
     /// Format the color as a Luv-representation string (`Luv(49, 67, 10)`).
     pub fn to_luv_string(&self, format: Format) -> String {
+        let rd = |v| { round_to(v, 4) };
         let luv = Luv::from(self);
         format!(
-            "Luv({l:.0},{space}{u:.0},{space}{v:.0})",
-            l = luv.l,
-            u = luv.u,
-            v = luv.v,
+            "Luv({l},{space}{u},{space}{v})",
+            l = rd(luv.l),
+            u = rd(luv.u),
+            v = rd(luv.v),
             space = if format == Format::Spaces { " " } else { "" }
         )
     }
@@ -367,10 +451,10 @@ impl Color {
     pub fn to_lchuv_string(&self, format: Format) -> String {
         let lch = LChuv::from(self);
         format!(
-            "LChuv({l:.1},{space}{c:.1},{space}{h:.0})",
-            l = lch.l,
-            c = lch.c,
-            h = lch.h,
+            "LChuv({l},{space}{c},{space}{h})",
+            l = round_to(lch.l, 4),
+            c = round_to(lch.c, 4),
+            h = round_to(lch.h, 3),
             space = if format == Format::Spaces { " " } else { "" }
         )
     }
@@ -379,10 +463,10 @@ impl Color {
     pub fn to_hcl_string(&self, format: Format) -> String {
         let lch = LChuv::from(self);
         format!(
-            "HCL({h:.0},{space}{c:.1},{space}{l:.1})",
-            l = lch.l,
-            c = lch.c,
-            h = lch.h,
+            "HCL({h},{space}{c},{space}{l})",
+            l = round_to(lch.l, 4),
+            c = round_to(lch.c, 4),
+            h = round_to(lch.h, 3),
             space = if format == Format::Spaces { " " } else { "" }
         )
     }
@@ -474,10 +558,11 @@ impl Color {
 
     /// Rotate along the "hue" axis.
     pub fn rotate_hue(&self, delta: Scalar) -> Color {
+        let hsl = HSLA::from(self);
         Self::from_hsla(
-            self.hue.value() + delta,
-            self.saturation,
-            self.lightness,
+            hsl.h + delta,
+            hsl.s,
+            hsl.l,
             self.alpha,
         )
     }
@@ -490,10 +575,11 @@ impl Color {
     /// Lighten a color by adding a certain amount (number between -1.0 and 1.0) to the lightness
     /// channel. If the number is negative, the color is darkened.
     pub fn lighten(&self, f: Scalar) -> Color {
+        let hsl = HSLA::from(self);
         Self::from_hsla(
-            self.hue.value(),
-            self.saturation,
-            self.lightness + f,
+            hsl.h,
+            hsl.s,
+            hsl.l + f,
             self.alpha,
         )
     }
@@ -507,10 +593,11 @@ impl Color {
     /// Increase the saturation of a color by adding a certain amount (number between -1.0 and 1.0)
     /// to the saturation channel. If the number is negative, the color is desaturated.
     pub fn saturate(&self, f: Scalar) -> Color {
+        let hsl = HSLA::from(self);
         Self::from_hsla(
-            self.hue.value(),
-            self.saturation + f,
-            self.lightness,
+            hsl.h,
+            hsl.s + f,
+            hsl.l,
             self.alpha,
         )
     }
@@ -550,17 +637,10 @@ impl Color {
 
     /// Convert a color to a gray tone with the same perceived luminance (see `luminance`).
     pub fn to_gray(&self) -> Color {
-        let hue = self.hue;
         let c = self.to_lch();
 
         // the desaturation step is only needed to correct minor rounding errors.
-        let mut gray = Color::from_lch(c.l, 0.0, 0.0, 1.0).desaturate(1.0);
-
-        // Restore the hue value (does not alter the color, but makes it able to add saturation
-        // again)
-        gray.hue = hue;
-
-        gray
+        Color::from_lch(c.l, 0.0, 0.0, 1.0).desaturate(1.0)
     }
 
     /// The percieved brightness of the color (A number between 0.0 and 1.0).
@@ -582,20 +662,8 @@ impl Color {
     ///
     /// See: https://www.w3.org/TR/2008/REC-WCAG20-20081211/#relativeluminancedef
     pub fn luminance(&self) -> Scalar {
-        fn f(s: Scalar) -> Scalar {
-            if s <= 0.03928 {
-                s / 12.92
-            } else {
-                Scalar::powf((s + 0.055) / 1.055, 2.4)
-            }
-        }
-
-        let c = self.to_rgba_float();
-        let r = f(c.r);
-        let g = f(c.g);
-        let b = f(c.b);
-
-        0.2126 * r + 0.7152 * g + 0.0722 * b
+        let c = self.to_linear_srgb();
+        0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b
     }
 
     /// Contrast ratio between two colors as defined by the WCAG. The ratio can range from 1.0
@@ -665,60 +733,86 @@ impl fmt::Display for Color {
 
 impl fmt::Debug for Color {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Color::from_{}", self.to_rgb_string(Format::NoSpaces))
+        // Color components must be equal within the precision of a 16-bit
+        // integer channel value (1.0 / 65536.0), which is about 5 decimal
+        // places.  Showing 6 decimal places for debugging ensures that the
+        // displayed values will always be different if two colors don't
+        // compare as equal.
+        let rd = |v| { round_to(v, 6) };
+
+        let x = rd(self.x);
+        let y = rd(self.y);
+        let z = rd(self.z);
+        if self.alpha == 1.0 {
+            write!(f, "Color::from_xyz({}, {}, {})", x, y, z)
+        } else {
+            write!(f,
+                "Color::from_xyza({}, {}, {}, {})",
+                x, y, z, rd(self.alpha)
+            )
+        }
     }
 }
 
 impl PartialEq for Color {
     fn eq(&self, other: &Color) -> bool {
-        self.to_rgba() == other.to_rgba()
+        use approx::abs_diff_eq;
+
+        // Check if components are equal within the precision of a 16-bit
+        // channel value.
+        let eq = |x, y| { abs_diff_eq!(x, y, epsilon = 1.0 / 65536.0) };
+        eq(self.x, other.x) &&
+        eq(self.y, other.y) &&
+        eq(self.z, other.z) &&
+        eq(self.alpha, other.alpha)
     }
 }
 
 impl From<&HSLA> for Color {
     fn from(color: &HSLA) -> Self {
-        Color {
-            hue: Hue::from(color.h),
-            saturation: clamp(0.0, 1.0, color.s),
-            lightness: clamp(0.0, 1.0, color.l),
-            alpha: clamp(0.0, 1.0, color.alpha),
-        }
+        let h_s = mod_positive(color.h, 360.0) / 60.0;
+        let l = clamp(0.0, 1.0, color.l);
+        let s = clamp(0.0, 1.0, color.s);
+        let chr = (1.0 - Scalar::abs(2.0 * l - 1.0)) * s;
+        let m = l - chr / 2.0;
+        let x = chr * (1.0 - Scalar::abs(h_s % 2.0 - 1.0));
+
+        #[allow(clippy::upper_case_acronyms)]
+        struct RGB(Scalar, Scalar, Scalar);
+
+        let col = if h_s < 1.0 {
+            RGB(chr, x, 0.0)
+        } else if (1.0..2.0).contains(&h_s) {
+            RGB(x, chr, 0.0)
+        } else if (2.0..3.0).contains(&h_s) {
+            RGB(0.0, chr, x)
+        } else if (3.0..4.0).contains(&h_s) {
+            RGB(0.0, x, chr)
+        } else if (4.0..5.0).contains(&h_s) {
+            RGB(x, 0.0, chr)
+        } else {
+            RGB(chr, 0.0, x)
+        };
+
+        Self::from(&RGBA {
+            r: col.0 + m,
+            g: col.1 + m,
+            b: col.2 + m,
+            alpha: color.alpha,
+        })
     }
 }
 
 impl From<&RGBA<u8>> for Color {
     fn from(color: &RGBA<u8>) -> Self {
-        let max_chroma = u8::max(u8::max(color.r, color.g), color.b);
-        let min_chroma = u8::min(u8::min(color.r, color.g), color.b);
+        let r = Scalar::from(color.r) / 255.0;
+        let g = Scalar::from(color.g) / 255.0;
+        let b = Scalar::from(color.b) / 255.0;
 
-        let chroma = max_chroma - min_chroma;
-        let chroma_s = Scalar::from(chroma) / 255.0;
-
-        let r_s = Scalar::from(color.r) / 255.0;
-        let g_s = Scalar::from(color.g) / 255.0;
-        let b_s = Scalar::from(color.b) / 255.0;
-
-        let hue = 60.0
-            * (if chroma == 0 {
-                0.0
-            } else if color.r == max_chroma {
-                mod_positive((g_s - b_s) / chroma_s, 6.0)
-            } else if color.g == max_chroma {
-                (b_s - r_s) / chroma_s + 2.0
-            } else {
-                (r_s - g_s) / chroma_s + 4.0
-            });
-
-        let lightness = (Scalar::from(max_chroma) + Scalar::from(min_chroma)) / (255.0 * 2.0);
-        let saturation = if chroma == 0 {
-            0.0
-        } else {
-            chroma_s / (1.0 - Scalar::abs(2.0 * lightness - 1.0))
-        };
-        Self::from(&HSLA {
-            h: hue,
-            s: saturation,
-            l: lightness,
+        Self::from(&RGBA::<f64> {
+            r,
+            g,
+            b,
             alpha: color.alpha,
         })
     }
@@ -726,13 +820,38 @@ impl From<&RGBA<u8>> for Color {
 
 impl From<&RGBA<f64>> for Color {
     fn from(color: &RGBA<f64>) -> Self {
-        let r = Scalar::round(clamp(0.0, 255.0, 255.0 * color.r)) as u8;
-        let g = Scalar::round(clamp(0.0, 255.0, 255.0 * color.g)) as u8;
-        let b = Scalar::round(clamp(0.0, 255.0, 255.0 * color.b)) as u8;
-        Self::from(&RGBA::<u8> {
-            r,
-            g,
-            b,
+        #![allow(clippy::many_single_char_names)]
+        let finv = |c_: f64| {
+            let sign = Scalar::signum(c_);
+            let abs = Scalar::abs(c_);
+            if abs <= 0.04045 {
+                c_ / 12.92
+            } else {
+                sign * Scalar::powf((abs + 0.055) / 1.055, 2.4)
+            }
+        };
+
+        let r = finv(color.r);
+        let g = finv(color.g);
+        let b = finv(color.b);
+
+        let x =
+            0.412_390_799_265_959_34 * r + 
+            0.357_584_339_383_878_00 * g + 
+            0.180_480_788_401_834_30 * b;
+        let y =
+            0.212_639_005_871_510_27 * r +
+            0.715_168_678_767_756_00 * g +
+            0.072_192_315_360_733_71 * b;
+        let z =
+            0.019_330_818_715_591_82 * r +
+            0.119_194_779_794_625_98 * g +
+            0.950_532_152_249_660_70 * b;
+
+        Self::from(&XYZ {
+            x,
+            y,
+            z,
             alpha: color.alpha,
         })
     }
@@ -744,36 +863,23 @@ impl From<&HSVA> for Color {
         let v = clamp(0.0, 1.0, color.v);
         let l = v * (1.0 - sv / 2.0);
         let sl = if l == 0.0 || l == 1.0 { 0.0 } else { (v - l) / f64::min(l, 1.0 - l) };
-        Color {
-            hue: Hue::from(color.h),
-            saturation: sl,
-            lightness: l,
-            alpha: clamp(0.0, 1.0, color.alpha),
-        }
+        Self::from(&HSLA {
+            h: color.h,
+            s: sl,
+            l,
+            alpha: color.alpha,
+        })
     }
 }
 
 impl From<&XYZ> for Color {
     fn from(color: &XYZ) -> Self {
-        #![allow(clippy::many_single_char_names)]
-        let f = |c| {
-            if c <= 0.003_130_8 {
-                12.92 * c
-            } else {
-                1.055 * Scalar::powf(c, 1.0 / 2.4) - 0.055
-            }
-        };
-
-        let r = f(3.2406 * color.x - 1.5372 * color.y - 0.4986 * color.z);
-        let g = f(-0.9689 * color.x + 1.8758 * color.y + 0.0415 * color.z);
-        let b = f(0.0557 * color.x - 0.2040 * color.y + 1.0570 * color.z);
-
-        Self::from(&RGBA::<f64> {
-            r,
-            g,
-            b,
+        Color {
+            x: color.x,
+            y: color.y,
+            z: color.z,
             alpha: color.alpha,
-        })
+        }
     }
 }
 
@@ -929,32 +1035,26 @@ impl ColorSpace for RGBA<f64> {
 
 impl From<&Color> for RGBA<f64> {
     fn from(color: &Color) -> Self {
-        let h_s = color.hue.value() / 60.0;
-        let chr = (1.0 - Scalar::abs(2.0 * color.lightness - 1.0)) * color.saturation;
-        let m = color.lightness - chr / 2.0;
-        let x = chr * (1.0 - Scalar::abs(h_s % 2.0 - 1.0));
-
-        #[allow(clippy::upper_case_acronyms)]
-        struct RGB(Scalar, Scalar, Scalar);
-
-        let col = if h_s < 1.0 {
-            RGB(chr, x, 0.0)
-        } else if (1.0..2.0).contains(&h_s) {
-            RGB(x, chr, 0.0)
-        } else if (2.0..3.0).contains(&h_s) {
-            RGB(0.0, chr, x)
-        } else if (3.0..4.0).contains(&h_s) {
-            RGB(0.0, x, chr)
-        } else if (4.0..5.0).contains(&h_s) {
-            RGB(x, 0.0, chr)
-        } else {
-            RGB(chr, 0.0, x)
+        #![allow(clippy::many_single_char_names)]
+        let f = |c| {
+            let sign = Scalar::signum(c);
+            let abs = Scalar::abs(c);
+            if abs <= 0.003_130_8 {
+                12.92 * c
+            } else {
+                sign * (1.055 * Scalar::powf(abs, 1.0 / 2.4) - 0.055)
+            }
         };
 
+        let lin_rgb = color.to_linear_srgb();
+        let r = f(lin_rgb.r);
+        let g = f(lin_rgb.g);
+        let b = f(lin_rgb.b);
+
         RGBA {
-            r: col.0 + m,
-            g: col.1 + m,
-            b: col.2 + m,
+            r,
+            g,
+            b,
             alpha: color.alpha,
         }
     }
@@ -963,9 +1063,9 @@ impl From<&Color> for RGBA<f64> {
 impl From<&Color> for RGBA<u8> {
     fn from(color: &Color) -> Self {
         let c = RGBA::<f64>::from(color);
-        let r = Scalar::round(255.0 * c.r) as u8;
-        let g = Scalar::round(255.0 * c.g) as u8;
-        let b = Scalar::round(255.0 * c.b) as u8;
+        let r = Scalar::round(clamp(0.0, 255.0, 255.0 * c.r)) as u8;
+        let g = Scalar::round(clamp(0.0, 255.0, 255.0 * c.g)) as u8;
+        let b = Scalar::round(clamp(0.0, 255.0, 255.0 * c.b)) as u8;
 
         RGBA {
             r,
@@ -1021,10 +1121,40 @@ impl ColorSpace for HSLA {
 
 impl From<&Color> for HSLA {
     fn from(color: &Color) -> Self {
+        use approx::relative_eq;
+        let is_zero = |v| { relative_eq!(v, 0.0, epsilon = 1.0e-15) };
+
+        let c = RGBA::<f64>::from(color);
+        let r_s = clamp(0.0, 1.0, c.r);
+        let g_s = clamp(0.0, 1.0, c.g);
+        let b_s = clamp(0.0, 1.0, c.b);
+
+        let max_chroma = f64::max(f64::max(r_s, g_s), b_s);
+        let min_chroma = f64::min(f64::min(r_s, g_s), b_s);
+
+        let chroma_s = max_chroma - min_chroma;
+
+        let hue = 60.0
+            * (if is_zero(chroma_s) {
+                0.0
+            } else if r_s == max_chroma {
+                mod_positive((g_s - b_s) / chroma_s, 6.0)
+            } else if g_s == max_chroma {
+                (b_s - r_s) / chroma_s + 2.0
+            } else {
+                (r_s - g_s) / chroma_s + 4.0
+            });
+
+        let lightness = (max_chroma + min_chroma) / 2.0;
+        let saturation = if is_zero(chroma_s) {
+            0.0
+        } else {
+            chroma_s / (1.0 - Scalar::abs(2.0 * lightness - 1.0))
+        };
         HSLA {
-            h: color.hue.value(),
-            s: color.saturation,
-            l: color.lightness,
+            h: hue,
+            s: saturation,
+            l: lightness,
             alpha: color.alpha,
         }
     }
@@ -1070,14 +1200,14 @@ impl ColorSpace for HSVA {
 impl From<&Color> for HSVA {
     fn from(color: &Color) -> Self {
         #![allow(clippy::many_single_char_names)]
-        let l = color.lightness;
-        let v = l + color.saturation * f64::min(l, 1.0 - l);
+        let HSLA { h, s, l, alpha } = HSLA::from(color);
+        let v = l + s * f64::min(l, 1.0 - l);
         let sv = if v == 0.0 { 0.0 } else { 2.0 * (1.0 - l / v) };
         HSVA {
-            h: color.hue.value(),
+            h,
             s: sv,
-            v: v,
-            alpha: color.alpha,
+            v,
+            alpha,
         }
     }
 }
@@ -1098,29 +1228,11 @@ pub struct XYZ {
 
 impl From<&Color> for XYZ {
     fn from(color: &Color) -> Self {
-        #![allow(clippy::many_single_char_names)]
-        let finv = |c_: f64| {
-            if c_ <= 0.04045 {
-                c_ / 12.92
-            } else {
-                Scalar::powf((c_ + 0.055) / 1.055, 2.4)
-            }
-        };
-
-        let rec = RGBA::from(color);
-        let r = finv(rec.r);
-        let g = finv(rec.g);
-        let b = finv(rec.b);
-
-        let x = 0.4124 * r + 0.3576 * g + 0.1805 * b;
-        let y = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-        let z = 0.0193 * r + 0.1192 * g + 0.9505 * b;
-
         XYZ {
-            x,
-            y,
-            z,
-            alpha: color.alpha,
+            x: color.x,
+            y: color.y,
+            z: color.z,
+            alpha: color.alpha
         }
     }
 }
@@ -1397,10 +1509,10 @@ pub struct CMYK {
 
 impl From<&Color> for CMYK {
     fn from(color: &Color) -> Self {
-        let rgba = RGBA::<u8>::from(color);
-        let r = (rgba.r as f64) / 255.0;
-        let g = (rgba.g as f64) / 255.0;
-        let b = (rgba.b as f64) / 255.0;
+        let rgba = RGBA::<f64>::from(color);
+        let r = clamp(0.0, 1.0, rgba.r);
+        let g = clamp(0.0, 1.0, rgba.g);
+        let b = clamp(0.0, 1.0, rgba.b);
         let biggest = if r >= g && r >= b {
             r
         } else if g >= r && g >= b {
@@ -1547,15 +1659,6 @@ mod tests {
     use super::*;
     use approx::assert_relative_eq;
 
-    fn assert_almost_equal(c1: &Color, c2: &Color) {
-        let c1 = c1.to_rgba();
-        let c2 = c2.to_rgba();
-
-        assert!((c1.r as i32 - c2.r as i32).abs() <= 1);
-        assert!((c1.g as i32 - c2.g as i32).abs() <= 1);
-        assert!((c1.b as i32 - c2.b as i32).abs() <= 1);
-    }
-
     #[test]
     fn color_partial_eq() {
         assert_eq!(
@@ -1568,6 +1671,10 @@ mod tests {
         );
         assert_eq!(Color::black(), Color::from_hsl(123.0, 0.3, 0.0));
         assert_eq!(Color::white(), Color::from_hsl(123.0, 0.3, 1.0));
+        assert_eq!(
+            Color::from_rgb_float(0.3, 0.5, 0.7),
+            Color::from_rgb_float(0.300_000_001, 0.500_000_001, 0.700_000_001),
+        );
 
         assert_ne!(
             Color::from_hsl(120.0, 0.3, 0.5),
@@ -1597,39 +1704,69 @@ mod tests {
             Color::from_rgba(1, 2, 3, 0.3),
             Color::from_rgba(1, 2, 4, 0.3),
         );
+        assert_ne!(
+            Color::from_rgb_float(0.3, 0.5, 0.7),
+            Color::from_rgb_float(0.300_1, 0.5, 0.7),
+        );
+        assert_eq!(  // equal within 16-bit precision
+            Color::from_rgb_float(0.3, 0.5, 0.7),
+            Color::from_rgb_float(0.300_001, 0.5, 0.7),
+        );
+        assert_ne!(
+            Color::from_rgb_float(0.3, 0.5, 0.7),
+            Color::from_rgb_float(0.3, 0.500_1, 0.7),
+        );
+        assert_ne!(
+            Color::from_rgb_float(0.3, 0.5, 0.7),
+            Color::from_rgb_float(0.3, 0.5, 0.700_1),
+        );
+        assert_ne!(
+            Color::from_rgb_float(0.3, 0.5, 0.7),
+            Color::from_rgb_float(0.3, 0.499_9, 0.7),
+        );
+        assert_eq!(  // equal within 16-bit precision
+            Color::from_rgb_float(0.3, 0.5, 0.7),
+            Color::from_rgb_float(0.3, 0.499_999, 0.7),
+        );
     }
 
     #[test]
-    fn rgb_to_hsl_conversion() {
+    fn rgb_conversion() {
+        let rgb128 = 128.0 / 255.0;
+
         assert_eq!(Color::white(), Color::from_rgb_float(1.0, 1.0, 1.0));
-        assert_eq!(Color::gray(), Color::from_rgb_float(0.5, 0.5, 0.5));
+        assert_eq!(Color::gray(), Color::from_rgb_float(rgb128, rgb128, rgb128));
         assert_eq!(Color::black(), Color::from_rgb_float(0.0, 0.0, 0.0));
         assert_eq!(Color::red(), Color::from_rgb_float(1.0, 0.0, 0.0));
         assert_eq!(
             Color::from_hsl(60.0, 1.0, 0.375),
             Color::from_rgb_float(0.75, 0.75, 0.0)
         ); //yellow-green
-        assert_eq!(Color::green(), Color::from_rgb_float(0.0, 0.5, 0.0));
+        assert_eq!(Color::green(), Color::from_rgb_float(0.0, rgb128, 0.0));
         assert_eq!(
             Color::from_hsl(240.0, 1.0, 0.75),
             Color::from_rgb_float(0.5, 0.5, 1.0)
         ); // blue-ish
         assert_eq!(
             Color::from_hsl(49.5, 0.893, 0.497),
-            Color::from_rgb_float(0.941, 0.785, 0.053)
+            Color::from_rgb_float(0.94082, 0.78548, 0.05318)
         ); // yellow
         assert_eq!(
             Color::from_hsl(162.4, 0.779, 0.447),
-            Color::from_rgb_float(0.099, 0.795, 0.591)
+            Color::from_rgb_float(0.09879, 0.79521, 0.59093)
         ); // cyan 2
     }
 
     #[test]
-    fn rgb_roundtrip_conversion() {
+    fn rgb_hsl_roundtrip_conversion() {
         let roundtrip = |h, s, l| {
+            // generate a color from an HSL value, which is stored as RGB
             let color1 = Color::from_hsl(h, s, l);
-            let rgb = color1.to_rgba();
-            let color2 = Color::from_rgb(rgb.r, rgb.g, rgb.b);
+            // convert the stored RGB color to HSL
+            let hsl = color1.to_hsla();
+            // convert the calculated HSL back to a Color value and compare
+            // it to the original HSL color
+            let color2 = Color::from(&hsl);
             assert_eq!(color1, color2);
         };
 
@@ -1657,10 +1794,13 @@ mod tests {
 
     #[test]
     fn hsv_conversion() {
+        let rgbf = |r, g, b| { Color::from_rgb_float(r, g, b) };
+        let rgb128 = 128.0 / 255.0;
+
         assert_eq!(Color::white(), Color::from_hsv(0.0, 0.0, 1.0));
         assert_eq!(Color::white(), Color::from_hsv(120.0, 0.0, 1.0));
-        assert_eq!(Color::gray(), Color::from_hsv(0.0, 0.0, 0.5));
-        assert_eq!(Color::gray(), Color::from_hsv(300.0, 0.0, 0.5));
+        assert_eq!(rgbf(0.5, 0.5, 0.5), Color::from_hsv(0.0, 0.0, 0.5));
+        assert_eq!(Color::gray(), Color::from_hsv(300.0, 0.0, rgb128));
         assert_eq!(Color::black(), Color::from_hsv(0.0, 0.0, 0.0));
         assert_eq!(Color::black(), Color::from_hsv(240.0, 0.0, 0.0));
         assert_eq!(Color::red(), Color::from_hsv(0.0, 1.0, 1.0));
@@ -1668,18 +1808,18 @@ mod tests {
             Color::from_hsl(60.0, 1.0, 0.375),
             Color::from_hsv(60.0, 1.0, 0.75)
         ); //yellow-green
-        assert_eq!(Color::green(), Color::from_hsv(120.0, 1.0, 0.5));
+        assert_eq!(Color::green(), Color::from_hsv(120.0, 1.0, rgb128));
         assert_eq!(
             Color::from_hsl(240.0, 1.0, 0.75),
             Color::from_hsv(240.0, 0.5, 1.0)
         ); // blue-ish
         assert_eq!(
-            Color::from_hsl(49.5, 0.893, 0.497),
-            Color::from_hsv(49.5, 0.943, 0.941)
+            Color::from_hsl(49.5, 0.8922, 0.4973),
+            Color::from_hsv(49.5, 0.94303, 0.94099)
         ); // yellow
         assert_eq!(
-            Color::from_hsl(162.4, 0.779, 0.447),
-            Color::from_hsv(162.4, 0.876, 0.795)
+            Color::from_hsl(162.4, 0.7794, 0.4468),
+            Color::from_hsv(162.4, 0.87603, 0.79504)
         ); // cyan 2
 
         assert_eq!(
@@ -1694,7 +1834,7 @@ mod tests {
             let color1 = Color::from_hsl(h, s, l);
             let hsv1 = color1.to_hsva();
             let color2 = Color::from_hsv(hsv1.h, hsv1.s, hsv1.v);
-            assert_almost_equal(&color1, &color2);
+            assert_eq!(&color1, &color2);
         };
 
         for hue in 0..360 {
@@ -1704,18 +1844,18 @@ mod tests {
 
     #[test]
     fn xyz_conversion() {
-        assert_eq!(Color::white(), Color::from_xyz(0.9505, 1.0, 1.0890, 1.0));
-        assert_eq!(Color::red(), Color::from_xyz(0.4123, 0.2126, 0.01933, 1.0));
+        assert_eq!(Color::white(), Color::from_xyz(0.950_46, 1.0, 1.089_06));
+        assert_eq!(Color::red(), Color::from_xyz(0.412_391, 0.212_639, 0.019_331));
         assert_eq!(
-            Color::from_hsl(109.999, 0.08654, 0.407843),
-            Color::from_xyz(0.13123, 0.15372, 0.13174, 1.0)
+            Color::from_hsl(109.99, 0.0865, 0.4078),
+            Color::from_xyz(0.130_045, 0.152_291, 0.130_798)
         );
 
         let roundtrip = |h, s, l| {
             let color1 = Color::from_hsl(h, s, l);
             let xyz1 = color1.to_xyz();
-            let color2 = Color::from_xyz(xyz1.x, xyz1.y, xyz1.z, 1.0);
-            assert_almost_equal(&color1, &color2);
+            let color2 = Color::from_xyz(xyz1.x, xyz1.y, xyz1.z);
+            assert_eq!(&color1, &color2);
         };
 
         for hue in 0..360 {
@@ -1729,7 +1869,7 @@ mod tests {
             let color1 = Color::from_hsl(h, s, l);
             let lms1 = color1.to_lms();
             let color2 = Color::from_lms(lms1.l, lms1.m, lms1.s, 1.0);
-            assert_almost_equal(&color1, &color2);
+            assert_eq!(&color1, &color2);
         };
 
         for hue in 0..360 {
@@ -1739,13 +1879,13 @@ mod tests {
 
     #[test]
     fn lab_conversion() {
-        assert_eq!(Color::red(), Color::from_lab(53.233, 80.109, 67.22, 1.0));
+        assert_eq!(Color::red(), Color::from_lab(53.2371, 80.0882, 67.1996, 1.0));
 
         let roundtrip = |h, s, l| {
             let color1 = Color::from_hsl(h, s, l);
             let lab1 = color1.to_lab();
             let color2 = Color::from_lab(lab1.l, lab1.a, lab1.b, 1.0);
-            assert_almost_equal(&color1, &color2);
+            assert_eq!(&color1, &color2);
         };
 
         for hue in 0..360 {
@@ -1757,14 +1897,14 @@ mod tests {
     fn lch_conversion() {
         assert_eq!(
             Color::from_hsl(0.0, 1.0, 0.245),
-            Color::from_lch(24.829, 60.093, 38.18, 1.0)
+            Color::from_lch(24.818, 60.063, 38.177, 1.0)
         );
 
         let roundtrip = |h, s, l| {
             let color1 = Color::from_hsl(h, s, l);
             let lch1 = color1.to_lch();
             let color2 = Color::from_lch(lch1.l, lch1.c, lch1.h, 1.0);
-            assert_almost_equal(&color1, &color2);
+            assert_eq!(&color1, &color2);
         };
 
         for hue in 0..360 {
@@ -1774,13 +1914,13 @@ mod tests {
 
     #[test]
     fn luv_conversion() {
-        assert_eq!(Color::red(), Color::from_luv(53.233, 175.053, 37.751, 1.0));
+        assert_eq!(Color::red(), Color::from_luv(53.237, 175.003, 37.754, 1.0));
 
         let roundtrip = |h, s, l| {
             let color1 = Color::from_hsl(h, s, l);
             let luv1 = color1.to_luv();
             let color2 = Color::from_luv(luv1.l, luv1.u, luv1.v, 1.0);
-            assert_almost_equal(&color1, &color2);
+            assert_eq!(&color1, &color2);
         };
 
         for hue in 0..360 {
@@ -1792,6 +1932,10 @@ mod tests {
     fn lchuv_conversion() {
         assert_eq!(
             Color::from_hsl(0.0, 1.0, 0.245),
+            Color::from_lchuv(24.818, 83.460, 12.174, 1.0)
+        );
+        assert_ne!(
+            Color::from_hsl(0.0, 1.0, 0.245),
             Color::from_lchuv(24.82, 83.48, 12.17, 1.0)
         );
 
@@ -1799,7 +1943,7 @@ mod tests {
             let color1 = Color::from_hsl(h, s, l);
             let lch1 = color1.to_lchuv();
             let color2 = Color::from_lchuv(lch1.l, lch1.c, lch1.h, 1.0);
-            assert_almost_equal(&color1, &color2);
+            assert_eq!(&color1, &color2);
         };
 
         for hue in 0..360 {
@@ -1845,17 +1989,17 @@ mod tests {
 
     #[test]
     fn brightness() {
-        assert_eq!(0.0, Color::black().brightness());
-        assert_eq!(1.0, Color::white().brightness());
-        assert_eq!(0.5, Color::graytone(0.5).brightness());
+        assert_relative_eq!(0.0, Color::black().brightness());
+        assert_relative_eq!(1.0, Color::white().brightness());
+        assert_relative_eq!(0.5, Color::graytone(0.5).brightness());
     }
 
     #[test]
     fn luminance() {
-        assert_eq!(1.0, Color::white().luminance());
+        assert_relative_eq!(1.0, Color::white().luminance());
         let hotpink = Color::from_rgb(255, 105, 180);
         assert_relative_eq!(0.347, hotpink.luminance(), max_relative = 0.01);
-        assert_eq!(0.0, Color::black().luminance());
+        assert_relative_eq!(0.0, Color::black().luminance());
     }
 
     #[test]
@@ -1891,8 +2035,9 @@ mod tests {
 
     #[test]
     fn to_hsl_string() {
-        let c = Color::from_hsl(91.3, 0.541, 0.983);
-        assert_eq!("hsl(91, 54.1%, 98.3%)", c.to_hsl_string(Format::Spaces));
+        let c = Color::from_hsl(91.35, 0.5415, 0.98314);
+        assert_eq!("hsl(91.35, 54.15%, 98.314%)", c.to_hsl_string(Format::Spaces));
+        assert_eq!("hsl(91, 54.1%, 98.3%)", c.to_hsl_string_short(Format::Spaces));
     }
 
     #[test]
@@ -1904,19 +2049,18 @@ mod tests {
     #[test]
     fn to_rgb_float_string() {
         assert_eq!(
-            "rgb(0.000, 0.000, 0.000)",
+            "rgb(0, 0, 0)",
             Color::black().to_rgb_float_string(Format::Spaces)
         );
 
         assert_eq!(
-            "rgb(1.000, 1.000, 1.000)",
+            "rgb(1, 1, 1)",
             Color::white().to_rgb_float_string(Format::Spaces)
         );
 
-        // some minor rounding errors here, but that is to be expected:
         let c = Color::from_rgb_float(0.12, 0.45, 0.78);
         assert_eq!(
-            "rgb(0.122, 0.451, 0.780)",
+            "rgb(0.12, 0.45, 0.78)",
             c.to_rgb_float_string(Format::Spaces)
         );
     }
@@ -1930,9 +2074,15 @@ mod tests {
 
     #[test]
     fn to_hsv_string() {
-        let c = Color::from_hsv(91.3, 0.541, 0.983);
-        assert_eq!("hsv(91, 54.1%, 98.3%)", c.to_hsv_string(Format::Spaces));
-        assert_eq!("hsv(91,54.1%,98.3%)", c.to_hsv_string(Format::NoSpaces));
+        let c0 = Color::from_hsv(91.0, 0.541, 0.983);
+        assert_eq!("hsv(91, 54.1%, 98.3%)", c0.to_hsv_string(Format::Spaces));
+        assert_eq!("hsv(91,54.1%,98.3%)", c0.to_hsv_string(Format::NoSpaces));
+
+        let c1 = Color::from_hsv(91.3, 0.541, 0.983172);
+        assert_eq!(
+            "hsv(91.3, 54.1%, 98.3172%)",
+            c1.to_hsv_string(Format::Spaces)
+        );
     }
 
     #[test]
@@ -1943,34 +2093,50 @@ mod tests {
 
     #[test]
     fn to_lch_string() {
-        let c = Color::from_lch(52.0, 44.0, 271.0, 1.0);
-        assert_eq!("LCh(52.1, 43.7, 271)", c.to_lch_string(Format::Spaces));
+        let c0 = Color::from_lch(52.0, 44.0, 271.0, 1.0);
+        assert_eq!("LCh(52, 44, 271)", c0.to_lch_string(Format::Spaces));
+
+        let c1 = Color::from_lch(45.142857, 22.2222, 135.1415926, 1.0);
+        assert_eq!(
+            "LCh(45.1429, 22.2222, 135.142)",
+            c1.to_lch_string(Format::Spaces)
+        );
     }
 
     #[test]
     fn to_luv_string() {
-        let c = Color::from_luv(41.0, 23.0, -39.0, 1.0);
-        assert_eq!("Luv(41, 23, -39)", c.to_luv_string(Format::Spaces));
+        let c0 = Color::from_luv(41.0, 23.0, -39.0, 1.0);
+        assert_eq!("Luv(41, 23, -39)", c0.to_luv_string(Format::Spaces));
+
+        let c1 = Color::from_luv(41.414141, 23.232323, -39.939393, 1.0);
+        assert_eq!(
+            "Luv(41.4141, 23.2323, -39.9394)",
+            c1.to_luv_string(Format::Spaces)
+        );
     }
 
     #[test]
     fn to_lchuv_string() {
-        // some minor rounding errors are to be expected here
-        let c = Color::from_lchuv(52.0, 44.0, 271.0, 1.0);
-        assert_eq!("LChuv(52.0, 44.2, 271)", c.to_lchuv_string(Format::Spaces));
+        let c0 = Color::from_lchuv(52.0, 44.0, 271.0, 1.0);
+        assert_eq!("LChuv(52, 44, 271)", c0.to_lchuv_string(Format::Spaces));
+
+        let c1 = Color::from_lchuv(52.525252, 44.444444, 271.271271, 1.0);
+        assert_eq!(
+            "LChuv(52.5253, 44.4444, 271.271)",
+            c1.to_lchuv_string(Format::Spaces)
+        );
     }
 
     #[test]
     fn to_hcl_string() {
-        // some minor rounding errors are to be expected here
         let c = Color::from_lchuv(52.0, 44.0, 271.0, 1.0);
-        assert_eq!("HCL(271, 44.2, 52.0)", c.to_hcl_string(Format::Spaces));
+        assert_eq!("HCL(271, 44, 52)", c.to_hcl_string(Format::Spaces));
     }
 
     #[test]
     fn mix() {
         assert_eq!(
-            Color::purple(),
+            Color::from_rgb_float(0.5, 0.0, 0.5),  // purple
             Color::red().mix::<RGBA<f64>>(&Color::blue(), Fraction::from(0.5))
         );
         assert_eq!(
@@ -1987,10 +2153,10 @@ mod tests {
 
         let hue_after_mixing = |other| input.mix::<HSLA>(&other, Fraction::from(0.5)).to_hsla().h;
 
-        assert_eq!(hue, hue_after_mixing(Color::black()));
-        assert_eq!(hue, hue_after_mixing(Color::graytone(0.2)));
-        assert_eq!(hue, hue_after_mixing(Color::graytone(0.7)));
-        assert_eq!(hue, hue_after_mixing(Color::white()));
+        assert_relative_eq!(hue, hue_after_mixing(Color::black()), epsilon=1.0e-6);
+        assert_relative_eq!(hue, hue_after_mixing(Color::graytone(0.2)), epsilon=1.0e-6);
+        assert_relative_eq!(hue, hue_after_mixing(Color::graytone(0.7)), epsilon=1.0e-6);
+        assert_relative_eq!(hue, hue_after_mixing(Color::white()), epsilon=1.0e-6);
     }
 
     #[test]
@@ -2105,15 +2271,36 @@ mod tests {
         assert_eq!("cmyk(0, 0, 0, 100)", black.to_cmyk_string(Format::Spaces));
 
         let c = Color::from_rgb(19, 19, 1);
-        assert_eq!("cmyk(0, 0, 95, 93)", c.to_cmyk_string(Format::Spaces));
+        assert_eq!(
+            "cmyk(0, 0, 94.7368, 92.549)",
+            c.to_cmyk_string(Format::Spaces)
+        );
 
         let c1 = Color::from_rgb(55, 55, 55);
-        assert_eq!("cmyk(0, 0, 0, 78)", c1.to_cmyk_string(Format::Spaces));
+        assert_eq!(
+            "cmyk(0, 0, 0, 78.4314)",
+            c1.to_cmyk_string(Format::Spaces)
+        );
 
         let c2 = Color::from_rgb(136, 117, 78);
-        assert_eq!("cmyk(0, 14, 43, 47)", c2.to_cmyk_string(Format::Spaces));
+        assert_eq!(
+            "cmyk(0, 13.9706, 42.6471, 46.6667)",
+            c2.to_cmyk_string(Format::Spaces)
+        );
 
         let c3 = Color::from_rgb(143, 111, 76);
-        assert_eq!("cmyk(0, 22, 47, 44)", c3.to_cmyk_string(Format::Spaces));
+        assert_eq!(
+            "cmyk(0, 22.3776, 46.8531, 43.9216)",
+            c3.to_cmyk_string(Format::Spaces)
+        );
+    }
+
+    #[test]
+    fn out_of_gamut() {
+        let c = Color::from_lch(50.0, 75.0, 60.0, 1.0);
+        assert_eq!(c, Color::from_rgb_float(0.755768, 0.349482, -0.075965));
+
+        let c2 = c.to_rgba();
+        assert_eq!(c2, RGBA { r: 193, g: 89, b: 0, alpha: 1.0 });
     }
 }

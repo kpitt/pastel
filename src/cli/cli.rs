@@ -213,6 +213,7 @@ pub fn build_cli() -> App<'static, 'static> {
                         .possible_values(&["rgb", "rgb-float", "hex",
                                            "hsl", "hsl-hue", "hsl-saturation", "hsl-lightness",
                                            "hsv", "hsv-hue", "hsv-saturation", "hsv-value",
+                                           "xyz",
                                            "lab", "lab-lightness", "lab-a", "lab-b",
                                            "lch", "lab-chroma", "lab-hue",
                                            "luv", "luv-lightness", "luv-u", "luv-v",

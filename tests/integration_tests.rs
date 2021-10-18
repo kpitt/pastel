@@ -13,7 +13,7 @@ fn color_reads_colors_from_args() {
         .arg("red")
         .assert()
         .success()
-        .stdout("hsl(0,100.0%,50.0%)\n");
+        .stdout("xyz(0.41239079926596,0.21263900587151,0.019330818715592)\n");
 
     pastel()
         .arg("color")
@@ -21,7 +21,7 @@ fn color_reads_colors_from_args() {
         .arg("blue")
         .assert()
         .success()
-        .stdout("hsl(0,100.0%,50.0%)\nhsl(240,100.0%,50.0%)\n");
+        .stdout("xyz(0.41239079926596,0.21263900587151,0.019330818715592)\nxyz(0.18048078840183,0.072192315360734,0.95053215224966)\n");
 
     pastel().arg("color").arg("no color").assert().failure();
 }
@@ -33,7 +33,7 @@ fn color_reads_colors_from_stdin() {
         .write_stdin("red\nblue\n")
         .assert()
         .success()
-        .stdout("hsl(0,100.0%,50.0%)\nhsl(240,100.0%,50.0%)\n");
+        .stdout("xyz(0.41239079926596,0.21263900587151,0.019330818715592)\nxyz(0.18048078840183,0.072192315360734,0.95053215224966)\n");
 
     pastel()
         .arg("color")
@@ -91,7 +91,7 @@ fn sort_by_basic() {
         .arg("black")
         .assert()
         .success()
-        .stdout("hsl(0,0.0%,0.0%)\nhsl(0,0.0%,50.2%)\nhsl(0,0.0%,100.0%)\n");
+        .stdout("xyz(0,0,0)\nxyz(0.20516589174959,0.2158605001139,0.23508455073195)\nxyz(0.95045592705167,1,1.0890577507599)\n");
 }
 
 #[test]
@@ -103,7 +103,7 @@ fn set_basic() {
         .arg("red")
         .assert()
         .success()
-        .stdout("hsl(120,100.0%,50.0%)\n");
+        .stdout("xyz(0.35758433938388,0.71516867876776,0.11919477979463)\n");
 
     pastel()
         .arg("set")
@@ -112,7 +112,7 @@ fn set_basic() {
         .arg("red")
         .assert()
         .success()
-        .stdout("hsl(0,10.0%,50.0%)\n");
+        .stdout("xyz(0.20038962053427,0.19034136215324,0.18763277419037)\n");
 
     pastel()
         .arg("set")
@@ -121,5 +121,5 @@ fn set_basic() {
         .arg("white")
         .assert()
         .success()
-        .stdout("hsl(0,0.0%,50.0%)\n");
+        .stdout("xyz(0.20343667060424,0.21404114048223,0.23310316302366)\n");
 }
