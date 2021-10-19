@@ -1195,6 +1195,29 @@ pub struct HWBA {
     pub alpha: Scalar,
 }
 
+impl ColorSpace for HWBA {
+    fn from_color(c: &Color) -> Self {
+        c.to_hwba()
+    }
+
+    fn into_color(self) -> Color {
+        Color::from_hwba(self.h, self.w, self.b, self.alpha)
+    }
+
+    fn mix(&self, other: &Self, fraction: Fraction) -> Self {
+        // make sure that the hue is preserved when mixing with gray colors
+        let self_hue = if (self.w + self.b) >= 1.0 { other.h } else { self.h };
+        let other_hue = if (other.w + other.b) >= 1.0 { self.h } else { other.h };
+
+        Self {
+            h: interpolate_angle(self_hue, other_hue, fraction),
+            w: interpolate(self.w, other.w, fraction),
+            b: interpolate(self.b, other.b, fraction),
+            alpha: interpolate(self.alpha, other.alpha, fraction),
+        }
+    }
+}
+
 impl From<&Color> for HWBA {
     fn from(color: &Color) -> Self {
         let HSVA { h, s, v, alpha } = HSVA::from(color);
@@ -1983,6 +2006,10 @@ mod tests {
             Color::fuchsia(),
             Color::red().mix::<HSLA>(&Color::blue(), Fraction::from(0.5))
         );
+        assert_eq!(
+            Color::fuchsia(),
+            Color::red().mix::<HWBA>(&Color::blue(), Fraction::from(0.5))
+        );
     }
 
     #[test]
@@ -1997,6 +2024,20 @@ mod tests {
         assert_eq!(hue, hue_after_mixing(Color::graytone(0.2)));
         assert_eq!(hue, hue_after_mixing(Color::graytone(0.7)));
         assert_eq!(hue, hue_after_mixing(Color::white()));
+    }
+
+    #[test]
+    fn mixing_with_gray_in_hwb_preserves_hue() {
+        let hue = 123.0;
+
+        let input = Color::from_hsla(hue, 0.5, 0.5, 1.0);
+
+        let hue_after_mixing = |other| input.mix::<HWBA>(&other, Fraction::from(0.5)).to_hsla().h;
+
+        assert_relative_eq!(hue, hue_after_mixing(Color::black()), epsilon=1.0e-6);
+        assert_relative_eq!(hue, hue_after_mixing(Color::graytone(0.2)), epsilon=1.0e-6);
+        assert_relative_eq!(hue, hue_after_mixing(Color::graytone(0.7)), epsilon=1.0e-6);
+        assert_relative_eq!(hue, hue_after_mixing(Color::white()), epsilon=1.0e-6);
     }
 
     #[test]
