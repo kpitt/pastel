@@ -277,6 +277,19 @@ impl Color {
         HWBA::from(self)
     }
 
+    /// Format the color as a HWB-representation string (`hwb(123, 50.3%, 80.1%)`).
+    pub fn to_hwb_string(&self, format: Format) -> String {
+        let rd100 = |v| { round_to(100.0 * v, 4) };
+        let hwb = HWBA::from(self);
+        format!(
+            "hwb({h},{space}{w}%,{space}{b}%)",
+            h = round_to(hwb.h, 3),
+            w = rd100(hwb.w),
+            b = rd100(hwb.b),
+            space = if format == Format::Spaces { " " } else { "" }
+        )
+    }
+
     /// Convert a `Color` to its cyan, magenta, yellow, and black values. The CMYK
     /// values are floats smaller than or equal to 1.0.
     pub fn to_cmyk(&self) -> CMYK {
@@ -2215,6 +2228,19 @@ mod tests {
         assert_eq!(
             "hsv(91.3, 54.1%, 98.3172%)",
             c1.to_hsv_string(Format::Spaces)
+        );
+    }
+
+    #[test]
+    fn to_hwb_string() {
+        let c = Color::from_hwb(91.0, 0.541, 0.383);
+        assert_eq!("hwb(91, 54.1%, 38.3%)", c.to_hwb_string(Format::Spaces));
+        assert_eq!("hwb(91,54.1%,38.3%)", c.to_hwb_string(Format::NoSpaces));
+
+        let c1 = Color::from_hwb(91.3, 0.541, 0.383172);
+        assert_eq!(
+            "hwb(91.3, 54.1%, 38.3172%)",
+            c1.to_hwb_string(Format::Spaces)
         );
     }
 
