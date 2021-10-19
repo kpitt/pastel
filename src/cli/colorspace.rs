@@ -1,5 +1,5 @@
 use pastel::Color;
-use pastel::{Fraction, Lab, LCh, Luv, LChuv, HSLA, HSVA, RGBA};
+use pastel::{Fraction, Lab, LCh, Luv, LChuv, HSLA, HSVA, HWBA, RGBA};
 
 pub fn get_mixing_function(
     colorspace_name: &str,
@@ -8,6 +8,7 @@ pub fn get_mixing_function(
         "rgb" => Box::new(|c1: &Color, c2: &Color, f: Fraction| c1.mix::<RGBA<f64>>(c2, f)),
         "hsl" => Box::new(|c1: &Color, c2: &Color, f: Fraction| c1.mix::<HSLA>(c2, f)),
         "hsv" => Box::new(|c1: &Color, c2: &Color, f: Fraction| c1.mix::<HSVA>(c2, f)),
+        "hwb" => Box::new(|c1: &Color, c2: &Color, f: Fraction| c1.mix::<HWBA>(c2, f)),
         "lab" => Box::new(|c1: &Color, c2: &Color, f: Fraction| c1.mix::<Lab>(c2, f)),
         "lch" => Box::new(|c1: &Color, c2: &Color, f: Fraction| c1.mix::<LCh>(c2, f)),
         "luv" => Box::new(|c1: &Color, c2: &Color, f: Fraction| c1.mix::<Luv>(c2, f)),
