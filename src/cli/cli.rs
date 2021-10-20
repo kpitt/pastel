@@ -368,7 +368,8 @@ pub fn build_cli() -> App<'static, 'static> {
                                            "luv-hue", "luv-chroma",
                                            "red", "green", "blue",
                                            "hsl-hue", "hsl-saturation", "hsl-lightness",
-                                           "hsv-hue", "hsv-saturation", "hsv-value"])
+                                           "hsv-hue", "hsv-saturation", "hsv-value",
+                                           "hwb-hue", "hwb-whiteness", "hwb-blackness"])
                         .case_insensitive(true)
                         .required(true),
                 )

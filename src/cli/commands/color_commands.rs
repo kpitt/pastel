@@ -152,6 +152,22 @@ color_command!(SetCommand, config, matches, color, {
             }
             Color::from_hsva(hsva.h, hsva.s, hsva.v, hsva.alpha)
         }
+        "hwb-hue" | "hwb-whiteness" | "hwb-blackness" => {
+            let mut hwb = color.to_hwba();
+            match property {
+                "hwb-hue" => {
+                    hwb.h = value;
+                }
+                "hwb-whiteness" => {
+                    hwb.w = value;
+                }
+                "hwb-blackness" => {
+                    hwb.b = value;
+                }
+                _ => unreachable!(),
+            }
+            Color::from_hwba(hwb.h, hwb.w, hwb.b, hwb.alpha)
+        }
         "lightness" | "lab-a" | "lab-b" => {
             let mut lab = color.to_lab();
             match property {
