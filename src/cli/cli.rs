@@ -357,7 +357,8 @@ pub fn build_cli() -> Command<'static> {
                         .possible_values(&["lightness", "hue", "chroma",
                                            "lab-a", "lab-b",
                                            "red", "green", "blue",
-                                           "hsl-hue", "hsl-saturation", "hsl-lightness"])
+                                           "hsl-hue", "hsl-saturation", "hsl-lightness",
+                                           "hwb-hue", "hwb-whiteness", "hwb-blackness"])
                         .ignore_case(true)
                         .required(true),
                 )
