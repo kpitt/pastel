@@ -105,6 +105,9 @@ impl Color {
     }
 
     /// Create a `Color` from hue, saturation and value coordinates in the HSV color space.
+    /// 
+    /// See:
+    /// - https://en.wikipedia.org/wiki/HWB_color_model
     pub fn from_hsv(hue: Scalar, saturation: Scalar, value: Scalar) -> Color {
         Self::from(&HSVA {
             h: hue,
@@ -112,6 +115,28 @@ impl Color {
             v: value,
             alpha: 1.0,
         })
+    }
+
+    /// Create a `Color` from a hue, and whiteness and blackness values with a
+    /// floating point alpha value between 0.0 and 1.0.
+    pub fn from_hwba(hue: Scalar, whiteness: Scalar, blackness: Scalar, alpha: Scalar) -> Color {
+        Self::from(&HWBA {
+            h: hue,
+            w: whiteness,
+            b: blackness,
+            alpha,
+        })
+    }
+
+    /// Create a `Color` from a hue, and whiteness and blackness values with a
+    /// floating point alpha value between 0.0 and 1.0.
+    pub fn from_hwb(hue: Scalar, whiteness: Scalar, blackness: Scalar) -> Color {
+        Self::from_hwba(
+            hue,
+            whiteness,
+            blackness,
+            1.0,
+        )
     }
 
     /// Create a `Color` from XYZ coordinates in the CIE 1931 color space.
@@ -241,6 +266,26 @@ impl Color {
             h = round_to(hsv.h, 3),
             s = hsv100(hsv.s),
             v = hsv100(hsv.v),
+            space = if format == Format::Spaces { " " } else { "" }
+        )
+    }
+
+    /// Convert a `Color` to its hue, whiteness, blackness, and alpha values. The
+    /// hue is given in degrees, as a number between 0.0 and 360.0. Whiteness,
+    /// blackness, and alpha are numbers between 0.0 and 1.0.
+    pub fn to_hwba(&self) -> HWBA {
+        HWBA::from(self)
+    }
+
+    /// Format the color as a HWB-representation string (`hwb(123, 50.3%, 80.1%)`).
+    pub fn to_hwb_string(&self, format: Format) -> String {
+        let rd100 = |v| { round_to(100.0 * v, 4) };
+        let hwb = HWBA::from(self);
+        format!(
+            "hwb({h},{space}{w}%,{space}{b}%)",
+            h = round_to(hwb.h, 3),
+            w = rd100(hwb.w),
+            b = rd100(hwb.b),
             space = if format == Format::Spaces { " " } else { "" }
         )
     }
@@ -872,6 +917,26 @@ impl From<&HSVA> for Color {
     }
 }
 
+impl From<&HWBA> for Color {
+    fn from(color: &HWBA) -> Self {
+        if color.w + color.b > 1.0 {
+            let gray = color.w / (color.w + color.b);
+            Self::from_rgba_float(gray, gray, gray, color.alpha)
+        } else {
+            let w = clamp(0.0, 1.0, color.w);
+            let b = clamp(0.0, 1.0, color.b);
+            let v = 1.0 - b;
+            let s = 1.0 - (w / v);
+            Self::from(&HSVA {
+                h: color.h,
+                s,
+                v,
+                alpha: color.alpha,
+            })
+        }
+    }
+}
+
 impl From<&XYZ> for Color {
     fn from(color: &XYZ) -> Self {
         Color {
@@ -1215,6 +1280,59 @@ impl From<&Color> for HSVA {
 impl fmt::Display for HSVA {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "hsv({h}, {s}, {v})", h = self.h, s = self.s, v = self.v,)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct HWBA {
+    pub h: Scalar,
+    pub w: Scalar,
+    pub b: Scalar,
+    pub alpha: Scalar,
+}
+
+impl ColorSpace for HWBA {
+    fn from_color(c: &Color) -> Self {
+        c.to_hwba()
+    }
+
+    fn into_color(self) -> Color {
+        Color::from_hwba(self.h, self.w, self.b, self.alpha)
+    }
+
+    fn mix(&self, other: &Self, fraction: Fraction) -> Self {
+        // make sure that the hue is preserved when mixing with gray colors
+        let self_hue = if (self.w + self.b) >= 1.0 { other.h } else { self.h };
+        let other_hue = if (other.w + other.b) >= 1.0 { self.h } else { other.h };
+
+        Self {
+            h: interpolate_angle(self_hue, other_hue, fraction),
+            w: interpolate(self.w, other.w, fraction),
+            b: interpolate(self.b, other.b, fraction),
+            alpha: interpolate(self.alpha, other.alpha, fraction),
+        }
+    }
+}
+
+impl From<&Color> for HWBA {
+    fn from(color: &Color) -> Self {
+        #![allow(clippy::many_single_char_names)]
+        let HSVA { h, s, v, alpha } = HSVA::from(color);
+
+        let w = (1.0 - s) * v;
+        let b = 1.0 - v;
+        HWBA {
+            h,
+            w,
+            b,
+            alpha,
+        }
+    }
+}
+
+impl fmt::Display for HWBA {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "hwb({h}, {w}, {b})", h = self.h, w = self.w, b = self.b,)
     }
 }
 
@@ -1843,6 +1961,57 @@ mod tests {
     }
 
     #[test]
+    fn hwb_conversion() {
+        let rgbf = |r, g, b| { Color::from_rgb_float(r, g, b) };
+        let rgb128 = 128.0 / 255.0;
+
+        assert_eq!(Color::white(), Color::from_hwb(0.0, 1.0, 0.0));
+        assert_eq!(Color::white(), Color::from_hwb(120.0, 1.0, 0.0));
+        assert_eq!(rgbf(0.5, 0.5, 0.5), Color::from_hwb(0.0, 0.5, 0.5));
+        assert_eq!(Color::gray(), Color::from_hwb(300.0, rgb128, 1.0 - rgb128));
+        assert_eq!(Color::black(), Color::from_hwb(0.0, 0.0, 1.0));
+        assert_eq!(Color::black(), Color::from_hwb(240.0, 0.0, 1.0));
+        assert_eq!(Color::red(), Color::from_hwb(0.0, 0.0, 0.0));
+        assert_eq!(
+            Color::from_hsl(60.0, 1.0, 0.375),
+            Color::from_hwb(60.0, 0.0, 0.25)
+        ); //yellow-green
+        assert_eq!(Color::green(), Color::from_hwb(120.0, 0.0, 1.0 - rgb128));
+        assert_eq!(
+            Color::from_hsl(240.0, 1.0, 0.75),
+            Color::from_hwb(240.0, 0.5, 0.0)
+        ); // blue-ish
+
+        assert_eq!(
+            Color::from_hsl(49.5, 0.8922, 0.4973),
+            Color::from_hwb(49.5, 0.0536, 0.0590)
+        ); //yellow
+        assert_eq!(
+            Color::from_hsl(162.4, 0.7794, 0.4468),
+            Color::from_hwb(162.4, 0.09856, 0.20496)
+        ); // cyan 2
+
+        assert_eq!(
+            Color::from_rgba_float(0.75, 0.0, 0.75, 0.4),
+            Color::from_hwba(300.0, 0.0, 0.25, 0.4)
+        )
+    }
+
+    #[test]
+    fn hwb_roundtrip_conversion() {
+        let roundtrip = |h, s, l| {
+            let color1 = Color::from_hsl(h, s, l);
+            let hwb1 = color1.to_hwba();
+            let color2 = Color::from_hwb(hwb1.h, hwb1.w, hwb1.b);
+            assert_eq!(&color1, &color2);
+        };
+
+        for hue in 0..360 {
+            roundtrip(Scalar::from(hue), 0.2, 0.8);
+        }
+    }
+
+    #[test]
     fn xyz_conversion() {
         assert_eq!(Color::white(), Color::from_xyz(0.950_46, 1.0, 1.089_06));
         assert_eq!(Color::red(), Color::from_xyz(0.412_391, 0.212_639, 0.019_331));
@@ -2086,6 +2255,19 @@ mod tests {
     }
 
     #[test]
+    fn to_hwb_string() {
+        let c = Color::from_hwb(91.0, 0.541, 0.383);
+        assert_eq!("hwb(91, 54.1%, 38.3%)", c.to_hwb_string(Format::Spaces));
+        assert_eq!("hwb(91,54.1%,38.3%)", c.to_hwb_string(Format::NoSpaces));
+
+        let c1 = Color::from_hwb(91.3, 0.541, 0.383172);
+        assert_eq!(
+            "hwb(91.3, 54.1%, 38.3172%)",
+            c1.to_hwb_string(Format::Spaces)
+        );
+    }
+
+    #[test]
     fn to_lab_string() {
         let c = Color::from_lab(41.0, 83.0, -93.0, 1.0);
         assert_eq!("Lab(41, 83, -93)", c.to_lab_string(Format::Spaces));
@@ -2143,6 +2325,10 @@ mod tests {
             Color::fuchsia(),
             Color::red().mix::<HSLA>(&Color::blue(), Fraction::from(0.5))
         );
+        assert_eq!(
+            Color::fuchsia(),
+            Color::red().mix::<HWBA>(&Color::blue(), Fraction::from(0.5))
+        );
     }
 
     #[test]
@@ -2152,6 +2338,20 @@ mod tests {
         let input = Color::from_hsla(hue, 0.5, 0.5, 1.0);
 
         let hue_after_mixing = |other| input.mix::<HSLA>(&other, Fraction::from(0.5)).to_hsla().h;
+
+        assert_relative_eq!(hue, hue_after_mixing(Color::black()), epsilon=1.0e-6);
+        assert_relative_eq!(hue, hue_after_mixing(Color::graytone(0.2)), epsilon=1.0e-6);
+        assert_relative_eq!(hue, hue_after_mixing(Color::graytone(0.7)), epsilon=1.0e-6);
+        assert_relative_eq!(hue, hue_after_mixing(Color::white()), epsilon=1.0e-6);
+    }
+
+    #[test]
+    fn mixing_with_gray_in_hwb_preserves_hue() {
+        let hue = 123.0;
+
+        let input = Color::from_hsla(hue, 0.5, 0.5, 1.0);
+
+        let hue_after_mixing = |other| input.mix::<HWBA>(&other, Fraction::from(0.5)).to_hsla().h;
 
         assert_relative_eq!(hue, hue_after_mixing(Color::black()), epsilon=1.0e-6);
         assert_relative_eq!(hue, hue_after_mixing(Color::graytone(0.2)), epsilon=1.0e-6);

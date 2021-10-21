@@ -161,6 +161,22 @@ fn parse_hsv(input: &str) -> IResult<&str, Color> {
     Ok((input, c))
 }
 
+fn parse_hwb(input: &str) -> IResult<&str, Color> {
+    let (input, _) = alt((tag("hwb("), tag("hsb(")))(input)?;
+    let (input, _) = space0(input)?;
+    let (input, h) = parse_angle(input)?;
+    let (input, _) = parse_separator(input)?;
+    let (input, w) = parse_percentage(input)?;
+    let (input, _) = parse_separator(input)?;
+    let (input, b) = parse_percentage(input)?;
+    let (input, _) = space0(input)?;
+    let (input, _) = char(')')(input)?;
+
+    let c = Color::from_hwb(h, w, b);
+
+    Ok((input, c))
+}
+
 fn parse_gray(input: &str) -> IResult<&str, Color> {
     let (input, _) = tag("gray(")(input)?;
     let (input, _) = space0(input)?;
@@ -323,6 +339,7 @@ pub fn parse_color(input: &str) -> Option<Color> {
         all_consuming(parse_percentage_rgb),
         all_consuming(parse_hsl),
         all_consuming(parse_hsv),
+        all_consuming(parse_hwb),
         all_consuming(parse_gray),
         all_consuming(parse_xyz),
         all_consuming(parse_lab),
@@ -621,6 +638,77 @@ fn parse_hsb_syntax() {
     );
 
     assert_eq!(None, parse_color("hsb(280,20%)"));
+}
+
+#[test]
+fn parse_hwb_syntax() {
+    assert_eq!(
+        Some(Color::from_hwb(280.0, 0.2, 0.5)),
+        parse_color("hwb(280,20%,50%)")
+    );
+    assert_eq!(
+        Some(Color::from_hwb(280.0, 0.2, 0.5)),
+        parse_color("hwb(280deg,20%,50%)")
+    );
+    assert_eq!(
+        Some(Color::from_hwb(280.0, 0.2, 0.5)),
+        parse_color("hwb(280°,20%,50%)")
+    );
+    assert_eq!(
+        Some(Color::from_hwb(280.33, 0.123, 0.456)),
+        parse_color("hwb(280.33001,12.3%,45.6%)")
+    );
+    assert_eq!(
+        Some(Color::from_hwb(280.0, 0.2, 0.5)),
+        parse_color("hwb(  280 , 20% , 50%)")
+    );
+    assert_eq!(
+        Some(Color::from_hwb(270.0, 0.6, 0.7)),
+        parse_color("hwb(270 60% 70%)")
+    );
+
+    assert_eq!(
+        Some(Color::from_hwb(-140.0, 0.2, 0.5)),
+        parse_color("hwb(-140°,20%,50%)")
+    );
+
+    assert_eq!(
+        Some(Color::from_hwb(90.0, 0.2, 0.5)),
+        parse_color("hwb(100grad,20%,50%)")
+    );
+    assert_eq!(
+        Some(Color::from_hwb(90.0, 0.2, 0.5)),
+        parse_color("hwb(1.5708rad,20%,50%)")
+    );
+    assert_ne!(
+        Some(Color::from_hwb(90.05, 0.2, 0.5)),
+        parse_color("hwb(1.5708rad,20%,50%)")
+    );
+    assert_eq!(
+        Some(Color::from_hwb(90.05, 0.2, 0.5)),
+        parse_color("hwb(1.5717rad,20%,50%)")
+    );
+    assert_eq!(
+        Some(Color::from_hwb(90.0, 0.2, 0.5)),
+        parse_color("hwb(0.25turn,20%,50%)")
+    );
+    assert_eq!(
+        Some(Color::from_hwb(45.0, 0.2, 0.5)),
+        parse_color("hwb(50grad,20%,50%)")
+    );
+    assert_eq!(
+        Some(Color::from_hwb(45.0, 0.2, 0.5)),
+        parse_color("hwb(0.7854rad,20%,50%)")
+    );
+    assert_eq!(
+        Some(Color::from_hwb(45.0, 0.2, 0.5)),
+        parse_color("hwb(0.125turn,20%,50%)")
+    );
+
+    assert_eq!(None, parse_color("hwb(280,20%,50)"));
+    assert_eq!(None, parse_color("hwb(280,20,50%)"));
+    assert_eq!(None, parse_color("hwb(280%,20%,50%)"));
+    assert_eq!(None, parse_color("hwb(280,20%)"));
 }
 
 #[test]
