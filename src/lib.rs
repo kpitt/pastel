@@ -210,12 +210,22 @@ impl Color {
     pub fn to_hsl_string(&self) -> String {
         let hsl100 = |v| { round_to(100.0 * v, 4) };
         let hsl = HSLA::from(self);
-        format!(
-            "hsl({h}, {s}%, {l}%)",
-            h = round_to(hsl.h, 3),
-            s = hsl100(hsl.s),
-            l = hsl100(hsl.l),
-        )
+        if self.alpha == 1.0 {
+            format!(
+                "hsl({h}, {s}%, {l}%)",
+                h = round_to(hsl.h, 3),
+                s = hsl100(hsl.s),
+                l = hsl100(hsl.l),
+            )
+        } else {
+            format!(
+                "hsla({h}, {s}%, {l}%, {alpha})",
+                h = round_to(hsl.h, 3),
+                s = hsl100(hsl.s),
+                l = hsl100(hsl.l),
+                alpha = round_to(self.alpha, 4),
+            )
+        }
     }
 
     /// Format the color as the shorter original HSL string for use with color
@@ -2204,6 +2214,9 @@ mod tests {
         let c = Color::from_hsl(91.35, 0.5415, 0.98314);
         assert_eq!("hsl(91.35, 54.15%, 98.314%)", c.to_hsl_string());
         assert_eq!("hsl(91, 54.1%, 98.3%)", c.to_hsl_string_short());
+
+        let c1 = Color::from_hsla(91.3, 0.542, 0.983, 0.4);
+        assert_eq!("hsla(91.3, 54.2%, 98.3%, 0.4)", c1.to_hsl_string());
     }
 
     #[test]
