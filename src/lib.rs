@@ -239,12 +239,20 @@ impl Color {
     /// Format the color as a RGB-representation string (`rgb(255, 127,  0)`).
     pub fn to_rgb_string(&self) -> String {
         let rgba = RGBA::<u8>::from(self);
-        format!(
-            "rgb({r}, {g}, {b})",
-            r = rgba.r,
-            g = rgba.g,
-            b = rgba.b,
-        )
+        if self.alpha == 1.0 {
+            format!("rgb({r}, {g}, {b})",
+                r = rgba.r,
+                g = rgba.g,
+                b = rgba.b,
+            )
+        } else {
+            format!("rgba({r}, {g}, {b}, {alpha})",
+                r = rgba.r,
+                g = rgba.g,
+                b = rgba.b,
+                alpha = round_to(self.alpha, 4)
+            )
+        }
     }
 
     /// Convert a `Color` to its hue, saturation, value/brightness and alpha values. The hue is given
@@ -308,12 +316,20 @@ impl Color {
     pub fn to_rgb_float_string(&self) -> String {
         let rd = |v| { round_to(v, 6) };
         let rgba = RGBA::<f64>::from(self);
-        format!(
-            "rgb({r}, {g}, {b})",
-            r = rd(rgba.r),
-            g = rd(rgba.g),
-            b = rd(rgba.b),
-        )
+        if self.alpha == 1.0 {
+            format!("rgb({r}, {g}, {b})",
+                r = rd(rgba.r),
+                g = rd(rgba.g),
+                b = rd(rgba.b),
+            )
+        } else {
+            format!("rgba({r}, {g}, {b}, {alpha})",
+                r = rd(rgba.r),
+                g = rd(rgba.g),
+                b = rd(rgba.b),
+                alpha = round_to(self.alpha, 4)
+            )
+        }
     }
 
     /// Format the color as a floating point representation that can be parsed
@@ -2194,6 +2210,9 @@ mod tests {
     fn to_rgb_string() {
         let c = Color::from_rgb(255, 127, 4);
         assert_eq!("rgb(255, 127, 4)", c.to_rgb_string());
+
+        let c1 = Color::from_rgba(255, 127, 4, 0.75);
+        assert_eq!("rgba(255, 127, 4, 0.75)", c1.to_rgb_string());
     }
 
     #[test]
@@ -2204,6 +2223,9 @@ mod tests {
 
         let c = Color::from_rgb_float(0.12, 0.45, 0.78);
         assert_eq!("rgb(0.12, 0.45, 0.78)", c.to_rgb_float_string());
+
+        let c1 = Color::from_rgba_float(0.4, 0.2, 0.6, 0.8);
+        assert_eq!("rgba(0.4, 0.2, 0.6, 0.8)", c1.to_rgb_float_string());
     }
 
     #[test]
