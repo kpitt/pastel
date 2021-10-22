@@ -405,12 +405,12 @@ impl Color {
         XYZ::from(self)
     }
 
-    /// Format the color as a XYZ-representation string (`XYZ(0.9504, 1, 1.0889)`).
+    /// Format the color as a XYZ-representation string (`xyz(0.9504, 1, 1.0889)`).
     pub fn to_xyz_string(&self, format: Format) -> String {
         let rd = |v| { round_to(v, 6) };
         let xyz = XYZ::from(self);
         format!(
-            "XYZ({x},{space}{y},{space}{z})",
+            "xyz({x},{space}{y},{space}{z})",
             x = rd(xyz.x),
             y = rd(xyz.y),
             z = rd(xyz.z),
@@ -433,12 +433,12 @@ impl Color {
         Lab::from(self)
     }
 
-    /// Format the color as a Lab-representation string (`Lab(41, 83, -93)`).
+    /// Format the color as a Lab-representation string (`lab(41, 83, -93)`).
     pub fn to_lab_string(&self, format: Format) -> String {
         let rd = |v| { round_to(v, 4) };
         let lab = Lab::from(self);
         format!(
-            "Lab({l},{space}{a},{space}{b})",
+            "lab({l},{space}{a},{space}{b})",
             l = rd(lab.l),
             a = rd(lab.a),
             b = rd(lab.b),
@@ -453,11 +453,11 @@ impl Color {
         LCh::from(self)
     }
 
-    /// Format the color as a LCh-representation string (`LCh(80.7, 95.4, 126)`).
+    /// Format the color as a LCh-representation string (`lch(80.7, 95.4, 126)`).
     pub fn to_lch_string(&self, format: Format) -> String {
         let lch = LCh::from(self);
         format!(
-            "LCh({l},{space}{c},{space}{h})",
+            "lch({l},{space}{c},{space}{h})",
             l = round_to(lch.l, 4),
             c = round_to(lch.c, 4),
             h = round_to(lch.h, 3),
@@ -472,12 +472,12 @@ impl Color {
         Luv::from(self)
     }
 
-    /// Format the color as a Luv-representation string (`Luv(49, 67, 10)`).
+    /// Format the color as a Luv-representation string (`luv(49, 67, 10)`).
     pub fn to_luv_string(&self, format: Format) -> String {
         let rd = |v| { round_to(v, 4) };
         let luv = Luv::from(self);
         format!(
-            "Luv({l},{space}{u},{space}{v})",
+            "luv({l},{space}{u},{space}{v})",
             l = rd(luv.l),
             u = rd(luv.u),
             v = rd(luv.v),
@@ -492,11 +492,11 @@ impl Color {
         LChuv::from(self)
     }
 
-    /// Format the color as a LCh(uv)-representation string (`LChuv(80.7, 95.4, 126)`).
+    /// Format the color as a LCh(uv)-representation string (`lchuv(80.7, 95.4, 126)`).
     pub fn to_lchuv_string(&self, format: Format) -> String {
         let lch = LChuv::from(self);
         format!(
-            "LChuv({l},{space}{c},{space}{h})",
+            "lchuv({l},{space}{c},{space}{h})",
             l = round_to(lch.l, 4),
             c = round_to(lch.c, 4),
             h = round_to(lch.h, 3),
@@ -504,11 +504,11 @@ impl Color {
         )
     }
 
-    /// Format the color as a HCL-representation string (`HCL(126, 95.4, 80.7)`).
-    pub fn to_hcl_string(&self, format: Format) -> String {
+    /// Format the color as a HCL-representation string (`hcl(126, 95.4, 80.7)`).
+    pub fn to_hcl_string(&self) -> String {
         let lch = LChuv::from(self);
         format!(
-            "HCL({h},{space}{c},{space}{l})",
+            "hcl({h},{space}{c},{space}{l})",
             l = round_to(lch.l, 4),
             c = round_to(lch.c, 4),
             h = round_to(lch.h, 3),
@@ -2270,17 +2270,17 @@ mod tests {
     #[test]
     fn to_lab_string() {
         let c = Color::from_lab(41.0, 83.0, -93.0, 1.0);
-        assert_eq!("Lab(41, 83, -93)", c.to_lab_string(Format::Spaces));
+        assert_eq!("lab(41, 83, -93)", c.to_lab_string(Format::Spaces));
     }
 
     #[test]
     fn to_lch_string() {
         let c0 = Color::from_lch(52.0, 44.0, 271.0, 1.0);
-        assert_eq!("LCh(52, 44, 271)", c0.to_lch_string(Format::Spaces));
+        assert_eq!("lch(52, 44, 271)", c0.to_lch_string(Format::Spaces));
 
         let c1 = Color::from_lch(45.142857, 22.2222, 135.1415926, 1.0);
         assert_eq!(
-            "LCh(45.1429, 22.2222, 135.142)",
+            "lch(45.1429, 22.2222, 135.142)",
             c1.to_lch_string(Format::Spaces)
         );
     }
@@ -2288,11 +2288,11 @@ mod tests {
     #[test]
     fn to_luv_string() {
         let c0 = Color::from_luv(41.0, 23.0, -39.0, 1.0);
-        assert_eq!("Luv(41, 23, -39)", c0.to_luv_string(Format::Spaces));
+        assert_eq!("luv(41, 23, -39)", c0.to_luv_string(Format::Spaces));
 
         let c1 = Color::from_luv(41.414141, 23.232323, -39.939393, 1.0);
         assert_eq!(
-            "Luv(41.4141, 23.2323, -39.9394)",
+            "luv(41.4141, 23.2323, -39.9394)",
             c1.to_luv_string(Format::Spaces)
         );
     }
@@ -2300,11 +2300,11 @@ mod tests {
     #[test]
     fn to_lchuv_string() {
         let c0 = Color::from_lchuv(52.0, 44.0, 271.0, 1.0);
-        assert_eq!("LChuv(52, 44, 271)", c0.to_lchuv_string(Format::Spaces));
+        assert_eq!("lchuv(52, 44, 271)", c0.to_lchuv_string(Format::Spaces));
 
         let c1 = Color::from_lchuv(52.525252, 44.444444, 271.271271, 1.0);
         assert_eq!(
-            "LChuv(52.5253, 44.4444, 271.271)",
+            "lchuv(52.5253, 44.4444, 271.271)",
             c1.to_lchuv_string(Format::Spaces)
         );
     }
@@ -2312,7 +2312,7 @@ mod tests {
     #[test]
     fn to_hcl_string() {
         let c = Color::from_lchuv(52.0, 44.0, 271.0, 1.0);
-        assert_eq!("HCL(271, 44, 52)", c.to_hcl_string(Format::Spaces));
+        assert_eq!("hcl(271, 44, 52)", c.to_hcl_string(Format::Spaces));
     }
 
     #[test]
