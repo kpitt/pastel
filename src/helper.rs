@@ -14,12 +14,15 @@ pub fn clamp(lower: Scalar, upper: Scalar, x: Scalar) -> Scalar {
 
 /// Round a number to the given number of decimal places.
 pub fn round_to(value: Scalar, places: i32) -> Scalar {
-    if places == 0 {
+    let v = if places == 0 {
         Scalar::round(value)
     } else {
         let scale = Scalar::powi(10.0, places);
         Scalar::round(value * scale) / scale
-    }
+    };
+    // Avoid negative zero.  Only an exact zero value can have a negative sign,
+    // so we don't need to worry about inexact floating point comparisons here.
+    if v == 0.0 && v.is_sign_negative() { 0.0 } else { v }
 }
 
 /// Round a number to the given number of significant figures.

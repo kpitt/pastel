@@ -2240,6 +2240,11 @@ mod tests {
 
         let c1 = Color::from_rgba_float(0.4, 0.2, 0.6, 0.8);
         assert_eq!("rgba(40%, 20%, 60%, 0.8)", c1.to_rgb_float_string());
+
+        // values rounded to negative zero should format as "0%", nor "-0%"
+        let e = -1.0 / 1.0e10;
+        let c2 = Color::from_rgb_float(0.75, 0.5, e);
+        assert_eq!("rgb(75%, 50%, 0%)", c2.to_rgb_float_string());
     }
 
     #[test]
