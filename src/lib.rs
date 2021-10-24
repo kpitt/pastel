@@ -38,6 +38,16 @@ const D65_XN: Scalar = 0.950_470;
 const D65_YN: Scalar = 1.0;
 const D65_ZN: Scalar = 1.088_830;
 
+/// Formats an alpha value extension according to the CSS Color 4 serialization
+/// rules.  Returns an empty string if the alpha value is exactly 1.  Otherwise,
+/// returns the " / " separator followed by the alpha value as a number rounded
+/// to 4 decimal places.
+/// 
+/// See: https://www.w3.org/TR/css-color-4/#serializing-alpha-values
+fn format_css_alpha(a: Scalar) -> String {
+    if a == 1.0 { String::new() } else { format!(" / {}", round_to(a, 4)) }
+}
+
 impl Color {
     pub fn from_hsla(hue: Scalar, saturation: Scalar, lightness: Scalar, alpha: Scalar) -> Color {
         Self::from(&HSLA {
@@ -296,10 +306,11 @@ impl Color {
         let rd100 = |v| { round_to(100.0 * v, 4) };
         let hwb = HWBA::from(self);
         format!(
-            "hwb({h} {w}% {b}%)",
+            "hwb({h} {w}% {b}%{alpha})",
             h = round_to(hwb.h, 3),
             w = rd100(hwb.w),
             b = rd100(hwb.b),
+            alpha = format_css_alpha(self.alpha),
         )
     }
 
@@ -457,10 +468,11 @@ impl Color {
         let rd = |v| { round_to(v, 4) };
         let lab = Lab::from(self);
         format!(
-            "lab({l}% {a} {b})",
+            "lab({l}% {a} {b}{alpha})",
             l = rd(lab.l),
             a = rd(lab.a),
             b = rd(lab.b),
+            alpha = format_css_alpha(self.alpha),
         )
     }
 
@@ -475,10 +487,11 @@ impl Color {
     pub fn to_lch_string(&self) -> String {
         let lch = LCh::from(self);
         format!(
-            "lch({l}% {c} {h})",
+            "lch({l}% {c} {h}{alpha})",
             l = round_to(lch.l, 4),
             c = round_to(lch.c, 4),
             h = round_to(lch.h, 3),
+            alpha = format_css_alpha(self.alpha),
         )
     }
 
@@ -2273,18 +2286,36 @@ mod tests {
     }
 
     #[test]
+    fn to_hwb_string_alpha() {
+        let c = Color::from_hwba(45.0, 0.5, 0.25, 0.7);
+        assert_eq!("hwb(45 50% 25% / 0.7)", c.to_hwb_string());
+    }
+
+    #[test]
     fn to_lab_string() {
         let c = Color::from_lab(41.0, 83.0, -93.0, 1.0);
         assert_eq!("lab(41% 83 -93)", c.to_lab_string());
     }
 
     #[test]
+    fn to_lab_string_alpha() {
+        let c = Color::from_lab(30.0, 60.0, -35.0, 0.25);
+        assert_eq!("lab(30% 60 -35 / 0.25)", c.to_lab_string());
+    }
+
+    #[test]
     fn to_lch_string() {
-        let c0 = Color::from_lch(52.0, 44.0, 271.0, 1.0);
-        assert_eq!("lch(52% 44 271)", c0.to_lch_string());
+        let c = Color::from_lch(52.0, 44.0, 271.0, 1.0);
+        assert_eq!("lch(52% 44 271)", c.to_lch_string());
 
         let c1 = Color::from_lch(45.142857, 22.2222, 135.1415926, 1.0);
         assert_eq!("lch(45.1429% 22.2222 135.142)", c1.to_lch_string());
+    }
+
+    #[test]
+    fn to_lch_string_alpha() {
+        let c = Color::from_lch(30.0, 70.0, 330.0, 0.5);
+        assert_eq!("lch(30% 70 330 / 0.5)", c.to_lch_string());
     }
 
     #[test]
