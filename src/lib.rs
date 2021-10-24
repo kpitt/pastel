@@ -322,21 +322,22 @@ impl Color {
         )
     }
 
-    /// Format the color as a floating point RGB-representation string (`rgb(1.0, 0.5,  0)`).
+    /// Format the color as a floating point RGB-representation string
+    /// (`rgb(100%, 50%,  0%)`).
     pub fn to_rgb_float_string(&self) -> String {
-        let rd = |v| { round_to(v, 6) };
+        let rd100 = |v| { round_to(100.0 * v, 4) };
         let rgba = RGBA::<f64>::from(self);
         if self.alpha == 1.0 {
-            format!("rgb({r}, {g}, {b})",
-                r = rd(rgba.r),
-                g = rd(rgba.g),
-                b = rd(rgba.b),
+            format!("rgb({r}%, {g}%, {b}%)",
+                r = rd100(rgba.r),
+                g = rd100(rgba.g),
+                b = rd100(rgba.b),
             )
         } else {
-            format!("rgba({r}, {g}, {b}, {alpha})",
-                r = rd(rgba.r),
-                g = rd(rgba.g),
-                b = rd(rgba.b),
+            format!("rgba({r}%, {g}%, {b}%, {alpha})",
+                r = rd100(rgba.r),
+                g = rd100(rgba.g),
+                b = rd100(rgba.b),
                 alpha = round_to(self.alpha, 4)
             )
         }
@@ -2230,15 +2231,15 @@ mod tests {
 
     #[test]
     fn to_rgb_float_string() {
-        assert_eq!("rgb(0, 0, 0)", Color::black().to_rgb_float_string());
+        assert_eq!("rgb(0%, 0%, 0%)", Color::black().to_rgb_float_string());
 
-        assert_eq!("rgb(1, 1, 1)", Color::white().to_rgb_float_string());
+        assert_eq!("rgb(100%, 100%, 100%)", Color::white().to_rgb_float_string());
 
-        let c = Color::from_rgb_float(0.12, 0.45, 0.78);
-        assert_eq!("rgb(0.12, 0.45, 0.78)", c.to_rgb_float_string());
+        let c = Color::from_rgb_float(0.123, 0.456, 0.789);
+        assert_eq!("rgb(12.3%, 45.6%, 78.9%)", c.to_rgb_float_string());
 
         let c1 = Color::from_rgba_float(0.4, 0.2, 0.6, 0.8);
-        assert_eq!("rgba(0.4, 0.2, 0.6, 0.8)", c1.to_rgb_float_string());
+        assert_eq!("rgba(40%, 20%, 60%, 0.8)", c1.to_rgb_float_string());
     }
 
     #[test]
