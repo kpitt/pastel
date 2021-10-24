@@ -296,7 +296,7 @@ impl Color {
         let rd100 = |v| { round_to(100.0 * v, 4) };
         let hwb = HWBA::from(self);
         format!(
-            "hwb({h}, {w}%, {b}%)",
+            "hwb({h} {w}% {b}%)",
             h = round_to(hwb.h, 3),
             w = rd100(hwb.w),
             b = rd100(hwb.b),
@@ -457,7 +457,7 @@ impl Color {
         let rd = |v| { round_to(v, 4) };
         let lab = Lab::from(self);
         format!(
-            "lab({l}%, {a}, {b})",
+            "lab({l}% {a} {b})",
             l = rd(lab.l),
             a = rd(lab.a),
             b = rd(lab.b),
@@ -475,7 +475,7 @@ impl Color {
     pub fn to_lch_string(&self) -> String {
         let lch = LCh::from(self);
         format!(
-            "lch({l}%, {c}, {h})",
+            "lch({l}% {c} {h})",
             l = round_to(lch.l, 4),
             c = round_to(lch.c, 4),
             h = round_to(lch.h, 3),
@@ -2266,25 +2266,25 @@ mod tests {
     #[test]
     fn to_hwb_string() {
         let c = Color::from_hwb(91.0, 0.541, 0.383);
-        assert_eq!("hwb(91, 54.1%, 38.3%)", c.to_hwb_string());
+        assert_eq!("hwb(91 54.1% 38.3%)", c.to_hwb_string());
 
         let c1 = Color::from_hwb(91.3, 0.541, 0.383172);
-        assert_eq!("hwb(91.3, 54.1%, 38.3172%)", c1.to_hwb_string());
+        assert_eq!("hwb(91.3 54.1% 38.3172%)", c1.to_hwb_string());
     }
 
     #[test]
     fn to_lab_string() {
         let c = Color::from_lab(41.0, 83.0, -93.0, 1.0);
-        assert_eq!("lab(41%, 83, -93)", c.to_lab_string());
+        assert_eq!("lab(41% 83 -93)", c.to_lab_string());
     }
 
     #[test]
     fn to_lch_string() {
         let c0 = Color::from_lch(52.0, 44.0, 271.0, 1.0);
-        assert_eq!("lch(52%, 44, 271)", c0.to_lch_string());
+        assert_eq!("lch(52% 44 271)", c0.to_lch_string());
 
         let c1 = Color::from_lch(45.142857, 22.2222, 135.1415926, 1.0);
-        assert_eq!("lch(45.1429%, 22.2222, 135.142)", c1.to_lch_string());
+        assert_eq!("lch(45.1429% 22.2222 135.142)", c1.to_lch_string());
     }
 
     #[test]
