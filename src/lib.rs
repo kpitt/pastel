@@ -287,10 +287,11 @@ impl Color {
         let hsv100 = |v| { round_to(100.0 * v, 4) };
         let hsv = HSVA::from(self);
         format!(
-            "hsv({h}, {s}%, {v}%)",
+            "hsv({h} {s}% {v}%{alpha})",
             h = round_to(hsv.h, 3),
             s = hsv100(hsv.s),
             v = hsv100(hsv.v),
+            alpha = format_css_alpha(self.alpha)
         )
     }
 
@@ -508,10 +509,11 @@ impl Color {
         let rd = |v| { round_to(v, 4) };
         let luv = Luv::from(self);
         format!(
-            "luv({l}%, {u}, {v})",
+            "luv({l}% {u} {v}{alpha})",
             l = rd(luv.l),
             u = rd(luv.u),
             v = rd(luv.v),
+            alpha = format_css_alpha(self.alpha)
         )
     }
 
@@ -526,10 +528,11 @@ impl Color {
     pub fn to_lchuv_string(&self) -> String {
         let lch = LChuv::from(self);
         format!(
-            "lchuv({l}%, {c}, {h})",
+            "lchuv({l}% {c} {h}{alpha})",
             l = round_to(lch.l, 4),
             c = round_to(lch.c, 4),
             h = round_to(lch.h, 3),
+            alpha = format_css_alpha(self.alpha)
         )
     }
 
@@ -537,10 +540,11 @@ impl Color {
     pub fn to_hcl_string(&self) -> String {
         let lch = LChuv::from(self);
         format!(
-            "hcl({h}, {c}, {l}%)",
+            "hcl({h} {c} {l}%{alpha})",
             l = round_to(lch.l, 4),
             c = round_to(lch.c, 4),
             h = round_to(lch.h, 3),
+            alpha = format_css_alpha(self.alpha)
         )
     }
 
@@ -2271,10 +2275,16 @@ mod tests {
     #[test]
     fn to_hsv_string() {
         let c0 = Color::from_hsv(91.0, 0.541, 0.983);
-        assert_eq!("hsv(91, 54.1%, 98.3%)", c0.to_hsv_string());
+        assert_eq!("hsv(91 54.1% 98.3%)", c0.to_hsv_string());
 
         let c1 = Color::from_hsv(91.3, 0.541, 0.983172);
-        assert_eq!("hsv(91.3, 54.1%, 98.3172%)", c1.to_hsv_string());
+        assert_eq!("hsv(91.3 54.1% 98.3172%)", c1.to_hsv_string());
+    }
+
+    #[test]
+    fn to_hsv_string_alpha() {
+        let c = Color::from_hsva(45.0, 0.5, 0.25, 0.7);
+        assert_eq!("hsv(45 50% 25% / 0.7)", c.to_hsv_string());
     }
 
     #[test]
@@ -2322,25 +2332,43 @@ mod tests {
     #[test]
     fn to_luv_string() {
         let c0 = Color::from_luv(41.0, 23.0, -39.0, 1.0);
-        assert_eq!("luv(41%, 23, -39)", c0.to_luv_string());
+        assert_eq!("luv(41% 23 -39)", c0.to_luv_string());
 
         let c1 = Color::from_luv(41.414141, 23.232323, -39.939393, 1.0);
-        assert_eq!("luv(41.4141%, 23.2323, -39.9394)", c1.to_luv_string());
+        assert_eq!("luv(41.4141% 23.2323 -39.9394)", c1.to_luv_string());
+    }
+
+    #[test]
+    fn to_luv_string_alpha() {
+        let c = Color::from_luv(30.0, 60.0, -35.0, 0.25);
+        assert_eq!("luv(30% 60 -35 / 0.25)", c.to_luv_string());
     }
 
     #[test]
     fn to_lchuv_string() {
         let c0 = Color::from_lchuv(52.0, 44.0, 271.0, 1.0);
-        assert_eq!("lchuv(52%, 44, 271)", c0.to_lchuv_string());
+        assert_eq!("lchuv(52% 44 271)", c0.to_lchuv_string());
 
         let c1 = Color::from_lchuv(52.525252, 44.444444, 271.271271, 1.0);
-        assert_eq!("lchuv(52.5253%, 44.4444, 271.271)", c1.to_lchuv_string());
+        assert_eq!("lchuv(52.5253% 44.4444 271.271)", c1.to_lchuv_string());
+    }
+
+    #[test]
+    fn to_lchuv_string_alpha() {
+        let c = Color::from_lchuv(30.0, 70.0, 330.0, 0.5);
+        assert_eq!("lchuv(30% 70 330 / 0.5)", c.to_lchuv_string());
     }
 
     #[test]
     fn to_hcl_string() {
         let c = Color::from_lchuv(52.0, 44.0, 271.0, 1.0);
-        assert_eq!("hcl(271, 44, 52%)", c.to_hcl_string());
+        assert_eq!("hcl(271 44 52%)", c.to_hcl_string());
+    }
+
+    #[test]
+    fn to_hcl_string_alpha() {
+        let c = Color::from_lchuv(40.0, 110.0, 10.0, 0.4);
+        assert_eq!("hcl(10 110 40% / 0.4)", c.to_hcl_string());
     }
 
     #[test]
