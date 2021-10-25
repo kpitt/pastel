@@ -320,16 +320,17 @@ impl Color {
         CMYK::from(self)
     }
 
-    /// Format the color as a CMYK-representation string (`cmyk(0, 50, 100, 100)`).
+    /// Format the color as a CMYK-representation string (`device-cmyk(0 0.5 1 1)`).
     pub fn to_cmyk_string(&self) -> String {
-        let cmyk100 = |v| { round_to(100.0 * v, 4) };
+        let rd100 = |v| { round_to(100.0 * v, 4) };
         let cmyk = CMYK::from(self);
         format!(
-            "cmyk({c}, {m}, {y}, {k})",
-            c = cmyk100(cmyk.c),
-            m = cmyk100(cmyk.m),
-            y = cmyk100(cmyk.y),
-            k = cmyk100(cmyk.k),
+            "device-cmyk({c}% {m}% {y}% {k}%{alpha})",
+            c = rd100(cmyk.c),
+            m = rd100(cmyk.m),
+            y = rd100(cmyk.y),
+            k = rd100(cmyk.k),
+            alpha = format_css_alpha(self.alpha),
         )
     }
 
@@ -2492,33 +2493,42 @@ mod tests {
     #[test]
     fn to_cmyk_string() {
         let white = Color::from_rgb(255, 255, 255);
-        assert_eq!("cmyk(0, 0, 0, 0)", white.to_cmyk_string());
+        assert_eq!("device-cmyk(0% 0% 0% 0%)", white.to_cmyk_string());
 
         let black = Color::from_rgb(0, 0, 0);
-        assert_eq!("cmyk(0, 0, 0, 100)", black.to_cmyk_string());
+        assert_eq!("device-cmyk(0% 0% 0% 100%)", black.to_cmyk_string());
 
         let c = Color::from_rgb(19, 19, 1);
         assert_eq!(
-            "cmyk(0, 0, 94.7368, 92.549)",
+            "device-cmyk(0% 0% 94.7368% 92.549%)",
             c.to_cmyk_string()
         );
 
         let c1 = Color::from_rgb(55, 55, 55);
         assert_eq!(
-            "cmyk(0, 0, 0, 78.4314)",
+            "device-cmyk(0% 0% 0% 78.4314%)",
             c1.to_cmyk_string()
         );
 
         let c2 = Color::from_rgb(136, 117, 78);
         assert_eq!(
-            "cmyk(0, 13.9706, 42.6471, 46.6667)",
+            "device-cmyk(0% 13.9706% 42.6471% 46.6667%)",
             c2.to_cmyk_string()
         );
 
         let c3 = Color::from_rgb(143, 111, 76);
         assert_eq!(
-            "cmyk(0, 22.3776, 46.8531, 43.9216)",
+            "device-cmyk(0% 22.3776% 46.8531% 43.9216%)",
             c3.to_cmyk_string()
+        );
+    }
+
+    #[test]
+    fn to_cmyk_string_alpha() {
+        let c = Color::from_rgba_float(0.5, 0.0, 0.5, 0.8);
+        assert_eq!(
+            "device-cmyk(0% 100% 0% 50% / 0.8)",
+            c.to_cmyk_string()
         );
     }
 
