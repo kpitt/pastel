@@ -381,13 +381,22 @@ impl Color {
     /// Format the color as a RGB-representation string (`#fc0070`).
     pub fn to_rgb_hex_string(&self, leading_hash: bool) -> String {
         let rgba = self.to_rgba();
-        format!(
+        let hex = format!(
             "{}{:02x}{:02x}{:02x}",
             if leading_hash { "#" } else { "" },
             rgba.r,
             rgba.g,
             rgba.b
-        )
+        );
+        if self.alpha == 1.0 {
+            hex
+        } else {
+            format!(
+                "{h}{a:02x}",
+                h = hex,
+                a = (255.0 * self.alpha) as u8
+            )
+        }
     }
 
     /// Convert a `Color` to its red, green, blue and alpha values. All numbers are from the range
@@ -2270,6 +2279,13 @@ mod tests {
         let c = Color::from_rgb(255, 127, 4);
         assert_eq!("ff7f04", c.to_rgb_hex_string(false));
         assert_eq!("#ff7f04", c.to_rgb_hex_string(true));
+    }
+
+    #[test]
+    fn to_rgb_hex_string_alpha() {
+        let c = Color::from_rgba(255, 127, 4, 0.4);
+        assert_eq!("ff7f0466", c.to_rgb_hex_string(false));
+        assert_eq!("#ff7f0466", c.to_rgb_hex_string(true));
     }
 
     #[test]
