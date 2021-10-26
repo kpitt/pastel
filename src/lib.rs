@@ -282,7 +282,7 @@ impl Color {
         HSVA::from(self)
     }
 
-    /// Format the color as a HSV-representation string (`hsv(123, 50.3%, 80.1%)`).
+    /// Format the color as a HSV-representation string (`hsv(123 50.3% 80.1%)`).
     pub fn to_hsv_string(&self) -> String {
         let hsv100 = |v| { round_to(100.0 * v, 4) };
         let hsv = HSVA::from(self);
@@ -302,7 +302,7 @@ impl Color {
         HWBA::from(self)
     }
 
-    /// Format the color as a HWB-representation string (`hwb(123, 50.3%, 80.1%)`).
+    /// Format the color as a HWB-representation string (`hwb(123 50.3% 80.1%)`).
     pub fn to_hwb_string(&self) -> String {
         let rd100 = |v| { round_to(100.0 * v, 4) };
         let hwb = HWBA::from(self);
@@ -321,7 +321,7 @@ impl Color {
         CMYK::from(self)
     }
 
-    /// Format the color as a CMYK-representation string (`device-cmyk(0 0.5 1 1)`).
+    /// Format the color as a CMYK-representation string (`device-cmyk(0% 50% 100% 100%)`).
     pub fn to_cmyk_string(&self) -> String {
         let rd100 = |v| { round_to(100.0 * v, 4) };
         let cmyk = CMYK::from(self);
@@ -460,7 +460,7 @@ impl Color {
         XYZ::from(self)
     }
 
-    /// Format the color as a XYZ-representation string (`xyz(0.9504, 1, 1.0889)`).
+    /// Format the color as a XYZ-representation string (`color(xyz 0.9504 1 1.0889)`).
     pub fn to_xyz_string(&self) -> String {
         let rd = |v| { round_to(v, 6) };
         let xyz = XYZ::from(self);
@@ -488,7 +488,7 @@ impl Color {
         Lab::from(self)
     }
 
-    /// Format the color as a Lab-representation string (`lab(41%, 83, -93)`).
+    /// Format the color as a Lab-representation string (`lab(41% 83 -93)`).
     pub fn to_lab_string(&self) -> String {
         let rd = |v| { round_to(v, 4) };
         let lab = Lab::from(self);
@@ -508,7 +508,7 @@ impl Color {
         LCh::from(self)
     }
 
-    /// Format the color as a LCh-representation string (`lch(80.7%, 95.4, 126)`).
+    /// Format the color as a LCh-representation string (`lch(80.7% 95.4 126)`).
     pub fn to_lch_string(&self) -> String {
         let lch = LCh::from(self);
         format!(
@@ -527,7 +527,7 @@ impl Color {
         Luv::from(self)
     }
 
-    /// Format the color as a Luv-representation string (`luv(49%, 67, 10)`).
+    /// Format the color as a Luv-representation string (`luv(49% 67 10)`).
     pub fn to_luv_string(&self) -> String {
         let rd = |v| { round_to(v, 4) };
         let luv = Luv::from(self);
@@ -547,7 +547,7 @@ impl Color {
         LChuv::from(self)
     }
 
-    /// Format the color as a LCh(uv)-representation string (`lchuv(80.7%, 95.4, 126)`).
+    /// Format the color as a LCh(uv)-representation string (`lchuv(80.7% 95.4 126)`).
     pub fn to_lchuv_string(&self) -> String {
         let lch = LChuv::from(self);
         format!(
@@ -559,7 +559,7 @@ impl Color {
         )
     }
 
-    /// Format the color as a HCL-representation string (`hcl(126, 95.4, 80.7%)`).
+    /// Format the color as a HCL-representation string (`hcl(126 95.4 80.7%)`).
     pub fn to_hcl_string(&self) -> String {
         let lch = LChuv::from(self);
         format!(
