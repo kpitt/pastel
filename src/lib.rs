@@ -452,10 +452,11 @@ impl Color {
         let rd = |v| { round_to(v, 6) };
         let xyz = XYZ::from(self);
         format!(
-            "xyz({x}, {y}, {z})",
+            "color(xyz {x} {y} {z}{alpha})",
             x = rd(xyz.x),
             y = rd(xyz.y),
             z = rd(xyz.z),
+            alpha = format_css_alpha(self.alpha),
         )
     }
 
@@ -2316,6 +2317,24 @@ mod tests {
     fn to_hwb_string_alpha() {
         let c = Color::from_hwba(45.0, 0.5, 0.25, 0.7);
         assert_eq!("hwb(45 50% 25% / 0.7)", c.to_hwb_string());
+    }
+
+    #[test]
+    fn to_xyz_string() {
+        let d65 = Color::from_xyz(D65_XN, D65_YN, D65_ZN);
+        assert_eq!(
+            "color(xyz 0.95047 1 1.08883)",
+            d65.to_xyz_string()
+        );
+    }
+
+    #[test]
+    fn to_xyz_string_alpha() {
+        let d50 = Color::from_xyza(0.9642, 1.0, 0.8249, 0.369);
+        assert_eq!(
+            "color(xyz 0.9642 1 0.8249 / 0.369)",
+            d50.to_xyz_string()
+        );
     }
 
     #[test]
