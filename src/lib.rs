@@ -38,6 +38,16 @@ const D65_XN: Scalar = 0.950_470;
 const D65_YN: Scalar = 1.0;
 const D65_ZN: Scalar = 1.088_830;
 
+/// Formats an alpha value extension according to the CSS Color 4 serialization
+/// rules.  Returns an empty string if the alpha value is exactly 1.  Otherwise,
+/// returns the " / " separator followed by the alpha value as a number rounded
+/// to 4 decimal places.
+/// 
+/// See: https://www.w3.org/TR/css-color-4/#serializing-alpha-values
+fn format_css_alpha(a: Scalar) -> String {
+    if a == 1.0 { String::new() } else { format!(" / {}", round_to(a, 4)) }
+}
+
 impl Color {
     pub fn from_hsla(hue: Scalar, saturation: Scalar, lightness: Scalar, alpha: Scalar) -> Color {
         Self::from(&HSLA {
@@ -207,28 +217,36 @@ impl Color {
     }
 
     /// Format the color as a HSL-representation string (`hsl(123, 50.3%, 80.1%)`).
-    pub fn to_hsl_string(&self, format: Format) -> String {
+    pub fn to_hsl_string(&self) -> String {
         let hsl100 = |v| { round_to(100.0 * v, 4) };
         let hsl = HSLA::from(self);
-        format!(
-            "hsl({h},{space}{s}%,{space}{l}%)",
-            h = round_to(hsl.h, 3),
-            s = hsl100(hsl.s),
-            l = hsl100(hsl.l),
-            space = if format == Format::Spaces { " " } else { "" }
-        )
+        if self.alpha == 1.0 {
+            format!(
+                "hsl({h}, {s}%, {l}%)",
+                h = round_to(hsl.h, 3),
+                s = hsl100(hsl.s),
+                l = hsl100(hsl.l),
+            )
+        } else {
+            format!(
+                "hsla({h}, {s}%, {l}%, {alpha})",
+                h = round_to(hsl.h, 3),
+                s = hsl100(hsl.s),
+                l = hsl100(hsl.l),
+                alpha = round_to(self.alpha, 4),
+            )
+        }
     }
 
     /// Format the color as the shorter original HSL string for use with color
     /// block output.
-    pub fn to_hsl_string_short(&self, format: Format) -> String {
+    pub fn to_hsl_string_short(&self) -> String {
         let hsl = HSLA::from(self);
         format!(
-            "hsl({h},{space}{s}%,{space}{l}%)",
+            "hsl({h}, {s}%, {l}%)",
             h = hsl.h.round(),
             s = round_to(100.0 * hsl.s, 1),
             l = round_to(100.0 * hsl.l, 1),
-            space = if format == Format::Spaces { " " } else { "" }
         )
     }
 
@@ -239,15 +257,22 @@ impl Color {
     }
 
     /// Format the color as a RGB-representation string (`rgb(255, 127,  0)`).
-    pub fn to_rgb_string(&self, format: Format) -> String {
+    pub fn to_rgb_string(&self) -> String {
         let rgba = RGBA::<u8>::from(self);
-        format!(
-            "rgb({r},{space}{g},{space}{b})",
-            r = rgba.r,
-            g = rgba.g,
-            b = rgba.b,
-            space = if format == Format::Spaces { " " } else { "" }
-        )
+        if self.alpha == 1.0 {
+            format!("rgb({r}, {g}, {b})",
+                r = rgba.r,
+                g = rgba.g,
+                b = rgba.b,
+            )
+        } else {
+            format!("rgba({r}, {g}, {b}, {alpha})",
+                r = rgba.r,
+                g = rgba.g,
+                b = rgba.b,
+                alpha = round_to(self.alpha, 4)
+            )
+        }
     }
 
     /// Convert a `Color` to its hue, saturation, value/brightness and alpha values. The hue is given
@@ -257,16 +282,16 @@ impl Color {
         HSVA::from(self)
     }
 
-    /// Format the color as a HSV-representation string (`hsv(123, 50.3%, 80.1%)`).
-    pub fn to_hsv_string(&self, format: Format) -> String {
+    /// Format the color as a HSV-representation string (`hsv(123 50.3% 80.1%)`).
+    pub fn to_hsv_string(&self) -> String {
         let hsv100 = |v| { round_to(100.0 * v, 4) };
         let hsv = HSVA::from(self);
         format!(
-            "hsv({h},{space}{s}%,{space}{v}%)",
+            "hsv({h} {s}% {v}%{alpha})",
             h = round_to(hsv.h, 3),
             s = hsv100(hsv.s),
             v = hsv100(hsv.v),
-            space = if format == Format::Spaces { " " } else { "" }
+            alpha = format_css_alpha(self.alpha)
         )
     }
 
@@ -277,16 +302,16 @@ impl Color {
         HWBA::from(self)
     }
 
-    /// Format the color as a HWB-representation string (`hwb(123, 50.3%, 80.1%)`).
-    pub fn to_hwb_string(&self, format: Format) -> String {
+    /// Format the color as a HWB-representation string (`hwb(123 50.3% 80.1%)`).
+    pub fn to_hwb_string(&self) -> String {
         let rd100 = |v| { round_to(100.0 * v, 4) };
         let hwb = HWBA::from(self);
         format!(
-            "hwb({h},{space}{w}%,{space}{b}%)",
+            "hwb({h} {w}% {b}%{alpha})",
             h = round_to(hwb.h, 3),
             w = rd100(hwb.w),
             b = rd100(hwb.b),
-            space = if format == Format::Spaces { " " } else { "" }
+            alpha = format_css_alpha(self.alpha),
         )
     }
 
@@ -296,30 +321,51 @@ impl Color {
         CMYK::from(self)
     }
 
-    /// Format the color as a CMYK-representation string (`cmyk(0, 50, 100, 100)`).
-    pub fn to_cmyk_string(&self, format: Format) -> String {
-        let cmyk100 = |v| { round_to(100.0 * v, 4) };
+    /// Format the color as a CMYK-representation string (`device-cmyk(0% 50% 100% 100%)`).
+    pub fn to_cmyk_string(&self) -> String {
+        let rd100 = |v| { round_to(100.0 * v, 4) };
         let cmyk = CMYK::from(self);
         format!(
-            "cmyk({c},{space}{m},{space}{y},{space}{k})",
-            c = cmyk100(cmyk.c),
-            m = cmyk100(cmyk.m),
-            y = cmyk100(cmyk.y),
-            k = cmyk100(cmyk.k),
-            space = if format == Format::Spaces { " " } else { "" }
+            "device-cmyk({c}% {m}% {y}% {k}%{alpha})",
+            c = rd100(cmyk.c),
+            m = rd100(cmyk.m),
+            y = rd100(cmyk.y),
+            k = rd100(cmyk.k),
+            alpha = format_css_alpha(self.alpha),
         )
     }
 
-    /// Format the color as a floating point RGB-representation string (`rgb(1.0, 0.5,  0)`).
-    pub fn to_rgb_float_string(&self, format: Format) -> String {
+    /// Format the color as a floating point RGB-representation string
+    /// (`rgb(100%, 50%,  0%)`).
+    pub fn to_rgb_float_string(&self) -> String {
+        let rd100 = |v| { round_to(100.0 * v, 4) };
+        let rgba = RGBA::<f64>::from(self);
+        if self.alpha == 1.0 {
+            format!("rgb({r}%, {g}%, {b}%)",
+                r = rd100(rgba.r),
+                g = rd100(rgba.g),
+                b = rd100(rgba.b),
+            )
+        } else {
+            format!("rgba({r}%, {g}%, {b}%, {alpha})",
+                r = rd100(rgba.r),
+                g = rd100(rgba.g),
+                b = rd100(rgba.b),
+                alpha = round_to(self.alpha, 4)
+            )
+        }
+    }
+
+    /// Format the color as a CSS `color()` string in the sRGB color space
+    /// (`color(srgb 1 0.5 0)`).
+    pub fn to_color_srgb_string(&self) -> String {
         let rd = |v| { round_to(v, 6) };
         let rgba = RGBA::<f64>::from(self);
-        format!(
-            "rgb({r},{space}{g},{space}{b})",
+        format!("color(srgb {r} {g} {b}{alpha})",
             r = rd(rgba.r),
             g = rd(rgba.g),
             b = rd(rgba.b),
-            space = if format == Format::Spaces { " " } else { "" }
+            alpha = format_css_alpha(self.alpha),
         )
     }
 
@@ -348,13 +394,22 @@ impl Color {
     /// Format the color as a RGB-representation string (`#fc0070`).
     pub fn to_rgb_hex_string(&self, leading_hash: bool) -> String {
         let rgba = self.to_rgba();
-        format!(
+        let hex = format!(
             "{}{:02x}{:02x}{:02x}",
             if leading_hash { "#" } else { "" },
             rgba.r,
             rgba.g,
             rgba.b
-        )
+        );
+        if self.alpha == 1.0 {
+            hex
+        } else {
+            format!(
+                "{h}{a:02x}",
+                h = hex,
+                a = (255.0 * self.alpha) as u8
+            )
+        }
     }
 
     /// Convert a `Color` to its red, green, blue and alpha values. All numbers are from the range
@@ -405,16 +460,16 @@ impl Color {
         XYZ::from(self)
     }
 
-    /// Format the color as a XYZ-representation string (`XYZ(0.9504, 1, 1.0889)`).
-    pub fn to_xyz_string(&self, format: Format) -> String {
+    /// Format the color as a XYZ-representation string (`color(xyz 0.9504 1 1.0889)`).
+    pub fn to_xyz_string(&self) -> String {
         let rd = |v| { round_to(v, 6) };
         let xyz = XYZ::from(self);
         format!(
-            "XYZ({x},{space}{y},{space}{z})",
+            "color(xyz {x} {y} {z}{alpha})",
             x = rd(xyz.x),
             y = rd(xyz.y),
             z = rd(xyz.z),
-            space = if format == Format::Spaces { " " } else { "" }
+            alpha = format_css_alpha(self.alpha),
         )
     }
 
@@ -433,16 +488,16 @@ impl Color {
         Lab::from(self)
     }
 
-    /// Format the color as a Lab-representation string (`Lab(41, 83, -93)`).
-    pub fn to_lab_string(&self, format: Format) -> String {
+    /// Format the color as a Lab-representation string (`lab(41% 83 -93)`).
+    pub fn to_lab_string(&self) -> String {
         let rd = |v| { round_to(v, 4) };
         let lab = Lab::from(self);
         format!(
-            "Lab({l},{space}{a},{space}{b})",
+            "lab({l}% {a} {b}{alpha})",
             l = rd(lab.l),
             a = rd(lab.a),
             b = rd(lab.b),
-            space = if format == Format::Spaces { " " } else { "" }
+            alpha = format_css_alpha(self.alpha),
         )
     }
 
@@ -453,15 +508,15 @@ impl Color {
         LCh::from(self)
     }
 
-    /// Format the color as a LCh-representation string (`LCh(80.7, 95.4, 126)`).
-    pub fn to_lch_string(&self, format: Format) -> String {
+    /// Format the color as a LCh-representation string (`lch(80.7% 95.4 126)`).
+    pub fn to_lch_string(&self) -> String {
         let lch = LCh::from(self);
         format!(
-            "LCh({l},{space}{c},{space}{h})",
+            "lch({l}% {c} {h}{alpha})",
             l = round_to(lch.l, 4),
             c = round_to(lch.c, 4),
             h = round_to(lch.h, 3),
-            space = if format == Format::Spaces { " " } else { "" }
+            alpha = format_css_alpha(self.alpha),
         )
     }
 
@@ -472,16 +527,16 @@ impl Color {
         Luv::from(self)
     }
 
-    /// Format the color as a Luv-representation string (`Luv(49, 67, 10)`).
-    pub fn to_luv_string(&self, format: Format) -> String {
+    /// Format the color as a Luv-representation string (`luv(49% 67 10)`).
+    pub fn to_luv_string(&self) -> String {
         let rd = |v| { round_to(v, 4) };
         let luv = Luv::from(self);
         format!(
-            "Luv({l},{space}{u},{space}{v})",
+            "luv({l}% {u} {v}{alpha})",
             l = rd(luv.l),
             u = rd(luv.u),
             v = rd(luv.v),
-            space = if format == Format::Spaces { " " } else { "" }
+            alpha = format_css_alpha(self.alpha)
         )
     }
 
@@ -492,27 +547,27 @@ impl Color {
         LChuv::from(self)
     }
 
-    /// Format the color as a LCh(uv)-representation string (`LChuv(80.7, 95.4, 126)`).
-    pub fn to_lchuv_string(&self, format: Format) -> String {
+    /// Format the color as a LCh(uv)-representation string (`lchuv(80.7% 95.4 126)`).
+    pub fn to_lchuv_string(&self) -> String {
         let lch = LChuv::from(self);
         format!(
-            "LChuv({l},{space}{c},{space}{h})",
+            "lchuv({l}% {c} {h}{alpha})",
             l = round_to(lch.l, 4),
             c = round_to(lch.c, 4),
             h = round_to(lch.h, 3),
-            space = if format == Format::Spaces { " " } else { "" }
+            alpha = format_css_alpha(self.alpha)
         )
     }
 
-    /// Format the color as a HCL-representation string (`HCL(126, 95.4, 80.7)`).
-    pub fn to_hcl_string(&self, format: Format) -> String {
+    /// Format the color as a HCL-representation string (`hcl(126 95.4 80.7%)`).
+    pub fn to_hcl_string(&self) -> String {
         let lch = LChuv::from(self);
         format!(
-            "HCL({h},{space}{c},{space}{l})",
+            "hcl({h} {c} {l}%{alpha})",
             l = round_to(lch.l, 4),
             c = round_to(lch.c, 4),
             h = round_to(lch.h, 3),
-            space = if format == Format::Spaces { " " } else { "" }
+            alpha = format_css_alpha(self.alpha)
         )
     }
 
@@ -1676,12 +1731,6 @@ pub enum ColorblindnessType {
     Tritanopia,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum Format {
-    Spaces,
-    NoSpaces,
-}
-
 /// The representation of a color stop for a `ColorScale`.
 /// The position defines where the color is placed from left (0.0) to right (1.0).
 #[derive(Debug, Clone)]
@@ -2205,33 +2254,59 @@ mod tests {
     #[test]
     fn to_hsl_string() {
         let c = Color::from_hsl(91.35, 0.5415, 0.98314);
-        assert_eq!("hsl(91.35, 54.15%, 98.314%)", c.to_hsl_string(Format::Spaces));
-        assert_eq!("hsl(91, 54.1%, 98.3%)", c.to_hsl_string_short(Format::Spaces));
+        assert_eq!("hsl(91.35, 54.15%, 98.314%)", c.to_hsl_string());
+        assert_eq!("hsl(91, 54.1%, 98.3%)", c.to_hsl_string_short());
+
+        let c1 = Color::from_hsla(91.3, 0.542, 0.983, 0.4);
+        assert_eq!("hsla(91.3, 54.2%, 98.3%, 0.4)", c1.to_hsl_string());
     }
 
     #[test]
     fn to_rgb_string() {
         let c = Color::from_rgb(255, 127, 4);
-        assert_eq!("rgb(255, 127, 4)", c.to_rgb_string(Format::Spaces));
+        assert_eq!("rgb(255, 127, 4)", c.to_rgb_string());
+
+        let c1 = Color::from_rgba(255, 127, 4, 0.75);
+        assert_eq!("rgba(255, 127, 4, 0.75)", c1.to_rgb_string());
     }
 
     #[test]
     fn to_rgb_float_string() {
+        assert_eq!("rgb(0%, 0%, 0%)", Color::black().to_rgb_float_string());
         assert_eq!(
-            "rgb(0, 0, 0)",
-            Color::black().to_rgb_float_string(Format::Spaces)
+            "rgb(100%, 100%, 100%)",
+            Color::white().to_rgb_float_string()
         );
 
+        let c = Color::from_rgb_float(0.123, 0.456, 0.789);
+        assert_eq!("rgb(12.3%, 45.6%, 78.9%)", c.to_rgb_float_string());
+
+        let c1 = Color::from_rgba_float(0.4, 0.2, 0.6, 0.8);
+        assert_eq!("rgba(40%, 20%, 60%, 0.8)", c1.to_rgb_float_string());
+
+        // values rounded to negative zero should format as "0%", nor "-0%"
+        let e = -1.0 / 1.0e10;
+        let c2 = Color::from_rgb_float(0.75, 0.5, e);
+        assert_eq!("rgb(75%, 50%, 0%)", c2.to_rgb_float_string());
+    }
+    
+    #[test]
+    fn to_color_srgb_string() {
+        assert_eq!("color(srgb 0 0 0)", Color::black().to_color_srgb_string());
+        assert_eq!("color(srgb 1 1 1)", Color::white().to_color_srgb_string());
         assert_eq!(
-            "rgb(1, 1, 1)",
-            Color::white().to_rgb_float_string(Format::Spaces)
+            "color(srgb 0.501961 0 0.501961)",
+            Color::purple().to_color_srgb_string()
         );
 
-        let c = Color::from_rgb_float(0.12, 0.45, 0.78);
-        assert_eq!(
-            "rgb(0.12, 0.45, 0.78)",
-            c.to_rgb_float_string(Format::Spaces)
-        );
+        let c = Color::from_rgb_float(0.123, 0.456, 0.789);
+        assert_eq!("color(srgb 0.123 0.456 0.789)", c.to_color_srgb_string());
+    }
+    
+    #[test]
+    fn to_color_srgb_string_alpha() {
+        let c = Color::from_rgba_float(0.4, 0.2, 0.6, 0.8);
+        assert_eq!("color(srgb 0.4 0.2 0.6 / 0.8)", c.to_color_srgb_string());
     }
 
     #[test]
@@ -2242,77 +2317,127 @@ mod tests {
     }
 
     #[test]
+    fn to_rgb_hex_string_alpha() {
+        let c = Color::from_rgba(255, 127, 4, 0.4);
+        assert_eq!("ff7f0466", c.to_rgb_hex_string(false));
+        assert_eq!("#ff7f0466", c.to_rgb_hex_string(true));
+    }
+
+    #[test]
     fn to_hsv_string() {
         let c0 = Color::from_hsv(91.0, 0.541, 0.983);
-        assert_eq!("hsv(91, 54.1%, 98.3%)", c0.to_hsv_string(Format::Spaces));
-        assert_eq!("hsv(91,54.1%,98.3%)", c0.to_hsv_string(Format::NoSpaces));
+        assert_eq!("hsv(91 54.1% 98.3%)", c0.to_hsv_string());
 
         let c1 = Color::from_hsv(91.3, 0.541, 0.983172);
-        assert_eq!(
-            "hsv(91.3, 54.1%, 98.3172%)",
-            c1.to_hsv_string(Format::Spaces)
-        );
+        assert_eq!("hsv(91.3 54.1% 98.3172%)", c1.to_hsv_string());
+    }
+
+    #[test]
+    fn to_hsv_string_alpha() {
+        let c = Color::from_hsva(45.0, 0.5, 0.25, 0.7);
+        assert_eq!("hsv(45 50% 25% / 0.7)", c.to_hsv_string());
     }
 
     #[test]
     fn to_hwb_string() {
         let c = Color::from_hwb(91.0, 0.541, 0.383);
-        assert_eq!("hwb(91, 54.1%, 38.3%)", c.to_hwb_string(Format::Spaces));
-        assert_eq!("hwb(91,54.1%,38.3%)", c.to_hwb_string(Format::NoSpaces));
+        assert_eq!("hwb(91 54.1% 38.3%)", c.to_hwb_string());
 
         let c1 = Color::from_hwb(91.3, 0.541, 0.383172);
+        assert_eq!("hwb(91.3 54.1% 38.3172%)", c1.to_hwb_string());
+    }
+
+    #[test]
+    fn to_hwb_string_alpha() {
+        let c = Color::from_hwba(45.0, 0.5, 0.25, 0.7);
+        assert_eq!("hwb(45 50% 25% / 0.7)", c.to_hwb_string());
+    }
+
+    #[test]
+    fn to_xyz_string() {
+        let d65 = Color::from_xyz(D65_XN, D65_YN, D65_ZN);
         assert_eq!(
-            "hwb(91.3, 54.1%, 38.3172%)",
-            c1.to_hwb_string(Format::Spaces)
+            "color(xyz 0.95047 1 1.08883)",
+            d65.to_xyz_string()
+        );
+    }
+
+    #[test]
+    fn to_xyz_string_alpha() {
+        let d50 = Color::from_xyza(0.9642, 1.0, 0.8249, 0.369);
+        assert_eq!(
+            "color(xyz 0.9642 1 0.8249 / 0.369)",
+            d50.to_xyz_string()
         );
     }
 
     #[test]
     fn to_lab_string() {
         let c = Color::from_lab(41.0, 83.0, -93.0, 1.0);
-        assert_eq!("Lab(41, 83, -93)", c.to_lab_string(Format::Spaces));
+        assert_eq!("lab(41% 83 -93)", c.to_lab_string());
+    }
+
+    #[test]
+    fn to_lab_string_alpha() {
+        let c = Color::from_lab(30.0, 60.0, -35.0, 0.25);
+        assert_eq!("lab(30% 60 -35 / 0.25)", c.to_lab_string());
     }
 
     #[test]
     fn to_lch_string() {
-        let c0 = Color::from_lch(52.0, 44.0, 271.0, 1.0);
-        assert_eq!("LCh(52, 44, 271)", c0.to_lch_string(Format::Spaces));
+        let c = Color::from_lch(52.0, 44.0, 271.0, 1.0);
+        assert_eq!("lch(52% 44 271)", c.to_lch_string());
 
         let c1 = Color::from_lch(45.142857, 22.2222, 135.1415926, 1.0);
-        assert_eq!(
-            "LCh(45.1429, 22.2222, 135.142)",
-            c1.to_lch_string(Format::Spaces)
-        );
+        assert_eq!("lch(45.1429% 22.2222 135.142)", c1.to_lch_string());
+    }
+
+    #[test]
+    fn to_lch_string_alpha() {
+        let c = Color::from_lch(30.0, 70.0, 330.0, 0.5);
+        assert_eq!("lch(30% 70 330 / 0.5)", c.to_lch_string());
     }
 
     #[test]
     fn to_luv_string() {
         let c0 = Color::from_luv(41.0, 23.0, -39.0, 1.0);
-        assert_eq!("Luv(41, 23, -39)", c0.to_luv_string(Format::Spaces));
+        assert_eq!("luv(41% 23 -39)", c0.to_luv_string());
 
         let c1 = Color::from_luv(41.414141, 23.232323, -39.939393, 1.0);
-        assert_eq!(
-            "Luv(41.4141, 23.2323, -39.9394)",
-            c1.to_luv_string(Format::Spaces)
-        );
+        assert_eq!("luv(41.4141% 23.2323 -39.9394)", c1.to_luv_string());
+    }
+
+    #[test]
+    fn to_luv_string_alpha() {
+        let c = Color::from_luv(30.0, 60.0, -35.0, 0.25);
+        assert_eq!("luv(30% 60 -35 / 0.25)", c.to_luv_string());
     }
 
     #[test]
     fn to_lchuv_string() {
         let c0 = Color::from_lchuv(52.0, 44.0, 271.0, 1.0);
-        assert_eq!("LChuv(52, 44, 271)", c0.to_lchuv_string(Format::Spaces));
+        assert_eq!("lchuv(52% 44 271)", c0.to_lchuv_string());
 
         let c1 = Color::from_lchuv(52.525252, 44.444444, 271.271271, 1.0);
-        assert_eq!(
-            "LChuv(52.5253, 44.4444, 271.271)",
-            c1.to_lchuv_string(Format::Spaces)
-        );
+        assert_eq!("lchuv(52.5253% 44.4444 271.271)", c1.to_lchuv_string());
+    }
+
+    #[test]
+    fn to_lchuv_string_alpha() {
+        let c = Color::from_lchuv(30.0, 70.0, 330.0, 0.5);
+        assert_eq!("lchuv(30% 70 330 / 0.5)", c.to_lchuv_string());
     }
 
     #[test]
     fn to_hcl_string() {
         let c = Color::from_lchuv(52.0, 44.0, 271.0, 1.0);
-        assert_eq!("HCL(271, 44, 52)", c.to_hcl_string(Format::Spaces));
+        assert_eq!("hcl(271 44 52%)", c.to_hcl_string());
+    }
+
+    #[test]
+    fn to_hcl_string_alpha() {
+        let c = Color::from_lchuv(40.0, 110.0, 10.0, 0.4);
+        assert_eq!("hcl(10 110 40% / 0.4)", c.to_hcl_string());
     }
 
     #[test]
@@ -2465,33 +2590,42 @@ mod tests {
     #[test]
     fn to_cmyk_string() {
         let white = Color::from_rgb(255, 255, 255);
-        assert_eq!("cmyk(0, 0, 0, 0)", white.to_cmyk_string(Format::Spaces));
+        assert_eq!("device-cmyk(0% 0% 0% 0%)", white.to_cmyk_string());
 
         let black = Color::from_rgb(0, 0, 0);
-        assert_eq!("cmyk(0, 0, 0, 100)", black.to_cmyk_string(Format::Spaces));
+        assert_eq!("device-cmyk(0% 0% 0% 100%)", black.to_cmyk_string());
 
         let c = Color::from_rgb(19, 19, 1);
         assert_eq!(
-            "cmyk(0, 0, 94.7368, 92.549)",
-            c.to_cmyk_string(Format::Spaces)
+            "device-cmyk(0% 0% 94.7368% 92.549%)",
+            c.to_cmyk_string()
         );
 
         let c1 = Color::from_rgb(55, 55, 55);
         assert_eq!(
-            "cmyk(0, 0, 0, 78.4314)",
-            c1.to_cmyk_string(Format::Spaces)
+            "device-cmyk(0% 0% 0% 78.4314%)",
+            c1.to_cmyk_string()
         );
 
         let c2 = Color::from_rgb(136, 117, 78);
         assert_eq!(
-            "cmyk(0, 13.9706, 42.6471, 46.6667)",
-            c2.to_cmyk_string(Format::Spaces)
+            "device-cmyk(0% 13.9706% 42.6471% 46.6667%)",
+            c2.to_cmyk_string()
         );
 
         let c3 = Color::from_rgb(143, 111, 76);
         assert_eq!(
-            "cmyk(0, 22.3776, 46.8531, 43.9216)",
-            c3.to_cmyk_string(Format::Spaces)
+            "device-cmyk(0% 22.3776% 46.8531% 43.9216%)",
+            c3.to_cmyk_string()
+        );
+    }
+
+    #[test]
+    fn to_cmyk_string_alpha() {
+        let c = Color::from_rgba_float(0.5, 0.0, 0.5, 0.8);
+        assert_eq!(
+            "device-cmyk(0% 100% 0% 50% / 0.8)",
+            c.to_cmyk_string()
         );
     }
 

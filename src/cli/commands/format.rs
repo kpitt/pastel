@@ -2,7 +2,6 @@ use crate::commands::prelude::*;
 use crate::utility::similar_colors;
 
 use pastel::ansi::Mode;
-use pastel::Format;
 
 pub struct FormatCommand;
 
@@ -20,44 +19,45 @@ impl ColorCommand for FormatCommand {
         let replace_escape = |code: &str| code.replace("\x1b", "\\x1b");
 
         let output = match format_type.as_ref() {
-            "rgb" => color.to_rgb_string(Format::Spaces),
-            "rgb-float" => color.to_rgb_float_string(Format::Spaces),
+            "rgb" => color.to_rgb_string(),
+            "rgb-float" => color.to_rgb_float_string(),
+            "srgb" => color.to_color_srgb_string(),
             "hex" => color.to_rgb_hex_string(true),
-            "hsl" => color.to_hsl_string(Format::Spaces),
+            "hsl" => color.to_hsl_string(),
             "hsl-hue" => format!("{:.0}", color.to_hsla().h),
             "hsl-saturation" => format!("{:.4}", color.to_hsla().s),
             "hsl-lightness" => format!("{:.4}", color.to_hsla().l),
-            "hsv" => color.to_hsv_string(Format::Spaces),
+            "hsv" => color.to_hsv_string(),
             "hsv-hue" => format!("{:.0}", color.to_hsva().h),
             "hsv-saturation" => format!("{:.4}", color.to_hsva().s),
             "hsv-value" => format!("{:.4}", color.to_hsva().v),
-            "hwb" => color.to_hwb_string(Format::Spaces),
+            "hwb" => color.to_hwb_string(),
             "hwb-hue" => format!("{:.0}", color.to_hwba().h),
             "hwb-whiteness" => format!("{:.4}", color.to_hwba().w),
             "hwb-blackness" => format!("{:.4}", color.to_hwba().b),
-            "xyz" => color.to_xyz_string(Format::Spaces),
-            "lab" => color.to_lab_string(Format::Spaces),
+            "xyz" => color.to_xyz_string(),
+            "lab" => color.to_lab_string(),
             "lab-lightness" => format!("{:.2}", color.to_lab().l),
             "lab-a" => format!("{:.2}", color.to_lab().a),
             "lab-b" => format!("{:.2}", color.to_lab().b),
-            "lch" => color.to_lch_string(Format::Spaces),
+            "lch" => color.to_lch_string(),
             "lab-chroma" => format!("{:.2}", color.to_lch().c),
             "lab-hue" => format!("{:.2}", color.to_lch().h),
-            "luv" => color.to_luv_string(Format::Spaces),
+            "luv" => color.to_luv_string(),
             "luv-lightness" => format!("{:.2}", color.to_luv().l),
             "luv-u" => format!("{:.2}", color.to_luv().u),
             "luv-v" => format!("{:.2}", color.to_luv().v),
-            "lchuv" => color.to_lchuv_string(Format::Spaces),
+            "lchuv" => color.to_lchuv_string(),
             "luv-chroma" => format!("{:.2}", color.to_lchuv().c),
             "luv-hue" => format!("{:.2}", color.to_lchuv().h),
-            "hcl" => color.to_hcl_string(Format::Spaces),
+            "hcl" => color.to_hcl_string(),
             "luminance" => format!("{:.3}", color.luminance()),
             "brightness" => format!("{:.3}", color.brightness()),
             "ansi-8bit" => replace_escape(&color.to_ansi_sequence(Mode::Ansi8Bit)),
             "ansi-24bit" => replace_escape(&color.to_ansi_sequence(Mode::TrueColor)),
             "ansi-8bit-escapecode" => color.to_ansi_sequence(Mode::Ansi8Bit),
             "ansi-24bit-escapecode" => color.to_ansi_sequence(Mode::TrueColor),
-            "cmyk" => color.to_cmyk_string(Format::Spaces),
+            "cmyk" => color.to_cmyk_string(),
             "name" => similar_colors(color)[0].name.to_owned(),
             &_ => {
                 unreachable!("Unknown format type");
