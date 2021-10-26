@@ -356,6 +356,19 @@ impl Color {
         }
     }
 
+    /// Format the color as a CSS `color()` string in the sRGB color space
+    /// (`color(srgb 1 0.5 0)`).
+    pub fn to_color_srgb_string(&self) -> String {
+        let rd = |v| { round_to(v, 6) };
+        let rgba = RGBA::<f64>::from(self);
+        format!("color(srgb {r} {g} {b}{alpha})",
+            r = rd(rgba.r),
+            g = rd(rgba.g),
+            b = rd(rgba.b),
+            alpha = format_css_alpha(self.alpha),
+        )
+    }
+
     /// Format the color as a floating point representation that can be parsed
     /// as an input color with minimal loss of precision.  This is used as the
     /// output format when piping color values to another `pastel` command.
@@ -2260,8 +2273,10 @@ mod tests {
     #[test]
     fn to_rgb_float_string() {
         assert_eq!("rgb(0%, 0%, 0%)", Color::black().to_rgb_float_string());
-
-        assert_eq!("rgb(100%, 100%, 100%)", Color::white().to_rgb_float_string());
+        assert_eq!(
+            "rgb(100%, 100%, 100%)",
+            Color::white().to_rgb_float_string()
+        );
 
         let c = Color::from_rgb_float(0.123, 0.456, 0.789);
         assert_eq!("rgb(12.3%, 45.6%, 78.9%)", c.to_rgb_float_string());
@@ -2273,6 +2288,25 @@ mod tests {
         let e = -1.0 / 1.0e10;
         let c2 = Color::from_rgb_float(0.75, 0.5, e);
         assert_eq!("rgb(75%, 50%, 0%)", c2.to_rgb_float_string());
+    }
+    
+    #[test]
+    fn to_color_srgb_string() {
+        assert_eq!("color(srgb 0 0 0)", Color::black().to_color_srgb_string());
+        assert_eq!("color(srgb 1 1 1)", Color::white().to_color_srgb_string());
+        assert_eq!(
+            "color(srgb 0.501961 0 0.501961)",
+            Color::purple().to_color_srgb_string()
+        );
+
+        let c = Color::from_rgb_float(0.123, 0.456, 0.789);
+        assert_eq!("color(srgb 0.123 0.456 0.789)", c.to_color_srgb_string());
+    }
+    
+    #[test]
+    fn to_color_srgb_string_alpha() {
+        let c = Color::from_rgba_float(0.4, 0.2, 0.6, 0.8);
+        assert_eq!("color(srgb 0.4 0.2 0.6 / 0.8)", c.to_color_srgb_string());
     }
 
     #[test]
