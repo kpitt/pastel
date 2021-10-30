@@ -66,6 +66,14 @@ fn parse_angle(input: &str) -> IResult<&str, f64> {
     alt((parse_turns, parse_grads, parse_rads, parse_degrees))(input)
 }
 
+fn parse_css_alpha(input: &str) -> IResult<&str, f64> {
+    let (input, _) = space0(input)?;
+    let (input, _) = char('/')(input)?;
+    let (input, _) = space0(input)?;
+    let (input, alpha) = alt((parse_percentage, double))(input)?;
+    Ok((input, alpha))
+}
+
 fn parse_hex(input: &str) -> IResult<&str, Color> {
     let (input, _) = opt_hash_char(input)?;
     let (input, hex_chars) = hex_digit1(input)?;
@@ -317,6 +325,34 @@ fn parse_hcl<'a>(input: &'a str) -> IResult<&'a str, Color> {
     Ok((input, color))
 }
 
+fn parse_css_colorspace<'a>(input: &'a str) -> IResult<&'a str, Color> {
+    let (input, _) = tag_no_case("color(")(input)?;
+
+    let (input, color) = parse_xyz_colorspace(input)?;
+
+    let (input, _) = space0(input)?;
+    let (input, _) = char(')')(input)?;
+
+    Ok((input, color))
+}
+
+fn parse_xyz_colorspace<'a>(input: &'a str) -> IResult<&'a str, Color> {
+    let (input, _) = tag_no_case("xyz")(input)?;
+    let (input, _) = space1(input)?;
+    let (input, x) = double(input)?;
+    let (input, _) = space1(input)?;
+    let (input, y) = double(input)?;
+    let (input, _) = space1(input)?;
+    let (input, z) = double(input)?;
+    let (input, alpha) = opt(|input: &'a str| {
+        parse_css_alpha(input)
+    })(input)?;
+
+    let c = Color::from_xyza(x, y, z, alpha.unwrap_or(1.0));
+
+    Ok((input, c))
+}
+
 fn parse_named(input: &str) -> IResult<&str, Color> {
     let (input, color) = all_consuming(alpha1)(input)?;
     let nc = NAMED_COLORS
@@ -347,6 +383,7 @@ pub fn parse_color(input: &str) -> Option<Color> {
         all_consuming(parse_luv),
         all_consuming(parse_lchuv),
         all_consuming(parse_hcl),
+        all_consuming(parse_css_colorspace),
         all_consuming(parse_named),
     ))(input.trim())
     .ok()
@@ -1092,6 +1129,139 @@ fn parse_hcl_syntax() {
     assert_eq!(
         Some(Color::from_lchuv(60.0, 40.0, 150.0, 1.0)),
         parse_color("HCL(        150,  40,60   )")
+    );
+}
+
+#[test]
+fn parse_xyz_colorspace_syntax() {
+    assert_eq!(
+        Some(Color::from_xyz(0.3, 0.5, 0.7)),
+        parse_color("color(xyz 0.3 0.5 0.7)")
+    );
+
+    assert_eq!(
+        Some(Color::from_xyz(0.950_470, 1.0, 1.088_830)),
+        parse_color("color(xyz 0.950470 1 1.088830)")
+    );
+
+    assert_eq!(
+        Some(Color::from_xyz(-0.004, 1.007, -1.2222)),
+        parse_color("color(xyz -0.004 1.007000 -1.2222)")
+    );
+
+    // extra spaces are allowed
+    assert_eq!(
+        Some(Color::from_xyz(0.3, 0.5, 0.7)),
+        parse_color("color(xyz  0.3   0.5    0.7)")
+    );
+
+    // color space name is case-insensitive
+    assert_eq!(
+        Some(Color::from_xyz(0.3, 0.5, 0.7)),
+        parse_color("color(XYZ 0.3 0.5 0.7)")
+    );
+    assert_eq!(
+        Some(Color::from_xyz(0.3, 0.5, 0.7)),
+        parse_color("color(Xyz 0.3 0.5 0.7)")
+    );
+
+    // alpha is supported
+    assert_eq!(
+        Some(Color::from_xyza(0.3, 0.5, 0.7, 0.9)), 
+        parse_color("color(xyz 0.3 0.5 0.7 / 0.9)")
+    );
+
+    // not enough parameters
+    assert_eq!(None, parse_color("color(xyz 0.3 0.5)"));
+    // too many parameters
+    assert_eq!(None, parse_color("color(xyz 0.3 0.5 0.7 1.0)"));
+    // comma separators not allowed
+    assert_eq!(None, parse_color("color(xyz 0.3, 0.5, 0.7)"));
+    // percentages are disallowed
+    assert_eq!(None, parse_color("color(xyz 30% 50% 70%)"));
+}
+
+#[test]
+fn parse_colorspace_alpha() {
+    // This tests alternative formats for the alpha, which should be the same
+    // for any supported color space.  Alpha support should be tested for each
+    // color space, but this saves having to test all the alternative cases
+    // for every color space.
+
+    // spaces optional around alpha separator
+    assert_eq!(
+        Some(Color::from_xyza(0.3, 0.5, 0.7, 0.9)), 
+        parse_color("color(xyz 0.3 0.5 0.7 /0.9)")
+    );
+    assert_eq!(
+        Some(Color::from_xyza(0.3, 0.5, 0.7, 0.9)), 
+        parse_color("color(xyz 0.3 0.5 0.7/ 0.9)")
+    );
+    assert_eq!(
+        Some(Color::from_xyza(0.3, 0.5, 0.7, 0.9)), 
+        parse_color("color(xyz 0.3 0.5 0.7/0.9)")
+    );
+
+    // extra spaces allowed around alpha separator
+    assert_eq!(
+        Some(Color::from_xyza(0.3, 0.5, 0.7, 0.9)), 
+        parse_color("color(xyz 0.3 0.5 0.7    /  0.9)")
+    );
+    assert_eq!(
+        Some(Color::from_xyza(0.3, 0.5, 0.7, 0.9)), 
+        parse_color("color(xyz 0.3 0.5 0.7/      0.9)")
+    );
+    assert_eq!(
+        Some(Color::from_xyza(0.3, 0.5, 0.7, 0.9)), 
+        parse_color("color(xyz 0.3 0.5 0.7     /0.9)")
+    );
+
+    // alpha value can be a percentage
+    assert_eq!(
+        Some(Color::from_xyza(0.3, 0.5, 0.7, 0.9)), 
+        parse_color("color(xyz 0.3 0.5 0.7 / 90%)")
+    );
+
+    // explicit unit (opaque) alpha value is allowed
+    assert_eq!(
+        Some(Color::from_xyz(0.3, 0.5, 0.7)), 
+        parse_color("color(xyz 0.3 0.5 0.7 / 1)")
+    );
+
+    // explicit zero (transparent) alpha value is allowed
+    assert_eq!(
+        Some(Color::from_xyza(0.3, 0.5, 0.7, 0.0)), 
+        parse_color("color(xyz 0.3 0.5 0.7 / 0)")
+    );
+
+    // alpha separator with no value is invalid
+    assert_eq!(None, parse_color("color(xyz 0.3 0.5 0.7 /)"));
+}
+
+#[test]
+fn parse_colorspace_ci() {
+    // This tests case-insensitivity for the outer `color()` function only.
+    // Case-insensitivity for each color space name should be tested separately.
+
+    assert_eq!(
+        Some(Color::from_xyz(0.3, 0.5, 0.7)),
+        parse_color("Color(xyz 0.3 0.5 0.7)")
+    );
+    assert_eq!(
+        Some(Color::from_xyz(0.3, 0.5, 0.7)),
+        parse_color("COLOR(xyz 0.3 0.5 0.7)")
+    );
+    assert_eq!(
+        Some(Color::from_xyz(0.3, 0.5, 0.7)),
+        parse_color("cOLOr(xyz 0.3 0.5 0.7)")
+    );
+}
+
+#[test]
+fn parse_undefined_colorspace() {
+    assert_eq!(
+        None,
+        parse_color("color(qqqq 0.1 0.2 0.3 0.4)")
     );
 }
 
