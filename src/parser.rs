@@ -38,6 +38,11 @@ fn parse_percentage(input: &str) -> IResult<&str, f64> {
     Ok((input, percent / 100.))
 }
 
+fn parse_percentage_or_double(input: &str) -> IResult<&str, f64> {
+    let (input, value) = alt((parse_percentage, double))(input)?;
+    Ok((input, value))
+}
+
 fn parse_degrees(input: &str) -> IResult<&str, f64> {
     let (input, d) = double(input)?;
     let (input, _) = alt((tag("°"), tag("deg"), tag("")))(input)?;
@@ -70,7 +75,7 @@ fn parse_css_alpha(input: &str) -> IResult<&str, f64> {
     let (input, _) = space0(input)?;
     let (input, _) = char('/')(input)?;
     let (input, _) = space0(input)?;
-    let (input, alpha) = alt((parse_percentage, double))(input)?;
+    let (input, alpha) = parse_percentage_or_double(input)?;
     Ok((input, alpha))
 }
 
@@ -329,7 +334,10 @@ fn parse_css_colorspace<'a>(input: &'a str) -> IResult<&'a str, Color> {
     let (input, _) = tag_no_case("color(")(input)?;
     let (input, _) = space0(input)?;
 
-    let (input, color) = parse_xyz_colorspace(input)?;
+    let (input, color) = alt((
+        parse_xyz_colorspace,
+        parse_srgb_colorspace,
+    ))(input)?;
 
     let (input, _) = space0(input)?;
     let (input, _) = char(')')(input)?;
@@ -350,6 +358,23 @@ fn parse_xyz_colorspace<'a>(input: &'a str) -> IResult<&'a str, Color> {
     })(input)?;
 
     let c = Color::from_xyza(x, y, z, alpha.unwrap_or(1.0));
+
+    Ok((input, c))
+}
+
+fn parse_srgb_colorspace<'a>(input: &'a str) -> IResult<&'a str, Color> {
+    let (input, _) = tag_no_case("srgb")(input)?;
+    let (input, _) = space1(input)?;
+    let (input, r) = parse_percentage_or_double(input)?;
+    let (input, _) = space1(input)?;
+    let (input, g) = parse_percentage_or_double(input)?;
+    let (input, _) = space1(input)?;
+    let (input, b) = parse_percentage_or_double(input)?;
+    let (input, alpha) = opt(|input: &'a str| {
+        parse_css_alpha(input)
+    })(input)?;
+
+    let c = Color::from_rgba_float(r, g, b, alpha.unwrap_or(1.0));
 
     Ok((input, c))
 }
@@ -1180,6 +1205,59 @@ fn parse_xyz_colorspace_syntax() {
     assert_eq!(None, parse_color("color(xyz 0.3, 0.5, 0.7)"));
     // percentages are disallowed
     assert_eq!(None, parse_color("color(xyz 30% 50% 70%)"));
+}
+
+#[test]
+fn parse_srgb_colorspace_syntax() {
+    assert_eq!(
+        Some(Color::from_rgb_float(0.3, 0.5, 0.7)),
+        parse_color("color(srgb 0.3 0.5 0.7)")
+    );
+
+    // percentages are supported
+    assert_eq!(
+        Some(Color::from_rgb_float(0.3, 0.5, 0.7)),
+        parse_color("color(srgb 30% 50% 70%)")
+    );
+
+    // extra spaces are allowed
+    assert_eq!(
+        Some(Color::from_rgb_float(0.3, 0.5, 0.7)),
+        parse_color("color(srgb  0.3   0.5    0.7)")
+    );
+
+    // color space name is case-insensitive
+    assert_eq!(
+        Some(Color::from_rgb_float(0.3, 0.5, 0.7)),
+        parse_color("color(sRGB 0.3 0.5 0.7)")
+    );
+    assert_eq!(
+        Some(Color::from_rgb_float(0.3, 0.5, 0.7)),
+        parse_color("color(Srgb 0.3 0.5 0.7)")
+    );
+
+    // alpha is supported
+    assert_eq!(
+        Some(Color::from_rgba_float(0.3, 0.5, 0.7, 0.1)), 
+        parse_color("color(srgb 0.3 0.5 0.7 / 0.1)")
+    );
+
+    // out-of-gamut values are allowed
+    assert_eq!(
+        Some(Color::from_rgb_float(0.3, 1.2, 0.7)),
+        parse_color("color(srgb 0.3 1.2 0.7)")
+    );
+    assert_eq!(
+        Some(Color::from_rgb_float(-0.1, 0.5, 0.7)),
+        parse_color("color(srgb -0.1 0.5 0.7)")
+    );
+
+    // not enough parameters
+    assert_eq!(None, parse_color("color(srgb 0.3 0.5)"));
+    // too many parameters
+    assert_eq!(None, parse_color("color(srgb 0.3 0.5 0.7 1.0)"));
+    // comma separators not allowed
+    assert_eq!(None, parse_color("color(srgb 0.3, 0.5, 0.7)"));
 }
 
 #[test]
