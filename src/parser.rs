@@ -327,6 +327,7 @@ fn parse_hcl<'a>(input: &'a str) -> IResult<&'a str, Color> {
 
 fn parse_css_colorspace<'a>(input: &'a str) -> IResult<&'a str, Color> {
     let (input, _) = tag_no_case("color(")(input)?;
+    let (input, _) = space0(input)?;
 
     let (input, color) = parse_xyz_colorspace(input)?;
 
@@ -1239,10 +1240,30 @@ fn parse_colorspace_alpha() {
 }
 
 #[test]
-fn parse_colorspace_ci() {
-    // This tests case-insensitivity for the outer `color()` function only.
-    // Case-insensitivity for each color space name should be tested separately.
+fn parse_color_function_syntax() {
+    // This tests some general alternative cases that apply to any `color()`
+    // function color space.
 
+    // spaces are allowed before color space name
+    assert_eq!(
+        Some(Color::from_xyz(0.3, 0.5, 0.7)),
+        parse_color("color(  xyz 0.3 0.5 0.7)")
+    );
+
+    // spaces are allowed after last channel value
+    assert_eq!(
+        Some(Color::from_xyz(0.3, 0.5, 0.7)),
+        parse_color("color(xyz 0.3 0.5 0.7  )")
+    );
+
+    // spaces are allowed after alpha value
+    assert_eq!(
+        Some(Color::from_xyza(0.3, 0.5, 0.7, 0.1)),
+        parse_color("color(xyz 0.3 0.5 0.7 / 0.1  )")
+    );
+
+    // case-insensitive color function name
+    // (note: color space names should be tested separately)
     assert_eq!(
         Some(Color::from_xyz(0.3, 0.5, 0.7)),
         parse_color("Color(xyz 0.3 0.5 0.7)")
