@@ -71,12 +71,14 @@ fn parse_angle(input: &str) -> IResult<&str, f64> {
     alt((parse_turns, parse_grads, parse_rads, parse_degrees))(input)
 }
 
-fn parse_css_alpha(input: &str) -> IResult<&str, f64> {
-    let (input, _) = space0(input)?;
-    let (input, _) = char('/')(input)?;
-    let (input, _) = space0(input)?;
-    let (input, alpha) = parse_percentage_or_double(input)?;
-    Ok((input, alpha))
+fn parse_css_alpha<'a>(input: &'a str) -> IResult<&'a str, f64> {
+    let (input, alpha) = opt(|input: &'a str| {
+        let (input, _) = space0(input)?;
+        let (input, _) = char('/')(input)?;
+        let (input, _) = space0(input)?;
+        parse_percentage_or_double(input)
+    })(input)?;
+    Ok((input, alpha.unwrap_or(1.0)))
 }
 
 fn parse_hex(input: &str) -> IResult<&str, Color> {
@@ -345,7 +347,7 @@ fn parse_css_colorspace<'a>(input: &'a str) -> IResult<&'a str, Color> {
     Ok((input, color))
 }
 
-fn parse_xyz_colorspace<'a>(input: &'a str) -> IResult<&'a str, Color> {
+fn parse_xyz_colorspace(input: &str) -> IResult<&str, Color> {
     let (input, _) = tag_no_case("xyz")(input)?;
     let (input, _) = space1(input)?;
     let (input, x) = double(input)?;
@@ -353,16 +355,14 @@ fn parse_xyz_colorspace<'a>(input: &'a str) -> IResult<&'a str, Color> {
     let (input, y) = double(input)?;
     let (input, _) = space1(input)?;
     let (input, z) = double(input)?;
-    let (input, alpha) = opt(|input: &'a str| {
-        parse_css_alpha(input)
-    })(input)?;
+    let (input, alpha) = parse_css_alpha(input)?;
 
-    let c = Color::from_xyza(x, y, z, alpha.unwrap_or(1.0));
+    let c = Color::from_xyza(x, y, z, alpha);
 
     Ok((input, c))
 }
 
-fn parse_srgb_colorspace<'a>(input: &'a str) -> IResult<&'a str, Color> {
+fn parse_srgb_colorspace(input: &str) -> IResult<&str, Color> {
     let (input, _) = tag_no_case("srgb")(input)?;
     let (input, _) = space1(input)?;
     let (input, r) = parse_percentage_or_double(input)?;
@@ -370,11 +370,9 @@ fn parse_srgb_colorspace<'a>(input: &'a str) -> IResult<&'a str, Color> {
     let (input, g) = parse_percentage_or_double(input)?;
     let (input, _) = space1(input)?;
     let (input, b) = parse_percentage_or_double(input)?;
-    let (input, alpha) = opt(|input: &'a str| {
-        parse_css_alpha(input)
-    })(input)?;
+    let (input, alpha) = parse_css_alpha(input)?;
 
-    let c = Color::from_rgba_float(r, g, b, alpha.unwrap_or(1.0));
+    let c = Color::from_rgba_float(r, g, b, alpha);
 
     Ok((input, c))
 }
