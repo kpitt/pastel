@@ -177,7 +177,7 @@ fn parse_hsv(input: &str) -> IResult<&str, Color> {
 }
 
 fn parse_hwb(input: &str) -> IResult<&str, Color> {
-    let (input, _) = alt((tag("hwb("), tag("hsb(")))(input)?;
+    let (input, _) = tag("hwb(")(input)?;
     let (input, _) = space0(input)?;
     let (input, h) = parse_angle(input)?;
     let (input, _) = parse_separator(input)?;
