@@ -108,7 +108,7 @@ fn parse_hex(input: &str) -> IResult<&str, Color> {
 }
 
 fn parse_numeric_rgb(input: &str) -> IResult<&str, Color> {
-    let (input, prefixed) = opt(tag("rgb("))(input)?;
+    let (input, prefixed) = opt(tag_no_case("rgb("))(input)?;
     let is_prefixed = prefixed.is_some();
     let (input, _) = space0(input)?;
     let (input, r) = double(input)?;
@@ -128,7 +128,7 @@ fn parse_numeric_rgb(input: &str) -> IResult<&str, Color> {
 }
 
 fn parse_percentage_rgb(input: &str) -> IResult<&str, Color> {
-    let (input, prefixed) = opt(tag("rgb("))(input)?;
+    let (input, prefixed) = opt(tag_no_case("rgb("))(input)?;
     let is_prefixed = prefixed.is_some();
     let (input, _) = space0(input)?;
     let (input, r) = parse_percentage(input)?;
@@ -145,7 +145,7 @@ fn parse_percentage_rgb(input: &str) -> IResult<&str, Color> {
 }
 
 fn parse_hsl(input: &str) -> IResult<&str, Color> {
-    let (input, _) = tag("hsl(")(input)?;
+    let (input, _) = tag_no_case("hsl(")(input)?;
     let (input, _) = space0(input)?;
     let (input, h) = parse_angle(input)?;
     let (input, _) = parse_separator(input)?;
@@ -161,7 +161,7 @@ fn parse_hsl(input: &str) -> IResult<&str, Color> {
 }
 
 fn parse_hsv(input: &str) -> IResult<&str, Color> {
-    let (input, _) = alt((tag("hsv("), tag("hsb(")))(input)?;
+    let (input, _) = alt((tag_no_case("hsv("), tag_no_case("hsb(")))(input)?;
     let (input, _) = space0(input)?;
     let (input, h) = parse_angle(input)?;
     let (input, _) = parse_separator(input)?;
@@ -177,7 +177,7 @@ fn parse_hsv(input: &str) -> IResult<&str, Color> {
 }
 
 fn parse_hwb(input: &str) -> IResult<&str, Color> {
-    let (input, _) = tag("hwb(")(input)?;
+    let (input, _) = tag_no_case("hwb(")(input)?;
     let (input, _) = space0(input)?;
     let (input, h) = parse_angle(input)?;
     let (input, _) = parse_separator(input)?;
@@ -503,6 +503,10 @@ fn parse_rgb_functional_syntax() {
         parse_color("rgb(100%,100%,-45%)")
     );
 
+    // case-insensitive
+    assert_eq!(Some(rgb(255, 8, 119)), parse_color("RGB(255, 8, 119)"));
+    assert_eq!(Some(rgb(255, 0, 153)), parse_color("RGB(100%, 0%, 60%)"));
+
     assert_eq!(None, parse_color("rgb(255,0)"));
     assert_eq!(None, parse_color("rgb(255,0,0"));
     assert_eq!(None, parse_color("rgb (256,0,0)"));
@@ -598,6 +602,12 @@ fn parse_hsl_syntax() {
         parse_color("hsl(0.125turn,20%,50%)")
     );
 
+    // case-insensitive
+    assert_eq!(
+        Some(Color::from_hsl(280.0, 0.2, 0.5)),
+        parse_color("HSL(280, 20%, 50%)")
+    );
+
     assert_eq!(None, parse_color("hsl(280,20%,50)"));
     assert_eq!(None, parse_color("hsl(280,20,50%)"));
     assert_eq!(None, parse_color("hsl(280%,20%,50%)"));
@@ -669,6 +679,12 @@ fn parse_hsv_syntax() {
         parse_color("hsv(0.125turn,20%,50%)")
     );
 
+    // case-insensitive
+    assert_eq!(
+        Some(Color::from_hsv(280.0, 0.2, 0.5)),
+        parse_color("HSV(280, 20%, 50%)")
+    );
+
     assert_eq!(None, parse_color("hsv(280,20%,50)"));
     assert_eq!(None, parse_color("hsv(280,20,50%)"));
     assert_eq!(None, parse_color("hsv(280%,20%,50%)"));
@@ -696,6 +712,12 @@ fn parse_hsb_syntax() {
     assert_eq!(
         Some(Color::from_hsv(270.0, 0.6, 0.7)),
         parse_color("hsb(270 60% 70%)")
+    );
+
+    // case-insensitive
+    assert_eq!(
+        Some(Color::from_hsv(280.0, 0.2, 0.5)),
+        parse_color("HSB(280, 20%, 50%)")
     );
 
     assert_eq!(None, parse_color("hsb(280,20%)"));
@@ -764,6 +786,12 @@ fn parse_hwb_syntax() {
     assert_eq!(
         Some(Color::from_hwb(45.0, 0.2, 0.5)),
         parse_color("hwb(0.125turn,20%,50%)")
+    );
+
+    // case-insensitive
+    assert_eq!(
+        Some(Color::from_hwb(280.0, 0.2, 0.5)),
+        parse_color("HWB(280, 20%, 50%)")
     );
 
     assert_eq!(None, parse_color("hwb(280,20%,50)"));
