@@ -71,6 +71,14 @@ fn parse_angle(input: &str) -> IResult<&str, f64> {
     alt((parse_turns, parse_grads, parse_rads, parse_degrees))(input)
 }
 
+fn parse_legacy_alpha<'a>(input: &'a str) -> IResult<&'a str, f64> {
+    let (input, alpha) = opt(|input: &'a str| {
+        let (input, _) = parse_separator(input)?;
+        parse_percentage_or_double(input)
+    })(input)?;
+    Ok((input, alpha.unwrap_or(1.0)))
+}
+
 fn parse_css_alpha<'a>(input: &'a str) -> IResult<&'a str, f64> {
     let (input, alpha) = opt(|input: &'a str| {
         let (input, _) = space0(input)?;
@@ -210,7 +218,7 @@ fn parse_gray(input: &str) -> IResult<&str, Color> {
     Ok((input, c))
 }
 
-fn parse_xyz<'a>(input: &'a str) -> IResult<&'a str, Color> {
+fn parse_xyz(input: &str) -> IResult<&str, Color> {
     let (input, _) = opt(tag_no_case("cie"))(input)?;
     let (input, _) = tag_no_case("xyz(")(input)?;
     let (input, _) = space0(input)?;
@@ -219,14 +227,11 @@ fn parse_xyz<'a>(input: &'a str) -> IResult<&'a str, Color> {
     let (input, y) = double(input)?;
     let (input, _) = parse_separator(input)?;
     let (input, z) = double(input)?;
-    let (input, alpha) = opt(|input: &'a str| {
-        let (input, _) = parse_separator(input)?;
-        double(input)
-    })(input)?;
+    let (input, alpha) = parse_legacy_alpha(input)?;
     let (input, _) = space0(input)?;
     let (input, _) = char(')')(input)?;
 
-    let c = Color::from_xyza(x, y, z, alpha.unwrap_or(1.0));
+    let c = Color::from_xyza(x, y, z, alpha);
 
     Ok((input, c))
 }
@@ -890,6 +895,36 @@ fn parse_xyz_syntax() {
     assert_eq!(
         Some(Color::from_xyz(-0.004, 1.007, -1.2222)),
         parse_color("ciexyz(-0.004, 1.007000, -1.2222)")
+    );
+}
+
+#[test]
+fn parse_xyz_alpha() {
+    assert_eq!(
+        Some(Color::from_xyza(0.3, 0.5, 0.7, 0.2)),
+        parse_color("xyz(0.3, 0.5, 0.7, 0.2)")
+    );
+    assert_eq!(
+        Some(Color::from_xyza(0.3, 0.5, 0.7, 0.2)), 
+        parse_color("xyz(0.3,0.5,0.7,0.2)")
+    );
+
+    assert_eq!(
+        Some(Color::from_xyza(0.3, 0.5, 0.7, 0.65)),
+        parse_color("xyz(0.3, 0.5, 0.7, 65%)")
+    );
+    assert_eq!(
+        Some(Color::from_xyza(0.3, 0.5, 0.7, 0.65)), 
+        parse_color("xyz(0.3,0.5,0.7,65%)")
+    );
+
+    assert_eq!(
+        Some(Color::from_xyza(0.3, 0.5, 0.7, 0.2)),
+        parse_color("xyz(0.3 0.5 0.7 0.2)")
+    );
+    assert_eq!(
+        Some(Color::from_xyza(0.3, 0.5, 0.7, 0.65)),
+        parse_color("xyz(0.3 0.5 0.7 65%)")
     );
 }
 
