@@ -532,6 +532,9 @@ fn parse_rgb_functional_syntax() {
     assert_eq!(Some(rgb(102, 0, 153)), parse_color("rgba(40%, 0%, 60%)"));
     assert_eq!(Some(rgb(102, 0, 153)), parse_color("rgba(40% 0% 60%)"));
 
+    // can't mix numbers and percentages
+    assert_eq!(None, parse_color("rgb(128, 80%, 255)"));
+
     assert_eq!(None, parse_color("rgb(255,0)"));
     assert_eq!(None, parse_color("rgb(255,0,0"));
     assert_eq!(None, parse_color("rgb (256,0,0)"));
@@ -1360,6 +1363,16 @@ fn parse_srgb_colorspace_syntax() {
     assert_eq!(
         Some(Color::from_rgb_float(0.3, 0.5, 0.7)),
         parse_color("color(srgb 30% 50% 70%)")
+    );
+
+    // numbers and percentages can be mixed
+    assert_eq!(
+        Some(Color::from_rgb_float(0.3, 0.5, 0.7)),
+        parse_color("color(srgb 30% 0.5 70%)")
+    );
+    assert_eq!(
+        Some(Color::from_rgb_float(0.3, 0.5, 0.7)),
+        parse_color("color(srgb 0.3 50% 0.7)")
     );
 
     // extra spaces are allowed
