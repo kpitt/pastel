@@ -108,7 +108,9 @@ fn parse_hex(input: &str) -> IResult<&str, Color> {
 }
 
 fn parse_numeric_rgb(input: &str) -> IResult<&str, Color> {
-    let (input, prefixed) = opt(tag_no_case("rgb("))(input)?;
+    let (input, prefixed) = opt(
+        alt((tag_no_case("rgb("), tag_no_case("rgba(")))
+    )(input)?;
     let is_prefixed = prefixed.is_some();
     let (input, _) = space0(input)?;
     let (input, r) = double(input)?;
@@ -128,7 +130,9 @@ fn parse_numeric_rgb(input: &str) -> IResult<&str, Color> {
 }
 
 fn parse_percentage_rgb(input: &str) -> IResult<&str, Color> {
-    let (input, prefixed) = opt(tag_no_case("rgb("))(input)?;
+    let (input, prefixed) = opt(
+        alt((tag_no_case("rgb("), tag_no_case("rgba(")))
+    )(input)?;
     let is_prefixed = prefixed.is_some();
     let (input, _) = space0(input)?;
     let (input, r) = parse_percentage(input)?;
@@ -145,7 +149,9 @@ fn parse_percentage_rgb(input: &str) -> IResult<&str, Color> {
 }
 
 fn parse_hsl(input: &str) -> IResult<&str, Color> {
-    let (input, _) = tag_no_case("hsl(")(input)?;
+    let (input, _) = opt(
+        alt((tag_no_case("hsl("), tag_no_case("hsla(")))
+    )(input)?;
     let (input, _) = space0(input)?;
     let (input, h) = parse_angle(input)?;
     let (input, _) = parse_separator(input)?;
@@ -507,6 +513,12 @@ fn parse_rgb_functional_syntax() {
     assert_eq!(Some(rgb(255, 8, 119)), parse_color("RGB(255, 8, 119)"));
     assert_eq!(Some(rgb(255, 0, 153)), parse_color("RGB(100%, 0%, 60%)"));
 
+    // `rgba` is equivalent to `rgb`
+    assert_eq!(Some(rgb(102, 0, 153)), parse_color("rgba(102, 0, 153)"));
+    assert_eq!(Some(rgb(102, 0, 153)), parse_color("rgba(102 0 153)"));
+    assert_eq!(Some(rgb(102, 0, 153)), parse_color("rgba(40%, 0%, 60%)"));
+    assert_eq!(Some(rgb(102, 0, 153)), parse_color("rgba(40% 0% 60%)"));
+
     assert_eq!(None, parse_color("rgb(255,0)"));
     assert_eq!(None, parse_color("rgb(255,0,0"));
     assert_eq!(None, parse_color("rgb (256,0,0)"));
@@ -606,6 +618,16 @@ fn parse_hsl_syntax() {
     assert_eq!(
         Some(Color::from_hsl(280.0, 0.2, 0.5)),
         parse_color("HSL(280, 20%, 50%)")
+    );
+
+    // `hsla` is equivalent to `hsl`
+    assert_eq!(
+        Some(Color::from_hsl(270.0, 0.6, 0.7)),
+        parse_color("hsla(270, 60%, 70%)")
+    );
+    assert_eq!(
+        Some(Color::from_hsl(270.0, 0.6, 0.7)),
+        parse_color("hsla(270 60% 70%)")
     );
 
     assert_eq!(None, parse_color("hsl(280,20%,50)"));
