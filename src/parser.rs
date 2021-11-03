@@ -18,6 +18,10 @@ fn rgb(r: u8, g: u8, b: u8) -> Color {
     Color::from_rgb(r, g, b)
 }
 
+fn rgba(r: u8, g: u8, b: u8, a: f64) -> Color {
+    Color::from_rgba(r, g, b, a)
+}
+
 fn comma_separated(input: &str) -> IResult<&str, &str> {
     let (input, _) = space0(input)?;
     let (input, _) = char(',')(input)?;
@@ -93,11 +97,29 @@ fn parse_hex(input: &str) -> IResult<&str, Color> {
     let (input, _) = opt_hash_char(input)?;
     let (input, hex_chars) = hex_digit1(input)?;
     match hex_chars.len() {
+        8 => {
+            let r = hex_to_u8_unsafe(&hex_chars[0..2]);
+            let g = hex_to_u8_unsafe(&hex_chars[2..4]);
+            let b = hex_to_u8_unsafe(&hex_chars[4..6]);
+            let a = hex_to_u8_unsafe(&hex_chars[6..8]);
+            Ok((input, rgba(r, g, b, (a as f64) / 255.0)))
+        }
         6 => {
             let r = hex_to_u8_unsafe(&hex_chars[0..2]);
             let g = hex_to_u8_unsafe(&hex_chars[2..4]);
             let b = hex_to_u8_unsafe(&hex_chars[4..6]);
             Ok((input, rgb(r, g, b)))
+        }
+        4 => {
+            let r = hex_to_u8_unsafe(&hex_chars[0..1]);
+            let g = hex_to_u8_unsafe(&hex_chars[1..2]);
+            let b = hex_to_u8_unsafe(&hex_chars[2..3]);
+            let a = hex_to_u8_unsafe(&hex_chars[3..4]);
+            let r = r * 16 + r;
+            let g = g * 16 + g;
+            let b = b * 16 + b;
+            let a = a * 16 + a;
+            Ok((input, rgba(r, g, b, (a as f64) / 255.0)))
         }
         3 => {
             let r = hex_to_u8_unsafe(&hex_chars[0..1]);
@@ -428,11 +450,6 @@ pub fn parse_color(input: &str) -> Option<Color> {
     .map(|(_, c)| c)
 }
 
-#[cfg(test)]
-fn rgba(r: u8, g: u8, b: u8, a: f64) -> Color {
-    Color::from_rgba(r, g, b, a)
-}
-
 #[test]
 fn parse_rgb_hex_syntax() {
     assert_eq!(Some(rgb(255, 0, 153)), parse_color("f09"));
@@ -450,8 +467,20 @@ fn parse_rgb_hex_syntax() {
     assert_eq!(None, parse_color("#12"));
     assert_eq!(None, parse_color("#12345"));
     assert_eq!(None, parse_color("#1234567"));
+    assert_eq!(None, parse_color("#123456789"));
     assert_eq!(None, parse_color("#hh0033"));
     assert_eq!(None, parse_color("#h03"));
+}
+
+#[test]
+fn parse_rgb_hex_syntax_alpha() {
+    assert_eq!(Some(rgba(255, 0, 153, 0.4)), parse_color("f096"));
+    assert_eq!(Some(rgba(255, 0, 153, 0.4)), parse_color("#f096"));
+
+    assert_eq!(Some(rgba(255, 0, 153, 0.8)), parse_color("#FF0099CC"));
+    assert_eq!(Some(rgba(255, 0, 153, 0.8)), parse_color("ff0099cc"));
+
+    assert_eq!(Some(rgba(255, 0, 119, 0.6)), parse_color("  #ff007799  "));
 }
 
 #[test]
