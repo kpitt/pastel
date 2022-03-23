@@ -487,7 +487,7 @@ fn parse_rgb_hex_syntax_alpha() {
 fn parse_rgb_functional_syntax() {
     let rgbf = |r, g, b| { Color::from_rgb_float(r, g, b) };
     let rgbf255 = |r, g, b| { rgbf(r / 255.0, g / 255.0, b / 255.0) };
-    
+
     assert_eq!(Some(rgb(255, 0, 153)), parse_color("rgb(255,0,153)"));
     assert_eq!(Some(rgb(255, 0, 153)), parse_color("rgb(255, 0, 153)"));
     assert_eq!(Some(rgb(255, 0, 153)), parse_color("rgb( 255 , 0 , 153 )"));
@@ -958,7 +958,7 @@ fn parse_xyz_syntax() {
         parse_color("xyz(0.3, 0.5, 0.7)")
     );
     assert_eq!(
-        Some(Color::from_xyz(0.3, 0.5, 0.7)), 
+        Some(Color::from_xyz(0.3, 0.5, 0.7)),
         parse_color("xyz(0.3,0.5,0.7)")
     );
     assert_eq!(
@@ -970,7 +970,7 @@ fn parse_xyz_syntax() {
         parse_color("xyz(0.3, 0.5, 0.7, 1.0)")
     );
     assert_eq!(
-        Some(Color::from_xyz(0.3, 0.5, 0.7)), 
+        Some(Color::from_xyz(0.3, 0.5, 0.7)),
         parse_color("xyz(0.3,0.5,0.7,1)")
     );
     assert_eq!(
@@ -996,7 +996,7 @@ fn parse_xyz_alpha() {
         parse_color("xyz(0.3, 0.5, 0.7, 0.2)")
     );
     assert_eq!(
-        Some(Color::from_xyza(0.3, 0.5, 0.7, 0.2)), 
+        Some(Color::from_xyza(0.3, 0.5, 0.7, 0.2)),
         parse_color("xyz(0.3,0.5,0.7,0.2)")
     );
 
@@ -1005,7 +1005,7 @@ fn parse_xyz_alpha() {
         parse_color("xyz(0.3, 0.5, 0.7, 65%)")
     );
     assert_eq!(
-        Some(Color::from_xyza(0.3, 0.5, 0.7, 0.65)), 
+        Some(Color::from_xyza(0.3, 0.5, 0.7, 0.65)),
         parse_color("xyz(0.3,0.5,0.7,65%)")
     );
 
@@ -1367,7 +1367,7 @@ fn parse_xyz_colorspace_syntax() {
 
     // alpha is supported
     assert_eq!(
-        Some(Color::from_xyza(0.3, 0.5, 0.7, 0.9)), 
+        Some(Color::from_xyza(0.3, 0.5, 0.7, 0.9)),
         parse_color("color(xyz 0.3 0.5 0.7 / 0.9)")
     );
 
@@ -1422,7 +1422,7 @@ fn parse_srgb_colorspace_syntax() {
 
     // alpha is supported
     assert_eq!(
-        Some(Color::from_rgba_float(0.3, 0.5, 0.7, 0.1)), 
+        Some(Color::from_rgba_float(0.3, 0.5, 0.7, 0.1)),
         parse_color("color(srgb 0.3 0.5 0.7 / 0.1)")
     );
 
@@ -1453,47 +1453,47 @@ fn parse_colorspace_alpha() {
 
     // spaces optional around alpha separator
     assert_eq!(
-        Some(Color::from_xyza(0.3, 0.5, 0.7, 0.9)), 
+        Some(Color::from_xyza(0.3, 0.5, 0.7, 0.9)),
         parse_color("color(xyz 0.3 0.5 0.7 /0.9)")
     );
     assert_eq!(
-        Some(Color::from_xyza(0.3, 0.5, 0.7, 0.9)), 
+        Some(Color::from_xyza(0.3, 0.5, 0.7, 0.9)),
         parse_color("color(xyz 0.3 0.5 0.7/ 0.9)")
     );
     assert_eq!(
-        Some(Color::from_xyza(0.3, 0.5, 0.7, 0.9)), 
+        Some(Color::from_xyza(0.3, 0.5, 0.7, 0.9)),
         parse_color("color(xyz 0.3 0.5 0.7/0.9)")
     );
 
     // extra spaces allowed around alpha separator
     assert_eq!(
-        Some(Color::from_xyza(0.3, 0.5, 0.7, 0.9)), 
+        Some(Color::from_xyza(0.3, 0.5, 0.7, 0.9)),
         parse_color("color(xyz 0.3 0.5 0.7    /  0.9)")
     );
     assert_eq!(
-        Some(Color::from_xyza(0.3, 0.5, 0.7, 0.9)), 
+        Some(Color::from_xyza(0.3, 0.5, 0.7, 0.9)),
         parse_color("color(xyz 0.3 0.5 0.7/      0.9)")
     );
     assert_eq!(
-        Some(Color::from_xyza(0.3, 0.5, 0.7, 0.9)), 
+        Some(Color::from_xyza(0.3, 0.5, 0.7, 0.9)),
         parse_color("color(xyz 0.3 0.5 0.7     /0.9)")
     );
 
     // alpha value can be a percentage
     assert_eq!(
-        Some(Color::from_xyza(0.3, 0.5, 0.7, 0.9)), 
+        Some(Color::from_xyza(0.3, 0.5, 0.7, 0.9)),
         parse_color("color(xyz 0.3 0.5 0.7 / 90%)")
     );
 
     // explicit unit (opaque) alpha value is allowed
     assert_eq!(
-        Some(Color::from_xyz(0.3, 0.5, 0.7)), 
+        Some(Color::from_xyz(0.3, 0.5, 0.7)),
         parse_color("color(xyz 0.3 0.5 0.7 / 1)")
     );
 
     // explicit zero (transparent) alpha value is allowed
     assert_eq!(
-        Some(Color::from_xyza(0.3, 0.5, 0.7, 0.0)), 
+        Some(Color::from_xyza(0.3, 0.5, 0.7, 0.0)),
         parse_color("color(xyz 0.3 0.5 0.7 / 0)")
     );
 
