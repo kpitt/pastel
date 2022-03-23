@@ -559,12 +559,6 @@ mod tests {
         assert_eq!(Some(rgb(255, 8, 119)), parse_color("RGB(255, 8, 119)"));
         assert_eq!(Some(rgb(255, 0, 153)), parse_color("RGB(100%, 0%, 60%)"));
 
-        // `rgba` is equivalent to `rgb`
-        assert_eq!(Some(rgb(102, 0, 153)), parse_color("rgba(102, 0, 153)"));
-        assert_eq!(Some(rgb(102, 0, 153)), parse_color("rgba(102 0 153)"));
-        assert_eq!(Some(rgb(102, 0, 153)), parse_color("rgba(40%, 0%, 60%)"));
-        assert_eq!(Some(rgb(102, 0, 153)), parse_color("rgba(40% 0% 60%)"));
-
         // can't mix numbers and percentages
         assert_eq!(None, parse_color("rgb(128, 80%, 255)"));
 
@@ -583,12 +577,12 @@ mod tests {
         );
         assert_eq!(
             Some(rgba(255, 0, 153, 0.375)),
-            parse_color("rgba(255, 0, 153, 37.5%)")
+            parse_color("rgb(255, 0, 153, 37.5%)")
         );
 
         assert_eq!(
             Some(rgba(255, 0, 153, 0.5)),
-            parse_color("rgba(100%, 0%, 60%, 0.5)")
+            parse_color("rgb(100%, 0%, 60%, 0.5)")
         );
         assert_eq!(
             Some(rgba(255, 0, 153, 0.5)),
@@ -601,7 +595,7 @@ mod tests {
         );
         assert_eq!(
             Some(rgba(255, 0, 153, 0.3)),
-            parse_color("rgba(100% 0% 60% 0.3)")
+            parse_color("rgb(100% 0% 60% 0.3)")
         );
     }
 
@@ -622,6 +616,35 @@ mod tests {
         assert_eq!(rgb(255, 0, 153), parse_color("255 0 153.0").unwrap());
 
         assert_eq!(Some(rgb(1, 2, 3)), parse_color("1,2,3"));
+    }
+
+    #[test]
+    fn css_rgba_fn_alias() {
+        // "rgba" is just a compatibility alias for "rgb", so both names
+        // should produce identical results.
+
+        assert_eq!(Some(rgb(102, 0, 153)), parse_color("rgba(102, 0, 153)"));
+        assert_eq!(Some(rgb(102, 0, 153)), parse_color("rgba(102 0 153)"));
+        assert_eq!(Some(rgb(102, 0, 153)), parse_color("rgba(40%, 0%, 60%)"));
+        assert_eq!(Some(rgb(102, 0, 153)), parse_color("rgba(40% 0% 60%)"));
+
+        assert_eq!(
+            parse_color("rgb(255, 0, 153, 0.375)"),
+            parse_color("rgba(255, 0, 153, 0.375)")
+        );
+        assert_eq!(
+            parse_color("rgb(255, 0, 153, 37.5%)"),
+            parse_color("rgba(255, 0, 153, 37.5%)")
+        );
+
+        assert_eq!(
+            parse_color("rgb(100%, 0%, 60%, 0.5)"),
+            parse_color("rgba(100%, 0%, 60%, 0.5)")
+        );
+        assert_eq!(
+            parse_color("rgb(100%, 0%, 60%, 50%)"),
+            parse_color("rgba(100%, 0%, 60%, 50%)")
+        );
     }
 
     #[test]
@@ -699,16 +722,6 @@ mod tests {
             parse_color("HSL(280, 20%, 50%)")
         );
 
-        // `hsla` is equivalent to `hsl`
-        assert_eq!(
-            Some(Color::from_hsl(270.0, 0.6, 0.7)),
-            parse_color("hsla(270, 60%, 70%)")
-        );
-        assert_eq!(
-            Some(Color::from_hsl(270.0, 0.6, 0.7)),
-            parse_color("hsla(270 60% 70%)")
-        );
-
         assert_eq!(None, parse_color("hsl(280,20%,50)"));
         assert_eq!(None, parse_color("hsl(280,20,50%)"));
         assert_eq!(None, parse_color("hsl(280%,20%,50%)"));
@@ -723,16 +736,40 @@ mod tests {
         );
         assert_eq!(
             Some(Color::from_hsla(280.0, 0.2, 0.5, 0.35)),
-            parse_color("hsla(280, 20%, 50%, 35%)")
+            parse_color("hsl(280, 20%, 50%, 35%)")
         );
 
         assert_eq!(
             Some(Color::from_hsla(280.0, 0.2, 0.5, 0.5)),
-            parse_color("hsla(280 20% 50% 0.5)")
+            parse_color("hsl(280 20% 50% 0.5)")
         );
         assert_eq!(
             Some(Color::from_hsla(280.0, 0.2, 0.5, 0.5)),
             parse_color("hsl(280 20% 50% 50%)")
+        );
+    }
+
+    #[test]
+    fn css_hsla_fn_alias() {
+        // "hsla" is just a compatibility alias for "hsl", so both names
+        // should produce identical results.
+
+        assert_eq!(
+            Some(Color::from_hsl(270.0, 0.6, 0.7)),
+            parse_color("hsla(270, 60%, 70%)")
+        );
+        assert_eq!(
+            Some(Color::from_hsl(270.0, 0.6, 0.7)),
+            parse_color("hsla(270 60% 70%)")
+        );
+
+        assert_eq!(
+            parse_color("hsl(280, 20%, 50%, 0.35)"),
+            parse_color("hsla(280, 20%, 50%, 0.35)")
+        );
+        assert_eq!(
+            parse_color("hsl(280, 20%, 50%, 35%)"),
+            parse_color("hsla(280, 20%, 50%, 35%)")
         );
     }
 
@@ -1337,7 +1374,7 @@ mod tests {
     }
 
     #[test]
-    fn parse_xyz_colorspace_syntax() {
+    fn css_color_fn_xyz() {
         assert_eq!(
             Some(Color::from_xyz(0.3, 0.5, 0.7)),
             parse_color("color(xyz 0.3 0.5 0.7)")
@@ -1386,7 +1423,7 @@ mod tests {
     }
 
     #[test]
-    fn parse_srgb_colorspace_syntax() {
+    fn css_color_fn_srgb() {
         assert_eq!(
             Some(Color::from_rgb_float(0.3, 0.5, 0.7)),
             parse_color("color(srgb 0.3 0.5 0.7)")
@@ -1449,11 +1486,11 @@ mod tests {
     }
 
     #[test]
-    fn parse_colorspace_alpha() {
-        // This tests alternative formats for the alpha, which should be the same
-        // for any supported color space.  Alpha support should be tested for each
-        // color space, but this saves having to test all the alternative cases
-        // for every color space.
+    fn css_color_fn_alpha() {
+        // Tests alternative `color` function alpha formats that apply to any
+        // valid color space.  Alpha support should be tested for each color
+        // space, but this saves having to test all the alternative cases in
+        // multiple places.
 
         // spaces optional around alpha separator
         assert_eq!(
@@ -1506,9 +1543,9 @@ mod tests {
     }
 
     #[test]
-    fn parse_color_function_syntax() {
-        // This tests some general alternative cases that apply to any `color()`
-        // function color space.
+    fn css_color_fn_whitespace() {
+        // Tests optional whitespace in the `color` function arguments
+        // (applies to any valid color space).
 
         // spaces are allowed before color space name
         assert_eq!(
@@ -1527,8 +1564,11 @@ mod tests {
             Some(Color::from_xyza(0.3, 0.5, 0.7, 0.1)),
             parse_color("color(xyz 0.3 0.5 0.7 / 0.1  )")
         );
+    }
 
-        // case-insensitive color function name
+    #[test]
+    fn css_color_fn_case_insensitive() {
+        // Tests case-insensitivity of the `color` function name.
         // (note: color space names should be tested separately)
         assert_eq!(
             Some(Color::from_xyz(0.3, 0.5, 0.7)),
@@ -1545,7 +1585,8 @@ mod tests {
     }
 
     #[test]
-    fn parse_undefined_colorspace() {
+    fn css_color_fn_invalid() {
+        // undefined color space
         assert_eq!(
             None,
             parse_color("color(qqqq 0.1 0.2 0.3 0.4)")
