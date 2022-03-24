@@ -454,6 +454,14 @@ pub fn parse_color(input: &str) -> Option<Color> {
 mod tests {
     use super::*;
 
+    fn rgbf(r: f64, g: f64, b: f64) -> Option<Color> {
+        Some(Color::from_rgb_float(r, g, b))
+    }
+
+    fn rgbf255(r: f64, g: f64, b: f64) -> Option<Color> {
+        rgbf(r / 255.0, g / 255.0, b / 255.0)
+    }
+
     #[test]
     fn parse_rgb_hex_syntax() {
         assert_eq!(Some(rgb(255, 0, 153)), parse_color("f09"));
@@ -488,28 +496,24 @@ mod tests {
     }
 
     #[test]
-    fn parse_rgb_functional_syntax() {
-        let rgbf = |r, g, b| { Color::from_rgb_float(r, g, b) };
-        let rgbf255 = |r, g, b| { rgbf(r / 255.0, g / 255.0, b / 255.0) };
-
+    fn css_rgb_legacy_fn() {
         assert_eq!(Some(rgb(255, 0, 153)), parse_color("rgb(255,0,153)"));
         assert_eq!(Some(rgb(255, 0, 153)), parse_color("rgb(255, 0, 153)"));
         assert_eq!(Some(rgb(255, 0, 153)), parse_color("rgb( 255 , 0 , 153 )"));
         assert_eq!(Some(rgb(255, 0, 153)), parse_color("rgb(255, 0, 153.0)"));
-        assert_eq!(Some(rgb(255, 0, 153)), parse_color("rgb(255 0 153)"));
 
         assert_eq!(
-            Some(rgbf255(255.0, 0.0, 119.085)),
+            rgbf255(255.0, 0.0, 119.085),
             parse_color("rgb(255,0,119.085)")
         );
-        assert_eq!(Some(rgbf(1.0, 0.0, 0.467)), parse_color("rgb(255,0,119.085)"));
+        assert_eq!(rgbf(1.0, 0.0, 0.467), parse_color("rgb(255,0,119.085)"));
 
         assert_eq!(
             Some(rgb(255, 8, 119)),
             parse_color("  rgb( 255  ,  8  ,  119 )  ")
         );
 
-        assert_eq!(Some(rgbf(1.0, 0.0, 0.498)), parse_color("rgb(100%,0%,49.8%)"));
+        assert_eq!(rgbf(1.0, 0.0, 0.498), parse_color("rgb(100%,0%,49.8%)"));
         assert_eq!(Some(rgb(255, 0, 127)), parse_color("rgb(100%,0%,49.8039%)"));
         assert_ne!(Some(rgb(255, 0, 128)), parse_color("rgb(100%,0%,50%)"));
         assert_eq!(Some(rgb(255, 0, 128)), parse_color("rgb(100%,0%,50.196%)"));
@@ -517,16 +521,8 @@ mod tests {
         assert_eq!(Some(rgb(255, 0, 153)), parse_color("rgb(100%,0%,60%)"));
         assert_eq!(Some(rgb(255, 0, 119)), parse_color("rgb(100%,0%,46.6667%)"));
         assert_eq!(Some(rgb(3, 54, 119)), parse_color("rgb(1.1765%,21.1765%,46.6667%)"));
-        assert_eq!(Some(rgb(255, 0, 119)), parse_color("rgb(255 0 119)"));
-        assert_eq!(Some(rgbf(1.0, 0.0, 0.467)), parse_color("rgb(100%,0%,46.7%)"));
-        assert_eq!(
-            Some(rgbf(0.01, 0.212, 0.467)),
-            parse_color("rgb(1%,21.2%,46.7%)")
-        );
-        assert_eq!(
-            Some(rgb(255, 0, 119)),
-            parse_color("rgb(    255      0      119)")
-        );
+        assert_eq!(rgbf(1.0, 0.0, 0.467), parse_color("rgb(100%,0%,46.7%)"));
+        assert_eq!(rgbf(0.01, 0.212, 0.467), parse_color("rgb(1%,21.2%,46.7%)"));
 
         assert_eq!(Some(rgb(255, 0, 153)), parse_color("rgb(100%,0%,60%)"));
         assert_eq!(Some(rgb(255, 0, 153)), parse_color("rgb(100%, 0%, 60%)"));
@@ -534,43 +530,27 @@ mod tests {
             Some(rgb(255, 0, 153)),
             parse_color("rgb( 100% , 0% , 60% )")
         );
-        assert_eq!(Some(rgb(255, 0, 153)), parse_color("rgb(100% 0% 60%)"));
 
         assert_ne!(Some(rgb(100, 5, 1)), parse_color("rgb(1e2, .5e1, .5e0)"));
         assert_eq!(
-            Some(rgbf255(100.0, 5.0, 0.5)),
+            rgbf255(100.0, 5.0, 0.5),
             parse_color("rgb(1e2, .5e1, .5e0)")
         );
-        assert_ne!(Some(rgb(140, 0, 153)), parse_color("rgb(55% 0% 60%)"));
-        assert_eq!(Some(rgb(140, 0, 153)), parse_color("rgb(54.902% 0% 60%)"));
-        assert_eq!(Some(rgb(142, 0, 153)), parse_color("rgb(55.6863% 0% 60%)"));
         assert_eq!(Some(rgb(255, 0, 0)), parse_color("rgb(255,0,0)"));
         assert_ne!(Some(rgb(255, 0, 0)), parse_color("rgb(256,0,0)"));
         assert_eq!(Some(rgb(255, 255, 0)), parse_color("rgb(100%,100%,0%)"));
 
         // out-of-gamut not clamped
         assert_ne!(Some(rgb(255, 255, 0)), parse_color("rgb(100%,100%,-45%)"));
-        assert_eq!(
-            Some(Color::from_rgb_float(1.0, 1.0, -0.45)),
-            parse_color("rgb(100%,100%,-45%)")
-        );
+        assert_eq!(rgbf(1.0, 1.0, -0.45), parse_color("rgb(100%,100%,-45%)"));
 
         // case-insensitive
         assert_eq!(Some(rgb(255, 8, 119)), parse_color("RGB(255, 8, 119)"));
         assert_eq!(Some(rgb(255, 0, 153)), parse_color("RGB(100%, 0%, 60%)"));
-
-        // can't mix numbers and percentages
-        assert_eq!(None, parse_color("rgb(128, 80%, 255)"));
-
-        assert_eq!(None, parse_color("rgb(255,0)"));
-        assert_eq!(None, parse_color("rgb(255,0,0"));
-        assert_eq!(None, parse_color("rgb (256,0,0)"));
-        assert_eq!(None, parse_color("rgb(100%,0,0)"));
-        assert_eq!(None, parse_color("rgb(2550119)"));
     }
 
     #[test]
-    fn parse_rgb_functional_alpha() {
+    fn css_rgb_legacy_fn_alpha() {
         assert_eq!(
             Some(rgba(255, 0, 153, 0.375)),
             parse_color("rgb(255, 0, 153, 0.375)")
@@ -588,38 +568,139 @@ mod tests {
             Some(rgba(255, 0, 153, 0.5)),
             parse_color("rgb(100%, 0%, 60%, 50%)")
         );
+    }
 
+    #[test]
+    fn css_rgb_legacy_fn_invalid() {
+        // can't mix numbers and percentages
+        assert_eq!(None, parse_color("rgb(128, 80%, 255)"));
+        assert_eq!(None, parse_color("rgb(100%, 0, 0)"));
+
+        // can't mix comma and space separators
+        assert_eq!(None, parse_color("rgb(128, 64 32)"));
+
+        // not enough arguments
+        assert_eq!(None, parse_color("rgb(255, 0)"));
+        // missing parenthesis
+        assert_eq!(None, parse_color("rgb(255, 0, 0"));
+        // no separators
+        assert_eq!(None, parse_color("rgb(2550119)"));
+    }
+
+    #[test]
+    fn css_rgb_legacy_fn_alpha_invalid() {
+        // can't use slash separator with legacy syntax
+        assert_eq!(None, parse_color("rgb(128, 64, 32 / 0.5)"));
+        assert_eq!(None, parse_color("rgb(75%, 50%, 25% / 80%)"));
+
+        // can't use space separator with legacy syntax
+        assert_eq!(None, parse_color("rgb(128, 64, 32 0.5)"));
+        assert_eq!(None, parse_color("rgb(75%, 50%, 25% 80%)"));
+
+        // no value after comma separator for alpha
+        assert_eq!(None, parse_color("rgb(128, 64, 32, )"));
+        assert_eq!(None, parse_color("rgb(75%, 50%, 25%, )"));
+    }
+
+    #[test]
+    fn css_rgb_modern_fn() {
+        assert_eq!(Some(rgb(255, 0, 153)), parse_color("rgb(255 0 153)"));
+
+        assert_eq!(Some(rgb(3, 54, 119)), parse_color("rgb(1.1765% 21.1765% 46.6667%)"));
+        assert_eq!(Some(rgb(255, 0, 119)), parse_color("rgb(255 0 119)"));
+        assert_eq!(
+            Some(rgb(255, 0, 119)),
+            parse_color("rgb(    255      0      119)")
+        );
+
+        assert_eq!(Some(rgb(255, 0, 153)), parse_color("rgb(100% 0% 60%)"));
+
+        assert_ne!(Some(rgb(140, 0, 153)), parse_color("rgb(55% 0% 60%)"));
+        assert_eq!(Some(rgb(140, 0, 153)), parse_color("rgb(54.902% 0% 60%)"));
+        assert_eq!(Some(rgb(142, 0, 153)), parse_color("rgb(55.6863% 0% 60%)"));
+
+        // out-of-gamut not clamped
+        assert_ne!(Some(rgb(255, 255, 0)), parse_color("rgb(100% 100% -45%)"));
+        assert_eq!(rgbf(1.0, 1.0, -0.45), parse_color("rgb(100% 100% -45%)"));
+    }
+
+    #[test]
+    fn css_rgb_modern_fn_alpha() {
         assert_eq!(
             Some(rgba(255, 0, 153, 0.3)),
-            parse_color("rgb(255 0 153 30%)")
+            parse_color("rgb(255 0 153 / 30%)")
         );
         assert_eq!(
             Some(rgba(255, 0, 153, 0.3)),
-            parse_color("rgb(100% 0% 60% 0.3)")
+            parse_color("rgb(100% 0% 60% / 0.3)")
         );
     }
 
     #[test]
-    fn parse_rgb_standalone_syntax() {
-        assert_eq!(
-            Some(rgb(255, 8, 119)),
-            parse_color("  rgb( 255  ,  8  ,  119 )  ")
-        );
+    fn css_rgb_modern_fn_invalid() {
+        // can't mix numbers and percentages
+        assert_eq!(None, parse_color("rgb(128 80% 255)"));
+        assert_eq!(None, parse_color("rgb(100% 0 0)"));
 
-        assert_eq!(rgb(255, 0, 153), parse_color("255,0,153").unwrap());
-        assert_eq!(rgb(255, 0, 153), parse_color("255, 0, 153").unwrap());
-        assert_eq!(
-            rgb(255, 0, 153),
-            parse_color("  255  ,  0  ,  153   ").unwrap()
-        );
-        assert_eq!(rgb(255, 0, 153), parse_color("255 0 153").unwrap());
-        assert_eq!(rgb(255, 0, 153), parse_color("255 0 153.0").unwrap());
-
-        assert_eq!(Some(rgb(1, 2, 3)), parse_color("1,2,3"));
+        // not enough arguments
+        assert_eq!(None, parse_color("rgb(255 0)"));
+        // missing parenthesis
+        assert_eq!(None, parse_color("rgb(255 0 0"));
     }
 
     #[test]
-    fn css_rgba_fn_alias() {
+    fn css_rgb_modern_fn_alpha_invalid() {
+        // not enough arguments before slash
+        assert_eq!(None, parse_color("rgb(255 0 / 0.3)"));
+        // too many arguments before slash
+        assert_eq!(None, parse_color("rgb(100% 0% 60% 30% / 0.3)"));
+        // no alpha value after slash
+        assert_eq!(None, parse_color("rgb(255 0 30 /)"));
+
+        // no slash before alpha value
+        assert_eq!(None, parse_color("rgb(100% 0% 60% 30%)"));
+        assert_eq!(None, parse_color("rgb(192 128 64 0.3)"));
+
+        // can't use comma separator with modern syntax
+        assert_eq!(None, parse_color("rgb(100% 0% 60%, 30%)"));
+        assert_eq!(None, parse_color("rgb(192 128 64, 0.3)"));
+    }
+
+    #[test]
+    fn css_rgb_fn_modern_legacy_equiv() {
+        // Tests that the modern syntax and the legacy syntax produce equivalent
+        // results.
+
+        assert_eq!(
+            parse_color("rgb(102, 0, 153)"),
+            parse_color("rgb(102 0 153)")
+        );
+        assert_eq!(
+            parse_color("rgb(40%, 0%, 60%)"),
+            parse_color("rgb(40% 0% 60%)")
+        );
+
+        assert_eq!(
+            parse_color("rgb(255, 0, 153, 0.375)"),
+            parse_color("rgb(255 0 153 / 0.375)")
+        );
+        assert_eq!(
+            parse_color("rgb(255, 0, 153, 37.5%)"),
+            parse_color("rgb(255 0 153 / 37.5%)")
+        );
+
+        assert_eq!(
+            parse_color("rgb(100%, 0%, 60%, 0.5)"),
+            parse_color("rgb(100%  0% 60% / 0.5)")
+        );
+        assert_eq!(
+            parse_color("rgb(100%, 0%, 60%, 50%)"),
+            parse_color("rgb(100% 0% 60% / 50%)")
+        );
+    }
+
+    #[test]
+    fn css_rgb_fn_rgba_alias() {
         // "rgba" is just a compatibility alias for "rgb", so both names
         // should produce identical results.
 
@@ -645,10 +726,33 @@ mod tests {
             parse_color("rgb(100%, 0%, 60%, 50%)"),
             parse_color("rgba(100%, 0%, 60%, 50%)")
         );
+
+        assert_eq!(
+            parse_color("rgb(100%  0% 60% / 0.5)"),
+            parse_color("rgba(100%  0% 60% / 0.5)")
+        );
+        assert_eq!(
+            parse_color("rgb(255 0 153 / 37.5%)"),
+            parse_color("rgba(255 0 153 / 37.5%)")
+        );
     }
 
     #[test]
-    fn parse_hsl_syntax() {
+    fn parse_rgb_standalone_syntax() {
+        assert_eq!(rgb(255, 0, 153), parse_color("255,0,153").unwrap());
+        assert_eq!(rgb(255, 0, 153), parse_color("255, 0, 153").unwrap());
+        assert_eq!(
+            rgb(255, 0, 153),
+            parse_color("  255  ,  0  ,  153   ").unwrap()
+        );
+        assert_eq!(rgb(255, 0, 153), parse_color("255 0 153").unwrap());
+        assert_eq!(rgb(255, 0, 153), parse_color("255 0 153.0").unwrap());
+
+        assert_eq!(Some(rgb(1, 2, 3)), parse_color("1,2,3"));
+    }
+
+    #[test]
+    fn css_hsl_legacy_fn() {
         assert_eq!(
             Some(Color::from_hsl(280.0, 0.2, 0.5)),
             parse_color("hsl(280,20%,50%)")
@@ -668,10 +772,6 @@ mod tests {
         assert_eq!(
             Some(Color::from_hsl(280.0, 0.2, 0.5)),
             parse_color("hsl(  280 , 20% , 50%)")
-        );
-        assert_eq!(
-            Some(Color::from_hsl(270.0, 0.6, 0.7)),
-            parse_color("hsl(270 60% 70%)")
         );
 
         assert_eq!(
@@ -721,15 +821,10 @@ mod tests {
             Some(Color::from_hsl(280.0, 0.2, 0.5)),
             parse_color("HSL(280, 20%, 50%)")
         );
-
-        assert_eq!(None, parse_color("hsl(280,20%,50)"));
-        assert_eq!(None, parse_color("hsl(280,20,50%)"));
-        assert_eq!(None, parse_color("hsl(280%,20%,50%)"));
-        assert_eq!(None, parse_color("hsl(280,20%)"));
     }
 
     #[test]
-    fn parse_hsl_alpha() {
+    fn css_hsl_legacy_fn_alpha() {
         assert_eq!(
             Some(Color::from_hsla(280.0, 0.2, 0.5, 0.35)),
             parse_color("hsl(280, 20%, 50%, 0.35)")
@@ -738,28 +833,116 @@ mod tests {
             Some(Color::from_hsla(280.0, 0.2, 0.5, 0.35)),
             parse_color("hsl(280, 20%, 50%, 35%)")
         );
+    }
 
+    #[test]
+    fn css_hsl_legacy_fn_invalid() {
+        // lightness must be a percentage
+        assert_eq!(None, parse_color("hsl(280, 20%, 50)"));
+        // saturation must be a percentage
+        assert_eq!(None, parse_color("hsl(280, 20, 50%)"));
+        // hue is not a percentage
+        assert_eq!(None, parse_color("hsl(280%, 20%, 50%)"));
+        // not enough arguments
+        assert_eq!(None, parse_color("hsl(280, 20%)"));
+    }
+
+    #[test]
+    fn css_hsl_legacy_fn_alpha_invalid() {
+        // can't use slash separator with legacy syntax
+        assert_eq!(None, parse_color("hsl(280, 20%, 50% / 0.5)"));
+        assert_eq!(None, parse_color("hsl(280, 20%, 50% / 80%)"));
+
+        // can't use space separator with legacy syntax
+        assert_eq!(None, parse_color("hsl(280, 20%, 50% 0.5)"));
+        assert_eq!(None, parse_color("hsl(280, 20%, 50% 80%)"));
+
+        // no value after comma separator for alpha
+        assert_eq!(None, parse_color("hsl(280, 20%, 50%, )"));
+    }
+
+    #[test]
+    fn css_hsl_modern_fn() {
         assert_eq!(
-            Some(Color::from_hsla(280.0, 0.2, 0.5, 0.5)),
-            parse_color("hsl(280 20% 50% 0.5)")
-        );
-        assert_eq!(
-            Some(Color::from_hsla(280.0, 0.2, 0.5, 0.5)),
-            parse_color("hsl(280 20% 50% 50%)")
+            Some(Color::from_hsl(270.0, 0.6, 0.7)),
+            parse_color("hsl(270 60% 70%)")
         );
     }
 
     #[test]
-    fn css_hsla_fn_alias() {
+    fn css_hsl_modern_fn_alpha() {
+        assert_eq!(
+            Some(Color::from_hsla(280.0, 0.2, 0.5, 0.5)),
+            parse_color("hsl(280 20% 50% / 0.5)")
+        );
+        assert_eq!(
+            Some(Color::from_hsla(280.0, 0.2, 0.5, 0.5)),
+            parse_color("hsl(280 20% 50% / 50%)")
+        );
+    }
+
+    #[test]
+    fn css_hsl_modern_fn_invalid() {
+        // lightness must be a percentage
+        assert_eq!(None, parse_color("hsl(280 20% 50)"));
+        // saturation must be a percentage
+        assert_eq!(None, parse_color("hsl(280 20 50%)"));
+        // hue is not a percentage
+        assert_eq!(None, parse_color("hsl(280% 20% 50%)"));
+        // not enough arguments
+        assert_eq!(None, parse_color("hsl(280 20%)"));
+    }
+
+    #[test]
+    fn css_hsl_modern_fn_alpha_invalid() {
+        // not enough arguments before slash
+        assert_eq!(None, parse_color("hsl(180 70% / 0.3)"));
+        // too many arguments before slash
+        assert_eq!(None, parse_color("hsl(180 70% 60% 30% / 0.3)"));
+        // no alpha value after slash
+        assert_eq!(None, parse_color("hsl(180 70% 50% /)"));
+
+        // no slash before alpha value
+        assert_eq!(None, parse_color("hsl(280 20% 50% 0.5)"));
+        assert_eq!(None, parse_color("hsl(280 20% 50% 50%)"));
+
+        // can't use comma separator with modern syntax
+        assert_eq!(None, parse_color("hsl(280 20% 50%, 0.5)"));
+        assert_eq!(None, parse_color("hsl(280 20% 50%, 50%)"));
+    }
+
+    #[test]
+    fn css_hsl_fn_modern_legacy_equiv() {
+        // Tests that the modern syntax and the legacy syntax produce equivalent
+        // results.
+
+        assert_eq!(
+            parse_color("hsl(270, 60%, 70%)"),
+            parse_color("hsl(270 60% 70%)")
+        );
+
+        assert_eq!(
+            parse_color("hsl(280, 20%, 50%, 0.35)"),
+            parse_color("hsl(280 20% 50% / 0.35)")
+        );
+
+        assert_eq!(
+            parse_color("hsl(280, 20%, 50%, 35%)"),
+            parse_color("hsl(280 20% 50% / 35%)")
+        );
+    }
+
+    #[test]
+    fn css_hsl_fn_hsla_alias() {
         // "hsla" is just a compatibility alias for "hsl", so both names
         // should produce identical results.
 
         assert_eq!(
-            Some(Color::from_hsl(270.0, 0.6, 0.7)),
+            parse_color("hsl(270, 60%, 70%)"),
             parse_color("hsla(270, 60%, 70%)")
         );
         assert_eq!(
-            Some(Color::from_hsl(270.0, 0.6, 0.7)),
+            parse_color("hsl(270 60% 70%)"),
             parse_color("hsla(270 60% 70%)")
         );
 
@@ -770,6 +953,15 @@ mod tests {
         assert_eq!(
             parse_color("hsl(280, 20%, 50%, 35%)"),
             parse_color("hsla(280, 20%, 50%, 35%)")
+        );
+
+        assert_eq!(
+            parse_color("hsl(280 20% 50% / 0.35)"),
+            parse_color("hsla(280 20% 50% / 0.35)")
+        );
+        assert_eq!(
+            parse_color("hsl(280 20% 50% / 35%)"),
+            parse_color("hsla(280 20% 50% / 35%)")
         );
     }
 
