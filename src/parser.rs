@@ -55,27 +55,31 @@ fn number255(input: &str) -> IResult<&str, f64> {
 }
 
 fn parse_degrees(input: &str) -> IResult<&str, f64> {
-    let (input, d) = double(input)?;
-    let (input, _) = alt((tag("°"), tag("deg"), tag("")))(input)?;
-    Ok((input, d))
+    terminated(
+        double,
+        opt(alt((tag("°"), tag_no_case("deg"))))
+    )(input)
 }
 
 fn parse_rads(input: &str) -> IResult<&str, f64> {
-    let (input, rads) = double(input)?;
-    let (input, _) = tag("rad")(input)?;
-    Ok((input, rads * 180. / std::f64::consts::PI))
+    map(
+        terminated(double, tag_no_case("rad")),
+        |rads| rads * 180. / PI
+    )(input)
 }
 
 fn parse_grads(input: &str) -> IResult<&str, f64> {
-    let (input, grads) = double(input)?;
-    let (input, _) = tag("grad")(input)?;
-    Ok((input, grads * 360. / 400.))
+    map(
+        terminated(double, alt((tag_no_case("grad"), tag_no_case("grd")))),
+        |grads| grads * 360. / 400.
+    )(input)
 }
 
 fn parse_turns(input: &str) -> IResult<&str, f64> {
-    let (input, turns) = double(input)?;
-    let (input, _) = tag("turn")(input)?;
-    Ok((input, turns * 360.))
+    map(
+        terminated(double, alt((tag_no_case("turn"), tag_no_case("trn")))),
+        |turns| turns * 360.
+    )(input)
 }
 
 fn hue_angle(input: &str) -> IResult<&str, f64> {
