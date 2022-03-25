@@ -77,7 +77,7 @@ fn parse_turns(input: &str) -> IResult<&str, f64> {
     Ok((input, turns * 360.))
 }
 
-fn parse_angle(input: &str) -> IResult<&str, f64> {
+fn hue_angle(input: &str) -> IResult<&str, f64> {
     alt((parse_turns, parse_grads, parse_rads, parse_degrees))(input)
 }
 
@@ -217,28 +217,52 @@ fn parse_rgb_legacy_percentages(input: &str) -> IResult<&str, (f64, f64, f64)> {
 }
 
 fn parse_hsl(input: &str) -> IResult<&str, Color> {
-    let (input, _) = opt(
-        alt((tag_no_case("hsl("), tag_no_case("hsla(")))
-    )(input)?;
-    let (input, _) = space0(input)?;
-    let (input, h) = parse_angle(input)?;
-    let (input, _) = parse_separator(input)?;
-    let (input, s) = percentage(input)?;
-    let (input, _) = parse_separator(input)?;
-    let (input, l) = percentage(input)?;
-    let (input, alpha) = parse_legacy_alpha(input)?;
-    let (input, _) = space0(input)?;
-    let (input, _) = char(')')(input)?;
+    // must list alternatives from most to least specific
+    preceded(
+        alt((tag_no_case("hsla"), tag_no_case("hsl"))),
+        delimited(char('('), parse_hsl_arguments, char(')'))
+    )(input)
+}
 
-    let c = Color::from_hsla(h, s, l, alpha);
+fn parse_hsl_arguments(input: &str) -> IResult<&str, Color> {
+    delimited(
+        space0,
+        alt((
+            parse_hsl_modern_arguments,
+            parse_hsl_legacy_arguments,
+        )),
+        space0,
+    )(input)
+}
 
+fn parse_hsl_modern_arguments(input: &str) -> IResult<&str, Color> {
+    let (input, (h, s, l)) = tuple((
+        hue_angle,
+        preceded(space1, percentage),
+        preceded(space1, percentage),
+    ))(input)?;
+    let (input, a) = parse_css_alpha(input)?;
+
+    let c = Color::from_hsla(h, s, l, a);
+    Ok((input, c))
+}
+
+fn parse_hsl_legacy_arguments(input: &str) -> IResult<&str, Color> {
+    let (input, (h, s, l)) = tuple((
+        hue_angle,
+        preceded(comma_separator, percentage),
+        preceded(comma_separator, percentage),
+    ))(input)?;
+    let (input, a) = parse_legacy_alpha(input)?;
+
+    let c = Color::from_hsla(h, s, l, a);
     Ok((input, c))
 }
 
 fn parse_hsv(input: &str) -> IResult<&str, Color> {
     let (input, _) = alt((tag_no_case("hsv("), tag_no_case("hsb(")))(input)?;
     let (input, _) = space0(input)?;
-    let (input, h) = parse_angle(input)?;
+    let (input, h) = hue_angle(input)?;
     let (input, _) = parse_separator(input)?;
     let (input, s) = percentage(input)?;
     let (input, _) = parse_separator(input)?;
@@ -254,7 +278,7 @@ fn parse_hsv(input: &str) -> IResult<&str, Color> {
 fn parse_hwb(input: &str) -> IResult<&str, Color> {
     let (input, _) = tag_no_case("hwb(")(input)?;
     let (input, _) = space0(input)?;
-    let (input, h) = parse_angle(input)?;
+    let (input, h) = hue_angle(input)?;
     let (input, _) = parse_separator(input)?;
     let (input, w) = percentage(input)?;
     let (input, _) = parse_separator(input)?;
@@ -327,7 +351,7 @@ fn parse_lch<'a>(input: &'a str) -> IResult<&'a str, Color> {
     let (input, _) = parse_separator(input)?;
     let (input, c) = verify(double, |&d| d >= 0.)(input)?;
     let (input, _) = parse_separator(input)?;
-    let (input, h) = parse_angle(input)?;
+    let (input, h) = hue_angle(input)?;
     let (input, alpha) = opt(|input: &'a str| {
         let (input, _) = parse_separator(input)?;
         double(input)
@@ -370,7 +394,7 @@ fn parse_lchuv<'a>(input: &'a str) -> IResult<&'a str, Color> {
     let (input, _) = parse_separator(input)?;
     let (input, c) = verify(double, |&d| d >= 0.)(input)?;
     let (input, _) = parse_separator(input)?;
-    let (input, h) = parse_angle(input)?;
+    let (input, h) = hue_angle(input)?;
     let (input, alpha) = opt(|input: &'a str| {
         let (input, _) = parse_separator(input)?;
         double(input)
@@ -386,7 +410,7 @@ fn parse_lchuv<'a>(input: &'a str) -> IResult<&'a str, Color> {
 fn parse_hcl<'a>(input: &'a str) -> IResult<&'a str, Color> {
     let (input, _) = tag_no_case("hcl(")(input)?;
     let (input, _) = space0(input)?;
-    let (input, h) = parse_angle(input)?;
+    let (input, h) = hue_angle(input)?;
     let (input, _) = parse_separator(input)?;
     let (input, c) = verify(double, |&d| d >= 0.)(input)?;
     let (input, _) = parse_separator(input)?;
