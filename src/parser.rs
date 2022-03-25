@@ -9,6 +9,7 @@ use nom::{
     number::complete::double,
     sequence::*
 };
+use std::f64::consts::PI;
 
 use crate::named::NAMED_COLORS;
 use crate::Color;
@@ -813,6 +814,107 @@ mod tests {
 
         assert_eq!(Some(rgb(1, 2, 3)), parse_color("1,2,3"));
     }
+
+    // BEGIN: tests for hue angle variants
+    // Tests all the supported alternatives for specifying a hue angle so that
+    // we don't need to check them separately for each cylindrical color space.
+
+    fn unwrap<T>(result: IResult<&str, T>) -> Option<T> {
+        result.ok().map(|(_, v)| v)
+    }
+
+    fn parse_hue(input: &str) -> Option<f64> {
+        unwrap(all_consuming(hue_angle)(input))
+    }
+
+    #[test]
+    fn css_hue_angle_degrees() {
+        // unit suffix "deg" (case-insensitive)
+        assert_eq!(Some(123.0), parse_hue("123deg"));
+        assert_eq!(Some(123.0), parse_hue("123DEG"));
+
+        // decimals are supported
+        assert_eq!(Some(123.456), parse_hue("123.456deg"));
+
+        // no unit defaults to degrees
+        assert_eq!(Some(123.0), parse_hue("123.0"));
+
+        // out-of-range values are accepted and not normalized
+        assert_eq!(Some(-90.0), parse_hue("-90deg"));
+        assert_eq!(Some(720.0), parse_hue("720deg"));
+    }
+
+    #[test]
+    fn css_hue_angle_radians() {
+        // unit suffix "rad" (case-insensitive)
+        assert_eq!(Some(180.0 / PI), parse_hue("1rad"));
+        assert_eq!(Some(180.0 / PI), parse_hue("1RAD"));
+
+        // decimals are supported
+        assert_eq!(Some(1.234 * 180.0 / PI), parse_hue("1.234rad"));
+
+        // out-of-range values are accepted and not normalized
+        assert_eq!(Some(-1.0 * 180.0 / PI), parse_hue("-1rad"));
+        assert_eq!(Some(5.0 * 180.0 / PI), parse_hue("5rad"));
+    }
+
+    #[test]
+    fn css_hue_angle_gradians() {
+        // unit suffix "grad" (case-insensitive)
+        assert_eq!(Some(180.0), unwrap(hue_angle("200grad")));
+        assert_eq!(Some(180.0), unwrap(hue_angle("200GRAD")));
+
+        // decimals are supported
+        assert_eq!(Some(123.45 * 360. / 400.), parse_hue("123.45grad"));
+
+        // out-of-range values are accepted and not normalized
+        assert_eq!(Some(-90.0), parse_hue("-100grad"));
+        assert_eq!(Some(720.0), parse_hue("800grad"));
+    }
+
+    #[test]
+    fn css_hue_angle_turns() {
+        // unit suffix "turn" (case-insensitive)
+        assert_eq!(Some(180.0), parse_hue("0.5turn"));
+        assert_eq!(Some(270.0), parse_hue("0.75TURN"));
+
+        // out-of-range values are accepted and not normalized
+        assert_eq!(Some(-90.0), parse_hue("-0.25turn"));
+        assert_eq!(Some(720.0), parse_hue("2turn"));
+    }
+
+    #[test]
+    fn hue_angle_lenient() {
+        // Tests acceaptable alternatives that aren't defined in the CSS spec.
+
+        // accept the "°" degree symbol as a unit
+        assert_eq!(Some(123.4), parse_hue("123.4°"));
+
+        // accept "grd" as an abbreviation for gradians
+        assert_eq!(Some(180.0), unwrap(hue_angle("200grd")));
+        assert_eq!(Some(180.0), unwrap(hue_angle("200GRD")));
+
+        // accept "trn" as an abbreviation for turns
+        assert_eq!(Some(180.0), parse_hue("0.5trn"));
+        assert_eq!(Some(270.0), parse_hue("0.75TRN"));
+    }
+
+    #[test]
+    fn hue_angle_invalid() {
+        // must have a valid unit
+        assert_eq!(None, parse_hue("123abc"));
+
+        // spelling out the unit names is not accepted
+        assert_eq!(None, parse_hue("123degrees"));
+        assert_eq!(None, parse_hue("1.5radians"));
+        assert_eq!(None, parse_hue("150gradians"));
+        assert_eq!(None, parse_hue("0.25turns"));
+
+        // can't have a space between value and unit
+        assert_eq!(None, parse_hue("100 grad"));
+    }
+
+    // END: tests for hue angle variants
 
     #[test]
     fn css_hsl_legacy_fn() {
