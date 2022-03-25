@@ -1,11 +1,14 @@
-use nom::branch::alt;
-use nom::bytes::complete::*;
-use nom::character::complete::*;
-use nom::combinator::*;
-use nom::error::ErrorKind;
-use nom::number::complete::double;
-use nom::Err;
-use nom::IResult;
+use nom::{
+    Err,
+    IResult,
+    branch::alt,
+    bytes::complete::*,
+    character::complete::*,
+    combinator::*,
+    error::ErrorKind,
+    number::complete::double,
+    sequence::*
+};
 
 use crate::named::NAMED_COLORS;
 use crate::Color;
@@ -22,29 +25,32 @@ fn rgba(r: u8, g: u8, b: u8, a: f64) -> Color {
     Color::from_rgba(r, g, b, a)
 }
 
-fn comma_separated(input: &str) -> IResult<&str, &str> {
-    let (input, _) = space0(input)?;
-    let (input, _) = char(',')(input)?;
-    space0(input)
+fn comma_separator(input: &str) -> IResult<&str, &str> {
+    recognize(delimited(space0, char(','), space0))(input)
 }
 
 fn parse_separator(input: &str) -> IResult<&str, &str> {
-    alt((comma_separated, space1))(input)
+    alt((comma_separator, space1))(input)
 }
 
 fn opt_hash_char(s: &str) -> IResult<&str, Option<char>> {
     opt(char('#'))(s)
 }
 
-fn parse_percentage(input: &str) -> IResult<&str, f64> {
-    let (input, percent) = double(input)?;
-    let (input, _) = char('%')(input)?;
-    Ok((input, percent / 100.))
+fn percentage(input: &str) -> IResult<&str, f64> {
+    map(
+        terminated(double, char('%')),
+        |p| p / 100.
+    )(input)
 }
 
-fn parse_percentage_or_double(input: &str) -> IResult<&str, f64> {
-    let (input, value) = alt((parse_percentage, double))(input)?;
-    Ok((input, value))
+fn percentage_or_double(input: &str) -> IResult<&str, f64> {
+    alt((percentage, double))(input)
+}
+
+fn number255(input: &str) -> IResult<&str, f64> {
+    // Parses a double that is scaled from [0, 255] down to [0, 1].
+    map(double, |n| n / 255.0)(input)
 }
 
 fn parse_degrees(input: &str) -> IResult<&str, f64> {
@@ -76,21 +82,21 @@ fn parse_angle(input: &str) -> IResult<&str, f64> {
 }
 
 fn parse_legacy_alpha<'a>(input: &'a str) -> IResult<&'a str, f64> {
-    let (input, alpha) = opt(|input: &'a str| {
-        let (input, _) = parse_separator(input)?;
-        parse_percentage_or_double(input)
-    })(input)?;
-    Ok((input, alpha.unwrap_or(1.0)))
+    map(
+        opt(preceded(comma_separator, percentage_or_double)),
+        |a| a.unwrap_or(1.0)
+    )(input)
 }
 
-fn parse_css_alpha<'a>(input: &'a str) -> IResult<&'a str, f64> {
-    let (input, alpha) = opt(|input: &'a str| {
-        let (input, _) = space0(input)?;
-        let (input, _) = char('/')(input)?;
-        let (input, _) = space0(input)?;
-        parse_percentage_or_double(input)
-    })(input)?;
-    Ok((input, alpha.unwrap_or(1.0)))
+fn css_alpha_separator(input: &str) -> IResult<&str, &str> {
+    recognize(delimited(space0, char('/'), space0))(input)
+}
+
+fn parse_css_alpha(input: &str) -> IResult<&str, f64> {
+    map(
+        opt(preceded(css_alpha_separator, percentage_or_double)),
+        |a| a.unwrap_or(1.0)
+    )(input)
 }
 
 fn parse_hex(input: &str) -> IResult<&str, Color> {
@@ -137,47 +143,77 @@ fn parse_hex(input: &str) -> IResult<&str, Color> {
     }
 }
 
-fn parse_numeric_rgb(input: &str) -> IResult<&str, Color> {
-    let (input, prefixed) = opt(
-        alt((tag_no_case("rgb("), tag_no_case("rgba(")))
-    )(input)?;
-    let is_prefixed = prefixed.is_some();
-    let (input, _) = space0(input)?;
-    let (input, r) = double(input)?;
-    let (input, _) = parse_separator(input)?;
-    let (input, g) = double(input)?;
-    let (input, _) = parse_separator(input)?;
-    let (input, b) = double(input)?;
-    let (input, alpha) = parse_legacy_alpha(input)?;
-    let (input, _) = space0(input)?;
-    let (input, _) = cond(is_prefixed, char(')'))(input)?;
+fn parse_rgb(input: &str) -> IResult<&str, Color> {
+    // must list alternatives from most to least specific
+    preceded(
+        alt((tag_no_case("rgba"), tag_no_case("rgb"))),
+        delimited(char('('), parse_rgb_arguments, char(')'))
+    )(input)
+}
 
-    let r = r / 255.0;
-    let g = g / 255.0;
-    let b = b / 255.0;
-    let c = Color::from_rgba_float(r, g, b, alpha);
+fn parse_rgb_arguments(input: &str) -> IResult<&str, Color> {
+    delimited(
+        space0,
+        alt((
+            parse_rgb_modern_arguments,
+            parse_rgb_legacy_arguments,
+        )),
+        space0,
+    )(input)
+}
 
+fn parse_rgb_modern_arguments(input: &str) -> IResult<&str, Color> {
+    let (input, (r, g, b)) = alt((
+        parse_rgb_modern_numbers,
+        parse_rgb_modern_percentages,
+    ))(input)?;
+    let (input, a) = parse_css_alpha(input)?;
+
+    let c = Color::from_rgba_float(r, g, b, a);
     Ok((input, c))
 }
 
-fn parse_percentage_rgb(input: &str) -> IResult<&str, Color> {
-    let (input, prefixed) = opt(
-        alt((tag_no_case("rgb("), tag_no_case("rgba(")))
-    )(input)?;
-    let is_prefixed = prefixed.is_some();
-    let (input, _) = space0(input)?;
-    let (input, r) = parse_percentage(input)?;
-    let (input, _) = parse_separator(input)?;
-    let (input, g) = parse_percentage(input)?;
-    let (input, _) = parse_separator(input)?;
-    let (input, b) = parse_percentage(input)?;
-    let (input, alpha) = parse_legacy_alpha(input)?;
-    let (input, _) = space0(input)?;
-    let (input, _) = cond(is_prefixed, char(')'))(input)?;
+fn parse_rgb_modern_numbers(input: &str) -> IResult<&str, (f64, f64, f64)> {
+    tuple((
+        number255,
+        preceded(space1, number255),
+        preceded(space1, number255),
+    ))(input)
+}
 
-    let c = Color::from_rgba_float(r, g, b, alpha);
+fn parse_rgb_modern_percentages(input: &str) -> IResult<&str, (f64, f64, f64)> {
+    tuple((
+        percentage,
+        preceded(space1, percentage),
+        preceded(space1, percentage),
+    ))(input)
+}
 
+fn parse_rgb_legacy_arguments(input: &str) -> IResult<&str, Color> {
+    let (input, (r, g, b)) = alt((
+        parse_rgb_legacy_numbers,
+        parse_rgb_legacy_percentages,
+    ))(input)?;
+    let (input, a) = parse_legacy_alpha(input)?;
+
+    let c = Color::from_rgba_float(r, g, b, a);
     Ok((input, c))
+}
+
+fn parse_rgb_legacy_numbers(input: &str) -> IResult<&str, (f64, f64, f64)> {
+    tuple((
+        number255,
+        preceded(comma_separator, number255),
+        preceded(comma_separator, number255),
+    ))(input)
+}
+
+fn parse_rgb_legacy_percentages(input: &str) -> IResult<&str, (f64, f64, f64)> {
+    tuple((
+        percentage,
+        preceded(comma_separator, percentage),
+        preceded(comma_separator, percentage),
+    ))(input)
 }
 
 fn parse_hsl(input: &str) -> IResult<&str, Color> {
@@ -187,9 +223,9 @@ fn parse_hsl(input: &str) -> IResult<&str, Color> {
     let (input, _) = space0(input)?;
     let (input, h) = parse_angle(input)?;
     let (input, _) = parse_separator(input)?;
-    let (input, s) = parse_percentage(input)?;
+    let (input, s) = percentage(input)?;
     let (input, _) = parse_separator(input)?;
-    let (input, l) = parse_percentage(input)?;
+    let (input, l) = percentage(input)?;
     let (input, alpha) = parse_legacy_alpha(input)?;
     let (input, _) = space0(input)?;
     let (input, _) = char(')')(input)?;
@@ -204,9 +240,9 @@ fn parse_hsv(input: &str) -> IResult<&str, Color> {
     let (input, _) = space0(input)?;
     let (input, h) = parse_angle(input)?;
     let (input, _) = parse_separator(input)?;
-    let (input, s) = parse_percentage(input)?;
+    let (input, s) = percentage(input)?;
     let (input, _) = parse_separator(input)?;
-    let (input, l) = parse_percentage(input)?;
+    let (input, l) = percentage(input)?;
     let (input, _) = space0(input)?;
     let (input, _) = char(')')(input)?;
 
@@ -220,9 +256,9 @@ fn parse_hwb(input: &str) -> IResult<&str, Color> {
     let (input, _) = space0(input)?;
     let (input, h) = parse_angle(input)?;
     let (input, _) = parse_separator(input)?;
-    let (input, w) = parse_percentage(input)?;
+    let (input, w) = percentage(input)?;
     let (input, _) = parse_separator(input)?;
-    let (input, b) = parse_percentage(input)?;
+    let (input, b) = percentage(input)?;
     let (input, _) = space0(input)?;
     let (input, _) = char(')')(input)?;
 
@@ -234,7 +270,7 @@ fn parse_hwb(input: &str) -> IResult<&str, Color> {
 fn parse_gray(input: &str) -> IResult<&str, Color> {
     let (input, _) = tag("gray(")(input)?;
     let (input, _) = space0(input)?;
-    let (input, g) = verify(alt((parse_percentage, double)), |&d| d >= 0.)(input)?;
+    let (input, g) = verify(alt((percentage, double)), |&d| d >= 0.)(input)?;
     let (input, _) = space0(input)?;
     let (input, _) = char(')')(input)?;
 
@@ -401,11 +437,11 @@ fn parse_xyz_colorspace(input: &str) -> IResult<&str, Color> {
 fn parse_srgb_colorspace(input: &str) -> IResult<&str, Color> {
     let (input, _) = tag_no_case("srgb")(input)?;
     let (input, _) = space1(input)?;
-    let (input, r) = parse_percentage_or_double(input)?;
+    let (input, r) = percentage_or_double(input)?;
     let (input, _) = space1(input)?;
-    let (input, g) = parse_percentage_or_double(input)?;
+    let (input, g) = percentage_or_double(input)?;
     let (input, _) = space1(input)?;
-    let (input, b) = parse_percentage_or_double(input)?;
+    let (input, b) = percentage_or_double(input)?;
     let (input, alpha) = parse_css_alpha(input)?;
 
     let c = Color::from_rgba_float(r, g, b, alpha);
@@ -431,8 +467,7 @@ fn parse_named(input: &str) -> IResult<&str, Color> {
 pub fn parse_color(input: &str) -> Option<Color> {
     alt((
         all_consuming(parse_hex),
-        all_consuming(parse_numeric_rgb),
-        all_consuming(parse_percentage_rgb),
+        all_consuming(parse_rgb),
         all_consuming(parse_hsl),
         all_consuming(parse_hsv),
         all_consuming(parse_hwb),
@@ -445,6 +480,10 @@ pub fn parse_color(input: &str) -> Option<Color> {
         all_consuming(parse_hcl),
         all_consuming(parse_css_colorspace),
         all_consuming(parse_named),
+        // Most supported formats have clear markers that the parser can detect.
+        // If none of these match, trying to pull out a standalone list of sRGB
+        // arguments is a last-ditch effort.
+        all_consuming(parse_rgb_arguments),
     ))(input.trim())
     .ok()
     .map(|(_, c)| c)
