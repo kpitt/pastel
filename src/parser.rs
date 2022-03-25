@@ -531,36 +531,73 @@ mod tests {
     }
 
     #[test]
-    fn parse_rgb_hex_syntax() {
-        assert_eq!(Some(rgb(255, 0, 153)), parse_color("f09"));
+    fn css_rgb_hex() {
+        // 6 digits -> 2 digits each for R, G, B
+        assert_eq!(Some(rgb(255, 0, 153)), parse_color("#ff0099"));
+        assert_eq!(Some(rgb(255, 0, 153)), parse_color("#FF0099"));
+        assert_eq!(Some(rgb(87, 166, 206)), parse_color("#57A6CE"));
+
+        // 3 digits -> 1 digit each for R, G, B
+        // 3-digit RGB is equivalent to 6-digit RRGGBB
         assert_eq!(Some(rgb(255, 0, 153)), parse_color("#f09"));
         assert_eq!(Some(rgb(255, 0, 153)), parse_color("#F09"));
 
-        assert_eq!(Some(rgb(255, 0, 153)), parse_color("#ff0099"));
-        assert_eq!(Some(rgb(255, 0, 153)), parse_color("#FF0099"));
-        assert_eq!(Some(rgb(255, 0, 153)), parse_color("ff0099"));
-
-        assert_eq!(Some(rgb(87, 166, 206)), parse_color("57A6CE"));
+        // leading and trailing whitespace is ignored
         assert_eq!(Some(rgb(255, 0, 119)), parse_color("  #ff0077  "));
+    }
 
+    #[test]
+    fn css_rgb_hex_alpha() {
+        // 8 digits -> 2 digits each for R, G, B, A
+        assert_eq!(Some(rgba(255, 0, 153, 0.8)), parse_color("#FF0099CC"));
+        assert_eq!(Some(rgba(255, 0, 153, 0.8)), parse_color("#ff0099cc"));
+
+        // 4 digits -> 1 digit each for R, G, B, A
+        // 4-digit RGBA is equivalent to 8-digit RRGGBBAA
+        assert_eq!(Some(rgba(255, 0, 153, 0.4)), parse_color("#f096"));
+
+        // leading and trailing whitespace is ignored
+        assert_eq!(Some(rgba(255, 0, 119, 0.6)), parse_color("  #ff007799  "));
+    }
+
+    #[test]
+    fn rgb_hex_lenient() {
+        // Tests that hex values are also accepted without a leading hash char.
+
+        assert_eq!(Some(rgb(255, 0, 153)), parse_color("ff0099"));
+        assert_eq!(Some(rgb(87, 166, 206)), parse_color("57A6CE"));
+
+        assert_eq!(Some(rgb(255, 0, 153)), parse_color("f09"));
+        assert_eq!(Some(rgb(170, 187, 204)), parse_color("ABC"));
+
+        assert_eq!(Some(rgba(255, 0, 153, 0.8)), parse_color("ff0099cc"));
+        assert_eq!(Some(rgba(255, 0, 153, 0.4)), parse_color("f096"));
+
+        // leading and trailing whitespace is ignored
+        assert_eq!(Some(rgb(255, 0, 119)), parse_color("   ff0077  "));
+    }
+
+    #[test]
+    fn rgb_hex_invalid() {
+        // not a recognized number of digits
         assert_eq!(None, parse_color("#1"));
         assert_eq!(None, parse_color("#12"));
         assert_eq!(None, parse_color("#12345"));
         assert_eq!(None, parse_color("#1234567"));
         assert_eq!(None, parse_color("#123456789"));
+        assert_eq!(None, parse_color("12"));
+        assert_eq!(None, parse_color("abcde"));
+
+        // C-style "0x" hex prefix is not allowed
+        assert_eq!(None, parse_color("0x4488CC"));
+
+        // invalid hex characters
         assert_eq!(None, parse_color("#hh0033"));
         assert_eq!(None, parse_color("#h03"));
-    }
+        assert_eq!(None, parse_color("03h"));
 
-    #[test]
-    fn parse_rgb_hex_syntax_alpha() {
-        assert_eq!(Some(rgba(255, 0, 153, 0.4)), parse_color("f096"));
-        assert_eq!(Some(rgba(255, 0, 153, 0.4)), parse_color("#f096"));
-
-        assert_eq!(Some(rgba(255, 0, 153, 0.8)), parse_color("#FF0099CC"));
-        assert_eq!(Some(rgba(255, 0, 153, 0.8)), parse_color("ff0099cc"));
-
-        assert_eq!(Some(rgba(255, 0, 119, 0.6)), parse_color("  #ff007799  "));
+        // no space between '#' and value
+        assert_eq!(None, parse_color("# c6c6c6"));
     }
 
     #[test]
