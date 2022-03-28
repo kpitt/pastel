@@ -1141,11 +1141,11 @@ mod tests {
     fn hsl_fn_modern_lenient() {
         // no slash before alpha value
         assert_eq!(
-            Some(Color::from_hsla(280.0, 0.2, 0.5, 0.5)), 
+            Some(Color::from_hsla(280.0, 0.2, 0.5, 0.5)),
             parse_color("hsl(280 20% 50% 0.5)")
         );
         assert_eq!(
-            Some(Color::from_hsla(280.0, 0.2, 0.5, 0.5)), 
+            Some(Color::from_hsla(280.0, 0.2, 0.5, 0.5)),
             parse_color("hsl(280 20% 50% 50%)")
         );
     }
