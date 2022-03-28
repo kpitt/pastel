@@ -1459,38 +1459,153 @@ mod tests {
     }
 
     #[test]
-    fn parse_lab_syntax() {
+    fn css_lab_fn() {
+        // Tests the standard CSS syntax for the `lab()` function.
+
+        assert_eq!(
+            Some(Color::from_lab(42.24, -35.5, 43.4, 1.0)),
+            parse_color("lab(42.24% -35.5 43.4)")
+        );
+        // case-insensitive
+        assert_eq!(
+            Some(Color::from_lab(50.0, -35.5, 43.4, 1.0)),
+            parse_color("LaB(50% -35.5 43.4)")
+        );
+        // extra whitespace before and after arguments is ingored
+        assert_eq!(
+            Some(Color::from_lab(15.0, 23.0, -43.0, 1.0)),
+            parse_color("lab(   15 23 -43    )")
+        );
+        // extra whitespace between arguments is ignored
+        assert_eq!(
+            Some(Color::from_lab(15.0, 23.0, -43.0, 1.0)),
+            parse_color("lab(15    23      -43)")
+        );
+    }
+
+    #[test]
+    fn css_lab_fn_alpha() {
+        // Tests the standard CSS syntax for the `lab()` function with alpha values.
+
+        assert_eq!(
+            Some(Color::from_lab(50.0, -23.0, 43.0, 0.5)),
+            parse_color("lab(50% -23 43 / 0.5)")
+        );
+        // alpha can be a percentage
+        assert_eq!(
+            Some(Color::from_lab(15.0, -35.5, -43.4, 0.4)),
+            parse_color("lab(15% -35.5 -43.4 / 40%)")
+        );
+        // no spaces required around alpha separator
+        assert_eq!(
+            Some(Color::from_lab(75.0, -35.5, -43.4, 0.4)),
+            parse_color("lab(75% -35.5 -43.4/0.4)")
+        );
+    }
+
+    #[test]
+    fn lab_fn_modern_lenient() {
+        // Tests lenient parsing of the "modern" space-separated format.
+
+        // percent sign after lightness is optional
+        assert_eq!(
+            Some(Color::from_lab(60.0, -35.5, 43.4, 1.0)),
+            parse_color("lab(60.00 -35.5 43.4)")
+        );
+
+        // alpha can be separated with just a space
+        assert_eq!(
+            Some(Color::from_lab(15.0, -35.5, -43.4, 0.4)),
+            parse_color("lab(15% -35.5 -43.4 40%)")
+        );
+        assert_eq!(
+            Some(Color::from_lab(75.0, -35.5, -43.4, 0.4)),
+            parse_color("lab(75% -35.5 -43.4 0.4)")
+        );
+    }
+
+    #[test]
+    fn lab_fn_legacy() {
+        assert_eq!(
+            Some(Color::from_lab(15.0, 23.0, -43.0, 1.0)),
+            parse_color("lab(15, 23, -43)")
+        );
+        // percent sign after lightness is allowed
+        assert_eq!(
+            Some(Color::from_lab(15.0, 23.0, -43.0, 1.0)),
+            parse_color("lab(15%, 23, -43)")
+        );
+        // case-insensitive, no spaces around commands between arguments
         assert_eq!(
             Some(Color::from_lab(12.43, -35.5, 43.4, 1.0)),
             parse_color("Lab(12.43,-35.5,43.4)")
         );
+        // extra whitespace before and after arguments is ignored
+        assert_eq!(
+            Some(Color::from_lab(15.0, 23.0, -43.0, 1.0)),
+            parse_color("lab(        15, 23, -43   )")
+        );
+        // extra whitespace around commas between arguments is ignored
+        assert_eq!(
+            Some(Color::from_lab(15.0, 23.0, -43.0, 1.0)),
+            parse_color("lab(15   ,  23 ,-43)")
+        );
+    }
+
+    #[test]
+    fn lab_fn_legacy_alpha() {
+        // alpha as a number from [0, 1]
         assert_eq!(
             Some(Color::from_lab(15.0, -23.0, 43.0, 0.5)),
-            parse_color("lab(15,-23,43,0.5)")
+            parse_color("lab(15%, -23, 43, 0.5)")
         );
+        // case-insensitive, alpha as a percentage
         assert_eq!(
-            Some(Color::from_lab(15.0, 23.0, -43.0, 1.0)),
-            parse_color("CIELab(15,23,-43)")
+            Some(Color::from_lab(15.0, -23.0, 43.0, 0.5)),
+            parse_color("LAB(15%, -23, 43, 50%)")
         );
+        // extra spaces around comma before alpha value are ignored
         assert_eq!(
-            Some(Color::from_lab(15.0, 35.5, -43.4, 1.0)),
-            parse_color("CIELab(15,35.5,-43.4)")
+            Some(Color::from_lab(15.0, -35.5, -43.4, 0.4)),
+            parse_color("lab(15, -35.5, -43.4     ,  0.4)")
         );
         assert_eq!(
             Some(Color::from_lab(15.0, -35.5, -43.4, 0.4)),
-            parse_color("cieLab(15,-35.5,-43.4,0.4)")
+            parse_color("lab(15,-35.5,-43.4    ,    40%)")
+        );
+    }
+
+    #[test]
+    fn lab_fn_cielab_alias() {
+        // Tests that "CIELab" (case-insensitive) is a valid alias for "lab"
+        // with either modern- or legacy-style arguments.
+
+        // modern-style arguments
+        assert_eq!(
+            parse_color("lab(70% -25 40)"),
+            parse_color("CIELab(70% -25 40)")
         );
         assert_eq!(
-            Some(Color::from_lab(15.0, 23.0, -43.0, 1.0)),
-            parse_color("Lab(        15,  23,-43   )")
+            parse_color("lab(70% -25 40 / 0.8)"),
+            parse_color("cielab(70% -25 40 / 80%)")
         );
         assert_eq!(
-            Some(Color::from_lab(15.0, -35.5, -43.4, 0.4)),
-            parse_color("CieLab(15,-35.5,-43.4,0.4)")
+            parse_color("lab(70% -25 40 / 0.8)"),
+            parse_color("cielab(70 -25 40 0.8)")
+        );
+
+        // legacy-style arguments
+        assert_eq!(
+            parse_color("lab(70%, -25, 40)"),
+            parse_color("CIELab(70%, -25, 40)")
         );
         assert_eq!(
-            Some(Color::from_lab(15.0, 23.0, -43.0, 1.0)),
-            parse_color("CIELab(        15,  23,-43   )")
+            parse_color("lab(70%, -25, 40, 80%)"),
+            parse_color("cielab(70%, -25, 40, 80%)")
+        );
+        assert_eq!(
+            parse_color("lab(70% -25 40 / 0.8)"),
+            parse_color("CIELAB(70, -25, 40, 0.8)")
         );
     }
 
