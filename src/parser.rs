@@ -526,6 +526,10 @@ mod tests {
         Some(Color::from_rgb_float(r, g, b))
     }
 
+    fn rgbaf(r: f64, g: f64, b: f64, a: f64) -> Option<Color> {
+        Some(Color::from_rgba_float(r, g, b, a))
+    }
+
     fn rgbf255(r: f64, g: f64, b: f64) -> Option<Color> {
         rgbf(r / 255.0, g / 255.0, b / 255.0)
     }
@@ -601,7 +605,7 @@ mod tests {
     }
 
     #[test]
-    fn css_rgb_legacy_fn() {
+    fn css_rgb_fn_legacy() {
         assert_eq!(Some(rgb(255, 0, 153)), parse_color("rgb(255,0,153)"));
         assert_eq!(Some(rgb(255, 0, 153)), parse_color("rgb(255, 0, 153)"));
         assert_eq!(Some(rgb(255, 0, 153)), parse_color("rgb( 255 , 0 , 153 )"));
@@ -625,7 +629,10 @@ mod tests {
         assert_eq!(Some(rgb(255, 0, 129)), parse_color("rgb(100%,0%,50.588%)"));
         assert_eq!(Some(rgb(255, 0, 153)), parse_color("rgb(100%,0%,60%)"));
         assert_eq!(Some(rgb(255, 0, 119)), parse_color("rgb(100%,0%,46.6667%)"));
-        assert_eq!(Some(rgb(3, 54, 119)), parse_color("rgb(1.1765%,21.1765%,46.6667%)"));
+        assert_eq!(
+            Some(rgb(3, 54, 119)),
+            parse_color("rgb(1.1765%,21.1765%,46.6667%)")
+        );
         assert_eq!(rgbf(1.0, 0.0, 0.467), parse_color("rgb(100%,0%,46.7%)"));
         assert_eq!(rgbf(0.01, 0.212, 0.467), parse_color("rgb(1%,21.2%,46.7%)"));
 
@@ -655,7 +662,7 @@ mod tests {
     }
 
     #[test]
-    fn css_rgb_legacy_fn_alpha() {
+    fn css_rgb_fn_legacy_alpha() {
         assert_eq!(
             Some(rgba(255, 0, 153, 0.375)),
             parse_color("rgb(255, 0, 153, 0.375)")
@@ -676,7 +683,7 @@ mod tests {
     }
 
     #[test]
-    fn css_rgb_legacy_fn_invalid() {
+    fn rgb_fn_legacy_invalid() {
         // can't mix numbers and percentages
         assert_eq!(None, parse_color("rgb(128, 80%, 255)"));
         assert_eq!(None, parse_color("rgb(100%, 0, 0)"));
@@ -693,7 +700,7 @@ mod tests {
     }
 
     #[test]
-    fn css_rgb_legacy_fn_alpha_invalid() {
+    fn rgb_fn_legacy_alpha_invalid() {
         // can't use slash separator with legacy syntax
         assert_eq!(None, parse_color("rgb(128, 64, 32 / 0.5)"));
         assert_eq!(None, parse_color("rgb(75%, 50%, 25% / 80%)"));
@@ -708,10 +715,13 @@ mod tests {
     }
 
     #[test]
-    fn css_rgb_modern_fn() {
+    fn css_rgb_fn_modern() {
         assert_eq!(Some(rgb(255, 0, 153)), parse_color("rgb(255 0 153)"));
 
-        assert_eq!(Some(rgb(3, 54, 119)), parse_color("rgb(1.1765% 21.1765% 46.6667%)"));
+        assert_eq!(
+            Some(rgb(3, 54, 119)),
+            parse_color("rgb(1.1765% 21.1765% 46.6667%)")
+        );
         assert_eq!(Some(rgb(255, 0, 119)), parse_color("rgb(255 0 119)"));
         assert_eq!(
             Some(rgb(255, 0, 119)),
@@ -730,7 +740,7 @@ mod tests {
     }
 
     #[test]
-    fn css_rgb_modern_fn_alpha() {
+    fn css_rgb_fn_modern_alpha() {
         assert_eq!(
             Some(rgba(255, 0, 153, 0.3)),
             parse_color("rgb(255 0 153 / 30%)")
@@ -742,7 +752,20 @@ mod tests {
     }
 
     #[test]
-    fn css_rgb_modern_fn_invalid() {
+    fn rgb_fn_modern_lenient() {
+        // no slash before alpha value
+        assert_eq!(
+            rgbaf(1.0, 0.0, 0.6, 0.3),
+            parse_color("rgb(100% 0% 60% 30%)")
+        );
+        assert_eq!(
+            rgbaf(1.0, 0.0, 0.6, 0.3),
+            parse_color("rgb(192 128 64 0.3)")
+        );
+    }
+
+    #[test]
+    fn rgb_fn_modern_invalid() {
         // can't mix numbers and percentages
         assert_eq!(None, parse_color("rgb(128 80% 255)"));
         assert_eq!(None, parse_color("rgb(100% 0 0)"));
@@ -754,17 +777,13 @@ mod tests {
     }
 
     #[test]
-    fn css_rgb_modern_fn_alpha_invalid() {
+    fn rgb_fn_modern_alpha_invalid() {
         // not enough arguments before slash
         assert_eq!(None, parse_color("rgb(255 0 / 0.3)"));
         // too many arguments before slash
         assert_eq!(None, parse_color("rgb(100% 0% 60% 30% / 0.3)"));
         // no alpha value after slash
         assert_eq!(None, parse_color("rgb(255 0 30 /)"));
-
-        // no slash before alpha value
-        assert_eq!(None, parse_color("rgb(100% 0% 60% 30%)"));
-        assert_eq!(None, parse_color("rgb(192 128 64 0.3)"));
 
         // can't use comma separator with modern syntax
         assert_eq!(None, parse_color("rgb(100% 0% 60%, 30%)"));
@@ -958,7 +977,7 @@ mod tests {
     // END: tests for hue angle variants
 
     #[test]
-    fn css_hsl_legacy_fn() {
+    fn css_hsl_fn_legacy() {
         assert_eq!(
             Some(Color::from_hsl(280.0, 0.2, 0.5)),
             parse_color("hsl(280,20%,50%)")
@@ -1030,7 +1049,7 @@ mod tests {
     }
 
     #[test]
-    fn css_hsl_legacy_fn_alpha() {
+    fn css_hsl_fn_legacy_alpha() {
         assert_eq!(
             Some(Color::from_hsla(280.0, 0.2, 0.5, 0.35)),
             parse_color("hsl(280, 20%, 50%, 0.35)")
@@ -1042,7 +1061,7 @@ mod tests {
     }
 
     #[test]
-    fn css_hsl_legacy_fn_invalid() {
+    fn hsl_fn_legacy_invalid() {
         // lightness must be a percentage
         assert_eq!(None, parse_color("hsl(280, 20%, 50)"));
         // saturation must be a percentage
@@ -1054,7 +1073,7 @@ mod tests {
     }
 
     #[test]
-    fn css_hsl_legacy_fn_alpha_invalid() {
+    fn hsl_fn_legacy_alpha_invalid() {
         // can't use slash separator with legacy syntax
         assert_eq!(None, parse_color("hsl(280, 20%, 50% / 0.5)"));
         assert_eq!(None, parse_color("hsl(280, 20%, 50% / 80%)"));
@@ -1068,7 +1087,7 @@ mod tests {
     }
 
     #[test]
-    fn css_hsl_modern_fn() {
+    fn css_hsl_fn_modern() {
         assert_eq!(
             Some(Color::from_hsl(270.0, 0.6, 0.7)),
             parse_color("hsl(270 60% 70%)")
@@ -1076,7 +1095,7 @@ mod tests {
     }
 
     #[test]
-    fn css_hsl_modern_fn_alpha() {
+    fn css_hsl_fn_modern_alpha() {
         assert_eq!(
             Some(Color::from_hsla(280.0, 0.2, 0.5, 0.5)),
             parse_color("hsl(280 20% 50% / 0.5)")
@@ -1088,7 +1107,20 @@ mod tests {
     }
 
     #[test]
-    fn css_hsl_modern_fn_invalid() {
+    fn hsl_fn_modern_lenient() {
+        // no slash before alpha value
+        assert_eq!(
+            Some(Color::from_hsla(280.0, 0.2, 0.5, 0.5)), 
+            parse_color("hsl(280 20% 50% 0.5)")
+        );
+        assert_eq!(
+            Some(Color::from_hsla(280.0, 0.2, 0.5, 0.5)), 
+            parse_color("hsl(280 20% 50% 50%)")
+        );
+    }
+
+    #[test]
+    fn hsl_fn_modern_invalid() {
         // lightness must be a percentage
         assert_eq!(None, parse_color("hsl(280 20% 50)"));
         // saturation must be a percentage
@@ -1100,17 +1132,13 @@ mod tests {
     }
 
     #[test]
-    fn css_hsl_modern_fn_alpha_invalid() {
+    fn hsl_fn_modern_alpha_invalid() {
         // not enough arguments before slash
         assert_eq!(None, parse_color("hsl(180 70% / 0.3)"));
         // too many arguments before slash
         assert_eq!(None, parse_color("hsl(180 70% 60% 30% / 0.3)"));
         // no alpha value after slash
         assert_eq!(None, parse_color("hsl(180 70% 50% /)"));
-
-        // no slash before alpha value
-        assert_eq!(None, parse_color("hsl(280 20% 50% 0.5)"));
-        assert_eq!(None, parse_color("hsl(280 20% 50% 50%)"));
 
         // can't use comma separator with modern syntax
         assert_eq!(None, parse_color("hsl(280 20% 50%, 0.5)"));
