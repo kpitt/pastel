@@ -50,10 +50,7 @@ fn opt_hash_char(s: &str) -> IResult<&str, Option<char>> {
 }
 
 fn percentage(input: &str) -> IResult<&str, f64> {
-    map(
-        terminated(double, char('%')),
-        |p| p / 100.
-    )(input)
+    map(terminated(double, char('%')), |p| p / 100.)(input)
 }
 
 fn percentage_or_double(input: &str) -> IResult<&str, f64> {
@@ -63,6 +60,10 @@ fn percentage_or_double(input: &str) -> IResult<&str, f64> {
 fn number255(input: &str) -> IResult<&str, f64> {
     // Parses a double that is scaled from [0, 255] down to [0, 1].
     map(double, |n| n / 255.0)(input)
+}
+
+fn percentage_or_number255(input: &str) -> IResult<&str, f64> {
+    alt((percentage, number255))(input)
 }
 
 fn parse_degrees(input: &str) -> IResult<&str, f64> {
@@ -187,48 +188,28 @@ fn parse_rgb(input: &str) -> IResult<&str, Color> {
 
 fn rgb_arguments(input: &str) -> IResult<&str, Color> {
     let (input, (r, g, b, a)) = alt((
-        parse_rgb_modern_percentages,
-        parse_rgb_modern_numbers,
-        parse_rgb_legacy_percentages,
-        parse_rgb_legacy_numbers,
+        rgb_modern_arguments,
+        rgb_legacy_arguments,
     ))(input)?;
 
     let c = Color::from_rgba_float(r, g, b, a);
     Ok((input, c))
 }
 
-fn parse_rgb_modern_numbers(input: &str) -> IResult<&str, (f64, f64, f64, f64)> {
+fn rgb_modern_arguments(input: &str) -> IResult<&str, (f64, f64, f64, f64)> {
     tuple((
-        number255,
-        preceded(space1, number255),
-        preceded(space1, number255),
+        percentage_or_number255,
+        preceded(space1, percentage_or_number255),
+        preceded(space1, percentage_or_number255),
         lenient_css_alpha,
     ))(input)
 }
 
-fn parse_rgb_modern_percentages(input: &str) -> IResult<&str, (f64, f64, f64, f64)> {
+fn rgb_legacy_arguments(input: &str) -> IResult<&str, (f64, f64, f64, f64)> {
     tuple((
-        percentage,
-        preceded(space1, percentage),
-        preceded(space1, percentage),
-        lenient_css_alpha,
-    ))(input)
-}
-
-fn parse_rgb_legacy_numbers(input: &str) -> IResult<&str, (f64, f64, f64, f64)> {
-    tuple((
-        number255,
-        preceded(comma_separator, number255),
-        preceded(comma_separator, number255),
-        legacy_alpha,
-    ))(input)
-}
-
-fn parse_rgb_legacy_percentages(input: &str) -> IResult<&str, (f64, f64, f64, f64)> {
-    tuple((
-        percentage,
-        preceded(comma_separator, percentage),
-        preceded(comma_separator, percentage),
+        percentage_or_number255,
+        preceded(comma_separator, percentage_or_number255),
+        preceded(comma_separator, percentage_or_number255),
         legacy_alpha,
     ))(input)
 }
@@ -724,11 +705,17 @@ mod tests {
     }
 
     #[test]
-    fn rgb_fn_legacy_invalid() {
-        // can't mix numbers and percentages
-        assert_eq!(None, parse_color("rgb(128, 80%, 255)"));
-        assert_eq!(None, parse_color("rgb(100%, 0, 0)"));
+    fn rgb_fn_legacy_lenient() {
+        // allow mixing numbers and percentages
+        assert_eq!(
+            rgbf(128.0 / 255.0, 0.8, 1.0),
+            parse_color("rgb(128, 80%, 255)")
+        );
+        assert_eq!(rgbf(1.0, 0.0, 0.0), parse_color("rgb(100%, 0, 0)"));
+    }
 
+    #[test]
+    fn rgb_fn_legacy_invalid() {
         // can't mix comma and space separators
         assert_eq!(None, parse_color("rgb(128, 64 32)"));
 
@@ -794,6 +781,13 @@ mod tests {
 
     #[test]
     fn rgb_fn_modern_lenient() {
+        // allow mixing numbers and percentages
+        assert_eq!(
+            rgbf(128.0 / 255.0, 0.8, 1.0),
+            parse_color("rgb(128 80% 255)")
+        );
+        assert_eq!(rgbf(1.0, 0.0, 0.0), parse_color("rgb(100% 0 0)"));
+
         // no slash before alpha value
         assert_eq!(
             rgbaf(1.0, 0.0, 0.6, 0.3),
@@ -807,10 +801,6 @@ mod tests {
 
     #[test]
     fn rgb_fn_modern_invalid() {
-        // can't mix numbers and percentages
-        assert_eq!(None, parse_color("rgb(128 80% 255)"));
-        assert_eq!(None, parse_color("rgb(100% 0 0)"));
-
         // not enough arguments
         assert_eq!(None, parse_color("rgb(255 0)"));
         // missing parenthesis
