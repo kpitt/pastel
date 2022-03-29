@@ -777,6 +777,12 @@ mod tests {
             Some(rgba(255, 0, 153, 0.3)),
             parse_color("rgb(100% 0% 60% / 0.3)")
         );
+
+        // spaces around '/' separator are not required
+        assert_eq!(
+            Some(rgba(255, 0, 153, 0.3)),
+            parse_color("rgb(100% 0% 60%/0.3)")
+        );
     }
 
     #[test]
@@ -1663,7 +1669,7 @@ mod tests {
             parse_color("cielab(70%, -25, 40, 80%)")
         );
         assert_eq!(
-            parse_color("lab(70% -25 40 / 0.8)"),
+            parse_color("lab(70, -25, 40, 0.8)"),
             parse_color("CIELAB(70, -25, 40, 0.8)")
         );
     }
@@ -1860,164 +1866,494 @@ mod tests {
     }
 
     #[test]
-    fn parse_luv_syntax() {
+    fn luv_fn_modern() {
+        // Tests the standard CSS syntax for the `luv()` function.
+
+        assert_eq!(
+            Some(Color::from_luv(42.24, -35.5, 43.4, 1.0)),
+            parse_color("luv(42.24% -35.5 43.4)")
+        );
+        // case-insensitive
+        assert_eq!(
+            Some(Color::from_luv(50.0, -35.5, 43.4, 1.0)),
+            parse_color("Luv(50% -35.5 43.4)")
+        );
+        // extra whitespace before and after arguments is ingored
+        assert_eq!(
+            Some(Color::from_luv(15.0, 23.0, -43.0, 1.0)),
+            parse_color("luv(   15 23 -43    )")
+        );
+        // extra whitespace between arguments is ignored
+        assert_eq!(
+            Some(Color::from_luv(15.0, 23.0, -43.0, 1.0)),
+            parse_color("luv(15    23      -43)")
+        );
+    }
+
+    #[test]
+    fn luv_fn_modern_alpha() {
+        // Tests the standard CSS syntax for the `luv()` function with alpha values.
+
+        assert_eq!(
+            Some(Color::from_luv(50.0, -23.0, 43.0, 0.5)),
+            parse_color("luv(50% -23 43 / 0.5)")
+        );
+        // alpha can be a percentage
+        assert_eq!(
+            Some(Color::from_luv(15.0, -35.5, -43.4, 0.4)),
+            parse_color("luv(15% -35.5 -43.4 / 40%)")
+        );
+        // no spaces required around alpha separator
+        assert_eq!(
+            Some(Color::from_luv(75.0, -35.5, -43.4, 0.4)),
+            parse_color("luv(75% -35.5 -43.4/0.4)")
+        );
+    }
+
+    #[test]
+    fn luv_fn_modern_lenient() {
+        // Tests lenient parsing of the "modern" space-separated format.
+
+        // percent sign after lightness is optional
+        assert_eq!(
+            Some(Color::from_luv(60.0, -35.5, 43.4, 1.0)),
+            parse_color("luv(60.00 -35.5 43.4)")
+        );
+
+        // alpha can be separated with just a space
+        assert_eq!(
+            Some(Color::from_luv(15.0, -35.5, -43.4, 0.4)),
+            parse_color("luv(15% -35.5 -43.4 40%)")
+        );
+        assert_eq!(
+            Some(Color::from_luv(75.0, -35.5, -43.4, 0.4)),
+            parse_color("luv(75% -35.5 -43.4 0.4)")
+        );
+    }
+
+    #[test]
+    fn luv_fn_legacy() {
+        assert_eq!(
+            Some(Color::from_luv(15.0, 23.0, -43.0, 1.0)),
+            parse_color("luv(15, 23, -43)")
+        );
+        // percent sign after lightness is allowed
+        assert_eq!(
+            Some(Color::from_luv(15.0, 23.0, -43.0, 1.0)),
+            parse_color("luv(15%, 23, -43)")
+        );
+        // case-insensitive, no spaces around commands between arguments
         assert_eq!(
             Some(Color::from_luv(12.43, -35.5, 43.4, 1.0)),
             parse_color("Luv(12.43,-35.5,43.4)")
         );
-        assert_eq!(
-            Some(Color::from_luv(15.0, -23.0, 43.0, 0.5)),
-            parse_color("luv(15,-23,43,0.5)")
-        );
+        // extra whitespace before and after arguments is ignored
         assert_eq!(
             Some(Color::from_luv(15.0, 23.0, -43.0, 1.0)),
-            parse_color("CIELuv(15,23,-43)")
+            parse_color("luv(        15, 23, -43   )")
         );
-        assert_eq!(
-            Some(Color::from_luv(15.0, 35.5, -43.4, 1.0)),
-            parse_color("CIELuv(15,35.5,-43.4)")
-        );
-        assert_eq!(
-            Some(Color::from_luv(15.0, -35.5, -43.4, 0.4)),
-            parse_color("cieLuv(15,-35.5,-43.4,0.4)")
-        );
+        // extra whitespace around commas between arguments is ignored
         assert_eq!(
             Some(Color::from_luv(15.0, 23.0, -43.0, 1.0)),
-            parse_color("Luv(        15,  23,-43   )")
-        );
-        assert_eq!(
-            Some(Color::from_luv(15.0, -35.5, -43.4, 0.4)),
-            parse_color("CieLuv(15,-35.5,-43.4,0.4)")
-        );
-        assert_eq!(
-            Some(Color::from_luv(15.0, 23.0, -43.0, 1.0)),
-            parse_color("CIELuv(        15,  23,-43   )")
+            parse_color("luv(15   ,  23 ,-43)")
         );
     }
 
     #[test]
-    fn parse_lchuv_syntax() {
+    fn luv_fn_legacy_alpha() {
+        // alpha as a number from [0, 1]
         assert_eq!(
-            Some(Color::from_lchuv(60.0, 50.0, 280.0, 1.0)),
-            parse_color("lchuv(60,50,280)")
+            Some(Color::from_luv(15.0, -23.0, 43.0, 0.5)),
+            parse_color("luv(15%, -23, 43, 0.5)")
+        );
+        // case-insensitive, alpha as a percentage
+        assert_eq!(
+            Some(Color::from_luv(15.0, -23.0, 43.0, 0.5)),
+            parse_color("LUV(15%, -23, 43, 50%)")
+        );
+        // extra spaces around comma before alpha value are ignored
+        assert_eq!(
+            Some(Color::from_luv(15.0, -35.5, -43.4, 0.4)),
+            parse_color("luv(15, -35.5, -43.4     ,  0.4)")
         );
         assert_eq!(
-            Some(Color::from_lchuv(60.0, 50.0, 280.0, 1.0)),
-            parse_color("lchuv(60,50,280deg)")
+            Some(Color::from_luv(15.0, -35.5, -43.4, 0.4)),
+            parse_color("luv(15,-35.5,-43.4    ,    40%)")
         );
+    }
+
+    #[test]
+    fn luv_fn_cieluv_alias() {
+        // Tests that "CIELuv" (case-insensitive) is a valid alias for "luv"
+        // with either modern- or legacy-style arguments.
+
+        // modern-style arguments
+        assert_eq!(
+            parse_color("luv(70% -25 40)"),
+            parse_color("CIELuv(70% -25 40)")
+        );
+        assert_eq!(
+            parse_color("luv(70% -25 40 / 0.8)"),
+            parse_color("cieluv(70% -25 40 / 80%)")
+        );
+        assert_eq!(
+            parse_color("luv(70% -25 40 / 0.8)"),
+            parse_color("cieluv(70 -25 40 0.8)")
+        );
+
+        // legacy-style arguments
+        assert_eq!(
+            parse_color("luv(70%, -25, 40)"),
+            parse_color("CIELuv(70%, -25, 40)")
+        );
+        assert_eq!(
+            parse_color("luv(70%, -25, 40, 80%)"),
+            parse_color("cieluv(70%, -25, 40, 80%)")
+        );
+        assert_eq!(
+            parse_color("luv(70, -25, 40, 0.8)"),
+            parse_color("CIELUV(70, -25, 40, 0.8)")
+        );
+    }
+
+    #[test]
+    fn lchuv_fn_modern() {
+        assert_eq!(
+            Some(Color::from_lchuv(60.0, 50.0, 280.0, 1.0)),
+            parse_color("lchuv(60% 50 280)")
+        );
+        // case-insensitive
+        assert_eq!(
+            Some(Color::from_lchuv(60.0, 50.0, 280.0, 1.0)),
+            parse_color("LchUV(60% 50 280)")
+        );
+        // decimals are preserved
         assert_eq!(
             Some(Color::from_lchuv(23.3, 45.6, 280.33, 1.0)),
-            parse_color("lchuv(23.3,45.6,280.33001)")
+            parse_color("lchuv(23.3% 45.6 280.33)")
         );
+        // extra whitespace before and after arguments is ignored
+        assert_eq!(
+            Some(Color::from_lchuv(60.0, 50.0, 280.0, 1.0)),
+            parse_color("lchuv(   60% 50 280  )")
+        );
+        // extra whitespace between arguments is ignored
+        assert_eq!(
+            Some(Color::from_lchuv(60.0, 50.0, 270.0, 1.0)),
+            parse_color("lchuv(60%     50    270)")
+        );
+    }
+
+    #[test]
+    fn lchuv_fn_modern_alpha() {
         assert_eq!(
             Some(Color::from_lchuv(60.0, 50.0, 280.0, 0.5)),
-            parse_color("lchuv(60,50,280,0.5)")
-        );
-        assert_eq!(
-            Some(Color::from_lchuv(60.0, 50.0, 270.0, 1.0)),
-            parse_color("lchuv(60 50 270)")
-        );
-        assert_eq!(
-            Some(Color::from_lchuv(60.0, 50.0, 270.0, 1.0)),
-            parse_color("lchuv(60% 50 270)")
-        );
-
-        assert_eq!(
-            Some(Color::from_lchuv(50.0, 30.0, -140.0, 1.0)),
-            parse_color("lchuv(50,30,-140°)")
-        );
-        assert_eq!(
-            Some(Color::from_lchuv(50.0, 30.0, 220.0, 1.0)),
-            parse_color("lchuv(50,30,-140)")
-        );
-
-        assert_eq!(
-            Some(Color::from_lchuv(50.0, 30.0, 90.0, 1.0)),
-            parse_color("lchuv(50,30,100grad)")
-        );
-        assert_eq!(
-            Some(Color::from_lchuv(50.0, 30.0, 90.0, 1.0)),
-            parse_color("lchuv(50,30,1.5708rad)")
-        );
-        assert_ne!(
-            Some(Color::from_lchuv(50.0, 30.0, 90.05, 1.0)),
-            parse_color("lchuv(50,30,1.5708rad)")
-        );
-        assert_eq!(
-            Some(Color::from_lchuv(50.0, 30.0, 90.05, 1.0)),
-            parse_color("lchuv(50,30,1.5717rad)")
-        );
-        assert_eq!(
-            Some(Color::from_lchuv(50.0, 30.0, 45.0, 1.0)),
-            parse_color("lchuv(50,30,0.125turn)")
-        );
-
-        assert_eq!(None, parse_color("lchuv(50,30%,280)"));
-        assert_eq!(None, parse_color("lchuv(50,-30,280)"));
-        assert_eq!(None, parse_color("lchuv(50,30,280%)"));
-        assert_eq!(None, parse_color("lchuv(50,30)"));
-
-        assert_eq!(
-            Some(Color::from_lchuv(60.0, 40.0, 150.0, 1.0)),
-            parse_color("LChuv(60,40,150)")
-        );
-        assert_eq!(
-            Some(Color::from_lchuv(60.0, 40.0, 150.0, 1.0)),
-            parse_color("CIELChuv(60,40,150)")
+            parse_color("lchuv(60% 50 280 / 0.5)")
         );
         assert_eq!(
             Some(Color::from_lchuv(60.0, 40.0, 150.0, 0.4)),
-            parse_color("cielchuv(60,40,150,0.4)")
+            parse_color("lchuv(60% 40 150 / 40%)")
         );
+
+        // spaces are not required around the alpha separator
         assert_eq!(
-            Some(Color::from_lchuv(60.0, 40.0, 150.0, 1.0)),
-            parse_color("LChuv(        60,  40,150   )")
-        );
-        assert_eq!(
-            Some(Color::from_lchuv(60.0, 40.0, 150.0, 1.0)),
-            parse_color("CIELChuv(        60,  40,150   )")
+            Some(Color::from_lchuv(60.0, 40.0, 150.0, 0.4)),
+            parse_color("lchuv(60% 40 150/0.4)")
         );
     }
 
     #[test]
-    fn parse_hcl_syntax() {
+    fn lchuv_fn_modern_lenient() {
+        // percent sign is optional for lightness value
         assert_eq!(
             Some(Color::from_lchuv(60.0, 50.0, 280.0, 1.0)),
-            parse_color("hcl(280,50,60)")
+            parse_color("lchuv(60 50 280)")
         );
-        assert_eq!(
-            Some(Color::from_lchuv(60.0, 50.0, 280.0, 1.0)),
-            parse_color("hcl(280deg,50,60)")
-        );
-        assert_eq!(
-            Some(Color::from_lchuv(23.3, 45.6, 280.4, 1.0)),
-            parse_color("hcl(280.4,45.6,23.3)")
-        );
+        // no slash separator for alpha value
         assert_eq!(
             Some(Color::from_lchuv(60.0, 50.0, 280.0, 0.5)),
-            parse_color("hcl(280,50,60,0.5)")
+            parse_color("lchuv(60% 50 280 0.5)")
         );
         assert_eq!(
-            Some(Color::from_lchuv(60.0, 50.0, 270.0, 1.0)),
-            parse_color("hcl(270 50 60)")
+            Some(Color::from_lchuv(60.0, 40.0, 150.0, 0.4)),
+            parse_color("lchuv(60% 40 150 40%)")
         );
+    }
+
+    #[test]
+    fn lchuv_fn_modern_range() {
+        // negative chroma is clamped to zero
         assert_eq!(
-            Some(Color::from_lchuv(60.0, 50.0, 270.0, 1.0)),
-            parse_color("hcl(270 50 60%)")
+            Some(Color::from_lchuv(75.0, 0.0, 280.0, 1.0)),
+            parse_color("lchuv(75% -12 280)")
         );
 
+        // negative angles are equivalent to the normalized angle
+        assert_eq!(
+            Some(Color::from_lchuv(50.0, 30.0, 220.0, 1.0)),
+            parse_color("lchuv(50% 30 -140)")
+        );
+        // angles > 360deg are equivalent to the normalized angle
+        assert_eq!(
+            Some(Color::from_lchuv(50.0, 30.0, 60.0, 1.0)),
+            parse_color("lchuv(50% 30 1140)")
+        );
+    }
+
+    #[test]
+    fn lchuv_fn_legacy() {
+        assert_eq!(
+            Some(Color::from_lchuv(60.0, 50.0, 280.0, 1.0)),
+            parse_color("lchuv(60, 50, 280)")
+        );
+        // case-insensitive
+        assert_eq!(
+            Some(Color::from_lchuv(60.0, 50.0, 280.0, 1.0)),
+            parse_color("LChuv(60, 50, 280)")
+        );
+        // decimal places are preserved
+        assert_eq!(
+            Some(Color::from_lchuv(23.3, 45.6, 280.33, 1.0)),
+            parse_color("lchuv(23.3, 45.6, 280.33)")
+        );
+
+        // extra whitespace before and after arguments is ignored
+        assert_eq!(
+            Some(Color::from_lchuv(60.0, 50.0, 280.0, 1.0)),
+            parse_color("lchuv(     60, 50, 280   )")
+        );
+        // extra whitespace around commas between arguments is ignored
+        assert_eq!(
+            Some(Color::from_lchuv(60.0, 50.0, 280.0, 1.0)),
+            parse_color("lchuv(60 , 50   ,  280)")
+        );
+        // no spaces are needed around commas between arguments
+        assert_eq!(
+            Some(Color::from_lchuv(60.0, 50.0, 280.0, 1.0)),
+            parse_color("lchuv(60%,50,280)")
+        );
+
+        // percent sign is optional on lightness value
+        assert_eq!(
+            Some(Color::from_lchuv(60.0, 50.0, 270.0, 1.0)),
+            parse_color("lchuv(60%, 50, 270)")
+        );
+    }
+
+    #[test]
+    fn lchuv_fn_legacy_alpha() {
+        assert_eq!(
+            Some(Color::from_lchuv(60.0, 50.0, 280.0, 0.5)),
+            parse_color("lchuv(60, 50, 280, 0.5)")
+        );
+        // alpha can be a percentage
+        assert_eq!(
+            Some(Color::from_lchuv(60.0, 40.0, 150.0, 0.4)),
+            parse_color("lchuv(60, 40, 150, 40%)")
+        );
+    }
+
+    #[test]
+    fn lchuv_fn_legacy_invalid() {
+        // chroma is not a percentage
+        assert_eq!(None, parse_color("lchuv(50, 30%, 280)"));
+        // hue is not a percentage
+        assert_eq!(None, parse_color("lchuv(50, 30, 280%)"));
+        // not enough arguments
+        assert_eq!(None, parse_color("lchuv(50, 30)"));
+        // no alpha argument after comma
+        assert_eq!(None, parse_color("lchuv(50%, 30, 280, )"));
+    }
+
+    #[test]
+    fn lchuv_fn_cielchuv_alias() {
+        // Tests that "CIELCh" (case-insensitive) is a valid alias for "lchuv"
+        // with either modern- or legacy-style arguments.
+
+        // modern-style arguments
         assert_eq!(
             Some(Color::from_lchuv(60.0, 40.0, 150.0, 1.0)),
-            parse_color("HCL(150,40,60)")
+            parse_color("cielchuv(60% 40 150)")
         );
         assert_eq!(
             Some(Color::from_lchuv(60.0, 40.0, 150.0, 1.0)),
-            parse_color("hCL(150,40,60)")
+            parse_color("CIELChuv(60% 40 150)")
+        );
+        assert_eq!(
+            Some(Color::from_lchuv(60.0, 40.0, 150.0, 0.4)),
+            parse_color("cielchuv(60% 40 150 / 40%)")
+        );
+        assert_eq!(
+            Some(Color::from_lchuv(60.0, 40.0, 150.0, 0.4)),
+            parse_color("cielchuv(60 40 150 0.4)")
+        );
+
+        // legacy-style arguments
+        assert_eq!(
+            Some(Color::from_lchuv(60.0, 40.0, 150.0, 1.0)),
+            parse_color("cielchuv(60, 40, 150)")
         );
         assert_eq!(
             Some(Color::from_lchuv(60.0, 40.0, 150.0, 1.0)),
-            parse_color("HCL(        150,  40,60   )")
+            parse_color("CIELChUv(60%, 40, 150)")
         );
+        assert_eq!(
+            Some(Color::from_lchuv(60.0, 40.0, 150.0, 0.4)),
+            parse_color("cielchuv(60%, 40, 150, 0.4)")
+        );
+        assert_eq!(
+            Some(Color::from_lchuv(60.0, 40.0, 150.0, 0.4)),
+            parse_color("cielchuv(60, 40, 150, 40%)")
+        );
+    }
+
+    #[test]
+    fn hcl_fn_modern() {
+        assert_eq!(
+            Some(Color::from_lchuv(60.0, 50.0, 280.0, 1.0)),
+            parse_color("hcl(280 50 60%)")
+        );
+        // case-insensitive
+        assert_eq!(
+            Some(Color::from_lchuv(60.0, 50.0, 280.0, 1.0)),
+            parse_color("Hcl(280 50 60%)")
+        );
+        // decimals are preserved
+        assert_eq!(
+            Some(Color::from_lchuv(23.3, 45.6, 280.33, 1.0)),
+            parse_color("hcl(280.33 45.6 23.3%)")
+        );
+        // extra whitespace before and after arguments is ignored
+        assert_eq!(
+            Some(Color::from_lchuv(60.0, 50.0, 280.0, 1.0)),
+            parse_color("hcl(   280 50 60%  )")
+        );
+        // extra whitespace between arguments is ignored
+        assert_eq!(
+            Some(Color::from_lchuv(60.0, 50.0, 270.0, 1.0)),
+            parse_color("hcl(270     50    60%)")
+        );
+    }
+
+    #[test]
+    fn hcl_fn_modern_alpha() {
+        assert_eq!(
+            Some(Color::from_lchuv(60.0, 50.0, 280.0, 0.5)),
+            parse_color("hcl(280 50 60% / 0.5)")
+        );
+        assert_eq!(
+            Some(Color::from_lchuv(60.0, 40.0, 150.0, 0.4)),
+            parse_color("hcl(150 40 60% / 40%)")
+        );
+
+        // spaces are not required around the alpha separator
+        assert_eq!(
+            Some(Color::from_lchuv(60.0, 40.0, 150.0, 0.4)),
+            parse_color("hcl(150 40 60%/0.4)")
+        );
+    }
+
+    #[test]
+    fn hcl_fn_modern_lenient() {
+        // percent sign is optional for lightness value
+        assert_eq!(
+            Some(Color::from_lchuv(60.0, 50.0, 280.0, 1.0)),
+            parse_color("hcl(280 50 60)")
+        );
+        // no slash separator for alpha value
+        assert_eq!(
+            Some(Color::from_lchuv(60.0, 50.0, 280.0, 0.5)),
+            parse_color("hcl(280 50 60% 0.5)")
+        );
+        assert_eq!(
+            Some(Color::from_lchuv(60.0, 40.0, 150.0, 0.4)),
+            parse_color("hcl(150 40 60% 40%)")
+        );
+    }
+
+    #[test]
+    fn hcl_fn_modern_range() {
+        // negative chroma is clamped to zero
+        assert_eq!(
+            Some(Color::from_lchuv(75.0, 0.0, 280.0, 1.0)),
+            parse_color("hcl(280 -12 75%)")
+        );
+
+        // negative angles are equivalent to the normalized angle
+        assert_eq!(
+            Some(Color::from_lchuv(50.0, 30.0, 220.0, 1.0)),
+            parse_color("hcl(-140 30 50%)")
+        );
+        // angles > 360deg are equivalent to the normalized angle
+        assert_eq!(
+            Some(Color::from_lchuv(50.0, 30.0, 60.0, 1.0)),
+            parse_color("hcl(1140 30 50%)")
+        );
+    }
+
+    #[test]
+    fn hcl_fn_legacy() {
+        assert_eq!(
+            Some(Color::from_lchuv(60.0, 50.0, 280.0, 1.0)),
+            parse_color("hcl(280, 50, 60)")
+        );
+        // case-insensitive
+        assert_eq!(
+            Some(Color::from_lchuv(60.0, 50.0, 280.0, 1.0)),
+            parse_color("hCL(280, 50, 60)")
+        );
+        // decimal places are preserved
+        assert_eq!(
+            Some(Color::from_lchuv(23.3, 45.6, 280.33, 1.0)),
+            parse_color("hcl(280.33, 45.6, 23.3)")
+        );
+
+        // extra whitespace before and after arguments is ignored
+        assert_eq!(
+            Some(Color::from_lchuv(60.0, 50.0, 280.0, 1.0)),
+            parse_color("hcl(     280, 50, 60   )")
+        );
+        // extra whitespace around commas between arguments is ignored
+        assert_eq!(
+            Some(Color::from_lchuv(60.0, 50.0, 280.0, 1.0)),
+            parse_color("hcl(280 , 50   ,  60)")
+        );
+        // no spaces are needed around commas between arguments
+        assert_eq!(
+            Some(Color::from_lchuv(60.0, 50.0, 280.0, 1.0)),
+            parse_color("hcl(280,50,60%)")
+        );
+
+        // percent sign is optional on lightness value
+        assert_eq!(
+            Some(Color::from_lchuv(60.0, 50.0, 270.0, 1.0)),
+            parse_color("hcl(270, 50, 60%)")
+        );
+    }
+
+    #[test]
+    fn hcl_fn_legacy_alpha() {
+        assert_eq!(
+            Some(Color::from_lchuv(60.0, 50.0, 280.0, 0.5)),
+            parse_color("hcl(280, 50, 60, 0.5)")
+        );
+        // alpha can be a percentage
+        assert_eq!(
+            Some(Color::from_lchuv(60.0, 40.0, 150.0, 0.4)),
+            parse_color("hcl(150, 40, 60, 40%)")
+        );
+    }
+
+    #[test]
+    fn hcl_fn_legacy_invalid() {
+        // chroma is not a percentage
+        assert_eq!(None, parse_color("hcl(280, 30%, 50)"));
+        // hue is not a percentage
+        assert_eq!(None, parse_color("hcl(280%, 30, 50)"));
+        // not enough arguments
+        assert_eq!(None, parse_color("hcl(50, 30)"));
+        // no alpha argument after comma
+        assert_eq!(None, parse_color("hcl(50%, 30, 280, )"));
     }
 
     #[test]
