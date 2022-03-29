@@ -368,87 +368,123 @@ fn lab_lightness(input: &str) -> IResult<&str, f64> {
     terminated(double, opt(char('%')))(input)
 }
 
-fn parse_lch<'a>(input: &'a str) -> IResult<&'a str, Color> {
-    let (input, _) = opt(tag_no_case("cie"))(input)?;
-    let (input, _) = tag_no_case("lch(")(input)?;
-    let (input, _) = space0(input)?;
-    let (input, l) = lab_lightness(input)?;
-    let (input, _) = parse_separator(input)?;
-    let (input, c) = verify(double, |&d| d >= 0.)(input)?;
-    let (input, _) = parse_separator(input)?;
-    let (input, h) = hue_angle(input)?;
-    let (input, alpha) = opt(|input: &'a str| {
-        let (input, _) = parse_separator(input)?;
-        double(input)
-    })(input)?;
-    let (input, _) = space0(input)?;
-    let (input, _) = char(')')(input)?;
-
-    let color = Color::from_lch(l, c, h, alpha.unwrap_or(1.0));
-
-    Ok((input, color))
+fn parse_lch(input: &str) -> IResult<&str, Color> {
+    preceded(
+        preceded(opt(tag_no_case("cie")), tag_no_case("lch")),
+        fn_arguments(lch_arguments),
+    )(input)
 }
 
-fn parse_luv<'a>(input: &'a str) -> IResult<&'a str, Color> {
-    let (input, _) = opt(tag_no_case("cie"))(input)?;
-    let (input, _) = tag_no_case("luv(")(input)?;
-    let (input, _) = space0(input)?;
-    let (input, l) = lab_lightness(input)?;
-    let (input, _) = parse_separator(input)?;
-    let (input, u) = double(input)?;
-    let (input, _) = parse_separator(input)?;
-    let (input, v) = double(input)?;
-    let (input, alpha) = opt(|input: &'a str| {
-        let (input, _) = parse_separator(input)?;
-        double(input)
-    })(input)?;
-    let (input, _) = space0(input)?;
-    let (input, _) = char(')')(input)?;
+fn lch_arguments(input: &str) -> IResult<&str, Color> {
+    let (input, (l, c, h, alpha)) = alt((
+        lch_modern_arguments,
+        lch_legacy_arguments,
+    ))(input)?;
 
-    let c = Color::from_luv(l, u, v, alpha.unwrap_or(1.0));
+    Ok((input, Color::from_lch(l, c, h, alpha)))
+}
 
+fn lch_modern_arguments(input: &str) -> IResult<&str, (f64, f64, f64, f64)> {
+    tuple((
+        lab_lightness,
+        preceded(space1, double),
+        preceded(space1, hue_angle),
+        lenient_css_alpha,
+    ))(input)
+}
+
+fn lch_legacy_arguments(input: &str) -> IResult<&str, (f64, f64, f64, f64)> {
+    tuple((
+        lab_lightness,
+        preceded(comma_separator, double),
+        preceded(comma_separator, hue_angle),
+        legacy_alpha,
+    ))(input)
+}
+
+fn parse_luv(input: &str) -> IResult<&str, Color> {
+    preceded(
+        preceded(opt(tag_no_case("cie")), tag_no_case("luv")),
+        fn_arguments(luv_arguments),
+    )(input)
+}
+
+fn luv_arguments(input: &str) -> IResult<&str, Color> {
+    let (input, (l, u, v, alpha)) = alt((
+        luv_modern_arguments,
+        luv_legacy_arguments,
+    ))(input)?;
+
+    let c = Color::from_luv(l, u, v, alpha);
     Ok((input, c))
 }
 
-fn parse_lchuv<'a>(input: &'a str) -> IResult<&'a str, Color> {
-    let (input, _) = opt(tag_no_case("cie"))(input)?;
-    let (input, _) = tag_no_case("lchuv(")(input)?;
-    let (input, _) = space0(input)?;
-    let (input, l) = lab_lightness(input)?;
-    let (input, _) = parse_separator(input)?;
-    let (input, c) = verify(double, |&d| d >= 0.)(input)?;
-    let (input, _) = parse_separator(input)?;
-    let (input, h) = hue_angle(input)?;
-    let (input, alpha) = opt(|input: &'a str| {
-        let (input, _) = parse_separator(input)?;
-        double(input)
-    })(input)?;
-    let (input, _) = space0(input)?;
-    let (input, _) = char(')')(input)?;
-
-    let color = Color::from_lchuv(l, c, h, alpha.unwrap_or(1.0));
-
-    Ok((input, color))
+fn luv_modern_arguments(input: &str) -> IResult<&str, (f64, f64, f64, f64)> {
+    tuple((
+        lab_lightness,
+        preceded(space1, double),
+        preceded(space1, double),
+        lenient_css_alpha,
+    ))(input)
 }
 
-fn parse_hcl<'a>(input: &'a str) -> IResult<&'a str, Color> {
-    let (input, _) = tag_no_case("hcl(")(input)?;
-    let (input, _) = space0(input)?;
-    let (input, h) = hue_angle(input)?;
-    let (input, _) = parse_separator(input)?;
-    let (input, c) = verify(double, |&d| d >= 0.)(input)?;
-    let (input, _) = parse_separator(input)?;
-    let (input, l) = lab_lightness(input)?;
-    let (input, alpha) = opt(|input: &'a str| {
-        let (input, _) = parse_separator(input)?;
-        double(input)
-    })(input)?;
-    let (input, _) = space0(input)?;
-    let (input, _) = char(')')(input)?;
+fn luv_legacy_arguments(input: &str) -> IResult<&str, (f64, f64, f64, f64)> {
+    tuple((
+        lab_lightness,
+        preceded(comma_separator, double),
+        preceded(comma_separator, double),
+        legacy_alpha,
+    ))(input)
+}
 
-    let color = Color::from_lchuv(l, c, h, alpha.unwrap_or(1.0));
+fn parse_lchuv(input: &str) -> IResult<&str, Color> {
+    preceded(
+        preceded(opt(tag_no_case("cie")), tag_no_case("lchuv")),
+        fn_arguments(lchuv_arguments),
+    )(input)
+}
 
-    Ok((input, color))
+fn lchuv_arguments(input: &str) -> IResult<&str, Color> {
+    let (input, (l, c, h, alpha)) = alt((
+        lch_modern_arguments,
+        lch_legacy_arguments,
+    ))(input)?;
+
+    Ok((input, Color::from_lchuv(l, c, h, alpha)))
+}
+
+fn parse_hcl(input: &str) -> IResult<&str, Color> {
+    preceded(
+        tag_no_case("hcl"),
+        fn_arguments(hcl_arguments),
+    )(input)
+}
+
+fn hcl_arguments(input: &str) -> IResult<&str, Color> {
+    let (input, (h, c, l, alpha)) = alt((
+        hcl_modern_arguments,
+        hcl_legacy_arguments,
+    ))(input)?;
+
+    Ok((input, Color::from_lchuv(l, c, h, alpha)))
+}
+
+fn hcl_modern_arguments(input: &str) -> IResult<&str, (f64, f64, f64, f64)> {
+    tuple((
+        hue_angle,
+        preceded(space1, double),
+        preceded(space1, lab_lightness),
+        lenient_css_alpha,
+    ))(input)
+}
+
+fn hcl_legacy_arguments(input: &str) -> IResult<&str, (f64, f64, f64, f64)> {
+    tuple((
+        hue_angle,
+        preceded(comma_separator, double),
+        preceded(comma_separator, lab_lightness),
+        legacy_alpha,
+    ))(input)
 }
 
 fn parse_css_colorspace<'a>(input: &'a str) -> IResult<&'a str, Color> {
