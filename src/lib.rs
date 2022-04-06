@@ -1050,8 +1050,10 @@ impl From<&LCh> for Color {
         #![allow(clippy::many_single_char_names)]
         const DEG2RAD: Scalar = std::f64::consts::PI / 180.0;
 
-        let a = color.c * Scalar::cos(color.h * DEG2RAD);
-        let b = color.c * Scalar::sin(color.h * DEG2RAD);
+        // Clamp negative chroma to 0.
+        let c = f64::max(color.c, 0.0);
+        let a = c * Scalar::cos(color.h * DEG2RAD);
+        let b = c * Scalar::sin(color.h * DEG2RAD);
 
         Self::from(&Lab {
             l: color.l,
@@ -1097,8 +1099,10 @@ impl From<&LChuv> for Color {
         #![allow(clippy::many_single_char_names)]
         const DEG2RAD: Scalar = std::f64::consts::PI / 180.0;
 
-        let u = color.c * Scalar::cos(color.h * DEG2RAD);
-        let v = color.c * Scalar::sin(color.h * DEG2RAD);
+        // Clamp negative chroma to 0.
+        let c = f64::max(color.c, 0.0);
+        let u = c * Scalar::cos(color.h * DEG2RAD);
+        let v = c * Scalar::sin(color.h * DEG2RAD);
 
         Self::from(&Luv {
             l: color.l,
