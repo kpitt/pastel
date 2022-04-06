@@ -487,34 +487,42 @@ fn hcl_legacy_arguments(input: &str) -> IResult<&str, (f64, f64, f64, f64)> {
     ))(input)
 }
 
-fn parse_css_colorspace<'a>(input: &'a str) -> IResult<&'a str, Color> {
-    let (input, _) = tag_no_case("color(")(input)?;
-    let (input, _) = space0(input)?;
+fn parse_css_colorspace(input: &str) -> IResult<&str, Color> {
+    preceded(
+        tag_no_case("color"),
+        fn_arguments(css_colorspace_args)
+    )(input)
+}
 
-    let (input, color) = alt((
+fn css_colorspace_args(input: &str) -> IResult<&str, Color> {
+    alt((
         parse_xyz_colorspace,
         parse_srgb_colorspace,
-    ))(input)?;
-
-    let (input, _) = space0(input)?;
-    let (input, _) = char(')')(input)?;
-
-    Ok((input, color))
+    ))(input)
 }
 
 fn parse_xyz_colorspace(input: &str) -> IResult<&str, Color> {
-    let (input, _) = tag_no_case("xyz")(input)?;
-    let (input, _) = space1(input)?;
-    let (input, x) = double(input)?;
-    let (input, _) = space1(input)?;
-    let (input, y) = double(input)?;
-    let (input, _) = space1(input)?;
-    let (input, z) = double(input)?;
-    let (input, alpha) = strict_css_alpha(input)?;
+    preceded(
+        xyz_colorspace_tag,
+        xyz_colorspace_args
+    )(input)
+}
 
-    let c = Color::from_xyza(x, y, z, alpha);
+fn xyz_colorspace_tag(input: &str) -> IResult<&str, &str> {
+    recognize(
+        terminated(tag_no_case("xyz"), opt(tag_no_case("-d65")))
+    )(input)
+}
 
-    Ok((input, c))
+fn xyz_colorspace_args(input: &str) -> IResult<&str, Color> {
+    let (input, (x, y, z, alpha)) = tuple((
+        preceded(space1, double),
+        preceded(space1, double),
+        preceded(space1, double),
+        strict_css_alpha,
+    ))(input)?;
+
+    Ok((input, Color::from_xyza(x, y, z, alpha)))
 }
 
 fn parse_srgb_colorspace(input: &str) -> IResult<&str, Color> {
@@ -528,7 +536,6 @@ fn parse_srgb_colorspace(input: &str) -> IResult<&str, Color> {
     let (input, alpha) = strict_css_alpha(input)?;
 
     let c = Color::from_rgba_float(r, g, b, alpha);
-
     Ok((input, c))
 }
 
@@ -2439,6 +2446,25 @@ mod tests {
         assert_eq!(None, parse_color("color(xyz 0.3, 0.5, 0.7)"));
         // percentages are disallowed
         assert_eq!(None, parse_color("color(xyz 30% 50% 70%)"));
+    }
+
+    #[test]
+    fn css_color_fn_xyz_d65_aliase() {
+        assert_eq!(
+            parse_color("color(xyz 0.3 0.5 0.7)"),
+            parse_color("color(xyz-d65 0.3 0.5 0.7)")
+        );
+
+        assert_eq!(
+            parse_color("color(xyz 0.950470 1 1.088830)"),
+            parse_color("color(xyz-d65 0.950470 1 1.088830)")
+        );
+
+        // alpha is supported
+        assert_eq!(
+            parse_color("color(xyz 0.3 0.5 0.7 / 0.9)"),
+            parse_color("color(xyz-d65 0.3 0.5 0.7 / 0.9)")
+        );
     }
 
     #[test]
