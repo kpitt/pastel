@@ -42,7 +42,7 @@ const D65_ZN: Scalar = 1.088_830;
 /// rules.  Returns an empty string if the alpha value is exactly 1.  Otherwise,
 /// returns the " / " separator followed by the alpha value as a number rounded
 /// to 4 decimal places.
-/// 
+///
 /// See: https://www.w3.org/TR/css-color-4/#serializing-alpha-values
 fn format_css_alpha(a: Scalar) -> String {
     if a == 1.0 { String::new() } else { format!(" / {}", round_to(a, 4)) }
@@ -115,7 +115,7 @@ impl Color {
     }
 
     /// Create a `Color` from hue, saturation and value coordinates in the HSV color space.
-    /// 
+    ///
     /// See:
     /// - https://en.wikipedia.org/wiki/HWB_color_model
     pub fn from_hsv(hue: Scalar, saturation: Scalar, value: Scalar) -> Color {
@@ -936,8 +936,8 @@ impl From<&RGBA<f64>> for Color {
         let b = finv(color.b);
 
         let x =
-            0.412_390_799_265_959_34 * r + 
-            0.357_584_339_383_878_00 * g + 
+            0.412_390_799_265_959_34 * r +
+            0.357_584_339_383_878_00 * g +
             0.180_480_788_401_834_30 * b;
         let y =
             0.212_639_005_871_510_27 * r +
@@ -1050,8 +1050,10 @@ impl From<&LCh> for Color {
         #![allow(clippy::many_single_char_names)]
         const DEG2RAD: Scalar = std::f64::consts::PI / 180.0;
 
-        let a = color.c * Scalar::cos(color.h * DEG2RAD);
-        let b = color.c * Scalar::sin(color.h * DEG2RAD);
+        // Clamp negative chroma to 0.
+        let c = f64::max(color.c, 0.0);
+        let a = c * Scalar::cos(color.h * DEG2RAD);
+        let b = c * Scalar::sin(color.h * DEG2RAD);
 
         Self::from(&Lab {
             l: color.l,
@@ -1097,8 +1099,10 @@ impl From<&LChuv> for Color {
         #![allow(clippy::many_single_char_names)]
         const DEG2RAD: Scalar = std::f64::consts::PI / 180.0;
 
-        let u = color.c * Scalar::cos(color.h * DEG2RAD);
-        let v = color.c * Scalar::sin(color.h * DEG2RAD);
+        // Clamp negative chroma to 0.
+        let c = f64::max(color.c, 0.0);
+        let u = c * Scalar::cos(color.h * DEG2RAD);
+        let v = c * Scalar::sin(color.h * DEG2RAD);
 
         Self::from(&Luv {
             l: color.l,
@@ -2289,7 +2293,7 @@ mod tests {
         let c2 = Color::from_rgb_float(0.75, 0.5, e);
         assert_eq!("rgb(75%, 50%, 0%)", c2.to_rgb_float_string());
     }
-    
+
     #[test]
     fn to_color_srgb_string() {
         assert_eq!("color(srgb 0 0 0)", Color::black().to_color_srgb_string());
@@ -2302,7 +2306,7 @@ mod tests {
         let c = Color::from_rgb_float(0.123, 0.456, 0.789);
         assert_eq!("color(srgb 0.123 0.456 0.789)", c.to_color_srgb_string());
     }
-    
+
     #[test]
     fn to_color_srgb_string_alpha() {
         let c = Color::from_rgba_float(0.4, 0.2, 0.6, 0.8);

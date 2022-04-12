@@ -5,24 +5,7 @@
     "tasks": [
         {
             "type": "cargo",
-            "subcommand": "test",
-            "options": {
-                // "env": {
-                //     "RUST_BACKTRACE": "1"
-                // }
-            },
-            "problemMatcher": [
-                "$rustc"
-            ],
-            "group": {
-                "kind": "test",
-                "isDefault": true
-            },
-            "label": "Rust: cargo test - pastel"
-        },
-        {
-            "type": "cargo",
-            "subcommand": "build",
+            "command": "build",
             "problemMatcher": [
                 "$rustc"
             ],
@@ -30,7 +13,19 @@
                 "kind": "build",
                 "isDefault": true
             },
-            "label": "Rust: cargo build - pastel"
+            "label": "rust: cargo build"
+        },
+        {
+            "type": "cargo",
+            "command": "test",
+            "problemMatcher": [
+                "$rustc"
+            ],
+            "group": {
+                "kind": "test",
+                "isDefault": true
+            },
+            "label": "rust: cargo test"
         }
     ]
 }
