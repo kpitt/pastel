@@ -203,6 +203,23 @@ impl Color {
         Self::from(&LChuv { l, c, h, alpha })
     }
 
+    /// Create a `Color` from L, a and b coordinates coordinates in the OKLab color
+    /// space. Note: See documentation for `from_xyz`. The same restrictions apply here.
+    ///
+    /// See: https://bottosson.github.io/posts/oklab/
+    pub fn from_oklab(l: Scalar, a: Scalar, b: Scalar, alpha: Scalar) -> Color {
+        Self::from(&OKLab { l, a, b, alpha })
+    }
+
+    /// Create a `Color` from lightness, chroma and hue coordinates in the OKLCh color space.
+    /// This is a cylindrical transform of the OKLab color space. Note: See documentation for
+    /// `from_xyz`. The same restrictions apply here.
+    ///
+    /// See: https://bottosson.github.io/posts/oklab/
+    pub fn from_oklch(l: Scalar, c: Scalar, h: Scalar, alpha: Scalar) -> Color {
+        Self::from(&OKLCh { l, c, h, alpha })
+    }
+
     /// Create a `Color` from  the four colours of the CMYK model: Cyan, Magenta, Yellow and Black.
     /// The CMYK colours are subtractive. This means the colours get darker as you blend them together
     pub fn from_cmyk(c: Scalar, m: Scalar, y: Scalar, k: Scalar) -> Color {
@@ -569,6 +586,20 @@ impl Color {
             h = round_to(lch.h, 3),
             alpha = format_css_alpha(self.alpha)
         )
+    }
+
+    /// Get L, a and b coordinates according to the OKLab color space.
+    ///
+    /// See: https://bottosson.github.io/posts/oklab/
+    pub fn to_oklab(&self) -> OKLab {
+        OKLab::from(self)
+    }
+
+    /// Get L, C and h coordinates according to the OKLCh color space.
+    ///
+    /// See: https://en.wikipedia.org/wiki/Lab_color_space
+    pub fn to_oklch(&self) -> OKLCh {
+        OKLCh::from(self)
     }
 
     /// Pure black.
@@ -1108,6 +1139,55 @@ impl From<&LChuv> for Color {
             l: color.l,
             u,
             v,
+            alpha: color.alpha,
+        })
+    }
+}
+
+impl From<&OKLab> for Color {
+    fn from(color: &OKLab) -> Self {
+        // Given OKLab, convert to XYZ relative to D65
+        #![allow(clippy::many_single_char_names)]
+        let l_ =
+            0.999_999_998_450_519_814_32 * color.l +
+            0.396_337_792_173_767_856_78 * color.a +
+            0.215_803_758_060_758_803_39 * color.b;
+        let m_ =
+            1.000_000_008_881_760_776_70 * color.l -
+            0.105_561_342_323_656_349_40 * color.a -
+            0.063_854_174_771_705_903_402 * color.b;
+        let s_ =
+            1.000_000_054_672_410_917_70 * color.l -
+            0.089_484_182_094_965_759_684 * color.a -
+            1.291_485_537_864_091_739_90 * color.b;
+
+        let l = l_ * l_ * l_;
+        let m = m_ * m_ * m_;
+        let s = s_ * s_ * s_;
+
+        Self::from(&XYZ {
+            x:  1.226_879_873_374_155_70 * l - 0.557_814_996_555_481_30 * m + 0.281_391_050_177_215_83 * s,
+            y: -0.040_575_762_624_313_72 * l + 1.112_286_829_397_059_40 * m - 0.071_711_066_661_517_01 * s,
+            z: -0.076_372_949_746_721_42 * l - 0.421_493_323_962_791_40 * m + 1.586_924_024_427_241_80 * s,
+            alpha: color.alpha,
+        })
+    }
+}
+
+impl From<&OKLCh> for Color {
+    fn from(color: &OKLCh) -> Self {
+        #![allow(clippy::many_single_char_names)]
+        const DEG2RAD: Scalar = std::f64::consts::PI / 180.0;
+
+        // Clamp negative chroma to 0.
+        let c = f64::max(color.c, 0.0);
+        let a = c * Scalar::cos(color.h * DEG2RAD);
+        let b = c * Scalar::sin(color.h * DEG2RAD);
+
+        Self::from(&OKLab {
+            l: color.l,
+            a,
+            b,
             alpha: color.alpha,
         })
     }
@@ -1677,6 +1757,80 @@ impl fmt::Display for LChuv {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct OKLab {
+    pub l: Scalar,
+    pub a: Scalar,
+    pub b: Scalar,
+    pub alpha: Scalar,
+}
+
+impl From<&Color> for OKLab {
+    fn from(color: &Color) -> Self {
+        // Given XYZ relative to D65, convert to OKLab
+        #![allow(clippy::many_single_char_names)]
+        let rec = XYZ::from(color);
+
+        let l =
+            0.819_022_443_216_431_90 * rec.x +
+            0.361_906_256_280_122_10 * rec.y -
+            0.128_873_782_612_164_14 * rec.z;
+        let m =
+            0.032_983_667_198_027_10 * rec.x +
+            0.929_286_846_896_554_60 * rec.y +
+            0.036_144_668_169_998_44 * rec.z;
+        let s =
+            0.048_177_199_566_046_255 * rec.x +
+            0.264_239_524_944_227_64 * rec.y +
+            0.633_547_825_813_693_70 * rec.z;
+
+        let l_ = f64::cbrt(l);
+        let m_ = f64::cbrt(m);
+        let s_ = f64::cbrt(s);
+
+        // L in range [0,1]. For use in CSS, multiply by 100 and add a percent
+        OKLab {
+            l: 0.210_454_255_3 * l_ + 0.793_617_785_0 * m_ - 0.004_072_046_8 * s_,
+            a: 1.977_998_495_1 * l_ - 2.428_592_205_0 * m_ + 0.450_593_709_9 * s_,
+            b: 0.025_904_037_1 * l_ + 0.782_771_766_2 * m_ - 0.808_675_766_0 * s_,
+            alpha: color.alpha,
+        }
+    }
+}
+
+impl fmt::Display for OKLab {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "OKLab({l}, {a}, {b})", l = self.l, a = self.a, b = self.b,)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct OKLCh {
+    pub l: Scalar,
+    pub c: Scalar,
+    pub h: Scalar,
+    pub alpha: Scalar,
+}
+
+impl From<&Color> for OKLCh {
+    fn from(color: &Color) -> Self {
+        let OKLab { l, a, b, alpha } = OKLab::from(color);
+
+        const RAD2DEG: Scalar = 180.0 / std::f64::consts::PI;
+
+        let c = Scalar::sqrt(a * a + b * b);
+        let h = mod_positive(Scalar::atan2(b, a) * RAD2DEG, 360.0);
+
+        OKLCh { l, c, h, alpha }
+    }
+}
+
+impl fmt::Display for OKLCh {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "OKLCh({l}, {c}, {h})", l = self.l, c = self.c, h = self.h,)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct CMYK {
     pub c: Scalar,
     pub m: Scalar,
@@ -2165,6 +2319,68 @@ mod tests {
             let color1 = Color::from_hsl(h, s, l);
             let lch1 = color1.to_lchuv();
             let color2 = Color::from_lchuv(lch1.l, lch1.c, lch1.h, 1.0);
+            assert_eq!(&color1, &color2);
+        };
+
+        for hue in 0..360 {
+            roundtrip(Scalar::from(hue), 0.2, 0.8);
+        }
+    }
+
+    #[test]
+    fn oklab_conversion() {
+        assert_eq!(
+            Color::from_xyz(0.950456, 1.000000, 1.089058),
+            Color::from_oklab(1.0, 0.0, 0.0, 1.0)
+        );
+        assert_eq!(
+            Color::from_xyz(1.0, 0.0, 0.0),
+            Color::from_oklab(0.449937, 1.235758, -0.018982, 1.0)
+        );
+        assert_eq!(
+            Color::from_xyz(0.0, 1.0, 0.0),
+            Color::from_oklab(0.921816, -0.671211, 0.263400, 1.0)
+        );
+        assert_eq!(
+            Color::from_xyz(0.0, 0.0, 1.0),
+            Color::from_oklab(0.152597, -1.415088, -0.448819, 1.0)
+        );
+
+        let roundtrip = |h, s, l| {
+            let color1 = Color::from_hsl(h, s, l);
+            let lab1 = color1.to_oklab();
+            let color2 = Color::from_oklab(lab1.l, lab1.a, lab1.b, 1.0);
+            assert_eq!(&color1, &color2);
+        };
+
+        for hue in 0..360 {
+            roundtrip(Scalar::from(hue), 0.2, 0.8);
+        }
+    }
+
+    #[test]
+    fn oklch_conversion() {
+        assert_eq!(
+            Color::from_xyz(0.950456, 1.000000, 1.089058),
+            Color::from_oklch(1.0, 0.0, 0.0, 1.0)
+        );
+        assert_eq!(
+            Color::from_xyz(1.0, 0.0, 0.0),
+            Color::from_oklch(0.449937, 1.235904, 359.1200, 1.0)
+        );
+        assert_eq!(
+            Color::from_xyz(0.0, 1.0, 0.0),
+            Color::from_oklch(0.921816, 0.721044, 158.5737, 1.0)
+        );
+        assert_eq!(
+            Color::from_xyz(0.0, 0.0, 1.0),
+            Color::from_oklch(0.152597, 1.484558, 197.5973, 1.0)
+        );
+
+        let roundtrip = |h, s, l| {
+            let color1 = Color::from_hsl(h, s, l);
+            let lch1 = color1.to_oklch();
+            let color2 = Color::from_oklch(lch1.l, lch1.c, lch1.h, 1.0);
             assert_eq!(&color1, &color2);
         };
 
