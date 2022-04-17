@@ -221,6 +221,7 @@ pub fn build_cli() -> App<'static, 'static> {
                                            "lch", "lab-chroma", "lab-hue",
                                            "luv", "luv-lightness", "luv-u", "luv-v",
                                            "lchuv", "luv-chroma", "luv-hue", "hcl",
+                                           "oklab", "oklch",
                                            "luminance", "brightness",
                                            "ansi-8bit", "ansi-24bit",
                                            "ansi-8bit-escapecode", "ansi-24bit-escapecode",

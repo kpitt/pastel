@@ -595,11 +595,35 @@ impl Color {
         OKLab::from(self)
     }
 
+    /// Format the color as an OKLab-representation string (`oklab(41% 83 -93)`).
+    pub fn to_oklab_string(&self) -> String {
+        let lab = OKLab::from(self);
+        format!(
+            "oklab({l}% {a} {b}{alpha})",
+            l = round_to(lab.l * 100.0, 4),
+            a = round_to(lab.a, 6),
+            b = round_to(lab.b, 6),
+            alpha = format_css_alpha(self.alpha),
+        )
+    }
+
     /// Get L, C and h coordinates according to the OKLCh color space.
     ///
     /// See: https://en.wikipedia.org/wiki/Lab_color_space
     pub fn to_oklch(&self) -> OKLCh {
         OKLCh::from(self)
+    }
+
+    /// Format the color as an OKLCh-representation string (`oklch(80.7% 0.4 126)`).
+    pub fn to_oklch_string(&self) -> String {
+        let lch = OKLCh::from(self);
+        format!(
+            "oklch({l}% {c} {h}{alpha})",
+            l = round_to(lch.l * 100.0, 4),
+            c = round_to(lch.c, 6),
+            h = round_to(lch.h, 4),
+            alpha = format_css_alpha(self.alpha),
+        )
     }
 
     /// Pure black.
@@ -2658,6 +2682,36 @@ mod tests {
     fn to_hcl_string_alpha() {
         let c = Color::from_lchuv(40.0, 110.0, 10.0, 0.4);
         assert_eq!("hcl(10 110 40% / 0.4)", c.to_hcl_string());
+    }
+
+    #[test]
+    fn to_oklab_string() {
+        let c1 = Color::from_oklab(0.450, 1.236, -0.019, 1.0);
+        assert_eq!("oklab(45% 1.236 -0.019)", c1.to_oklab_string());
+
+        let c2 = Color::from_oklab(0.922, -0.671, 0.263, 1.0);
+        assert_eq!("oklab(92.2% -0.671 0.263)", c2.to_oklab_string());
+    }
+
+    #[test]
+    fn to_oklab_string_alpha() {
+        let c = Color::from_oklab(0.153, -1.415, -0.449, 0.25);
+        assert_eq!("oklab(15.3% -1.415 -0.449 / 0.25)", c.to_oklab_string());
+    }
+
+    #[test]
+    fn to_oklch_string() {
+        let c = Color::from_oklch(0.52, 0.44, 271.0, 1.0);
+        assert_eq!("oklch(52% 0.44 271)", c.to_oklch_string());
+
+        let c1 = Color::from_oklch(0.45142857, 0.2222222, 135.1415926, 1.0);
+        assert_eq!("oklch(45.1429% 0.222222 135.1416)", c1.to_oklch_string());
+    }
+
+    #[test]
+    fn to_oklch_string_alpha() {
+        let c = Color::from_oklch(0.3, 0.4, 330.0, 0.5);
+        assert_eq!("oklch(30% 0.4 330 / 0.5)", c.to_oklch_string());
     }
 
     #[test]
