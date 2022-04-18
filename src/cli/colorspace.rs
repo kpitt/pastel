@@ -1,5 +1,5 @@
 use pastel::Color;
-use pastel::{Fraction, Lab, LCh, Luv, LChuv, HSLA, HSVA, HWBA, RGBA};
+use pastel::{Fraction, Lab, LCh, Luv, LChuv, OKLab, OKLCh, HSLA, HSVA, HWBA, RGBA};
 
 pub fn get_mixing_function(
     colorspace_name: &str,
@@ -13,6 +13,8 @@ pub fn get_mixing_function(
         "lch" => Box::new(|c1: &Color, c2: &Color, f: Fraction| c1.mix::<LCh>(c2, f)),
         "luv" => Box::new(|c1: &Color, c2: &Color, f: Fraction| c1.mix::<Luv>(c2, f)),
         "lchuv" | "hcl" => Box::new(|c1: &Color, c2: &Color, f: Fraction| c1.mix::<LChuv>(c2, f)),
+        "oklab" => Box::new(|c1: &Color, c2: &Color, f: Fraction| c1.mix::<OKLab>(c2, f)),
+        "oklch" => Box::new(|c1: &Color, c2: &Color, f: Fraction| c1.mix::<OKLCh>(c2, f)),
         _ => unreachable!("Unknown color space"),
     }
 }

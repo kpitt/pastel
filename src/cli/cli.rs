@@ -35,9 +35,11 @@ pub fn build_cli() -> App<'static, 'static> {
         .short("s")
         .value_name("name")
         .help("The colorspace in which to interpolate")
-        .possible_values(&["Lab", "LCh", "Luv", "LChuv", "HCL", "RGB", "HSL", "HSV", "HWB"])
+        .possible_values(&[
+            "Lab", "LCh", "Luv", "LChuv", "HCL", "OKLab", "OKLCh", "RGB", "HSL", "HSV", "HWB"]
+        )
         .case_insensitive(true)
-        .default_value("Lab")
+        .default_value("OKLab")
         .required(true);
 
     App::new(crate_name!())

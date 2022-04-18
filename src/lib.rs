@@ -1788,6 +1788,25 @@ pub struct OKLab {
     pub alpha: Scalar,
 }
 
+impl ColorSpace for OKLab {
+    fn from_color(c: &Color) -> Self {
+        c.to_oklab()
+    }
+
+    fn into_color(self) -> Color {
+        Color::from_oklab(self.l, self.a, self.b, self.alpha)
+    }
+
+    fn mix(&self, other: &Self, fraction: Fraction) -> Self {
+        Self {
+            l: interpolate(self.l, other.l, fraction),
+            a: interpolate(self.a, other.a, fraction),
+            b: interpolate(self.b, other.b, fraction),
+            alpha: interpolate(self.alpha, other.alpha, fraction),
+        }
+    }
+}
+
 impl From<&Color> for OKLab {
     fn from(color: &Color) -> Self {
         // Given XYZ relative to D65, convert to OKLab
@@ -1833,6 +1852,29 @@ pub struct OKLCh {
     pub c: Scalar,
     pub h: Scalar,
     pub alpha: Scalar,
+}
+
+impl ColorSpace for OKLCh {
+    fn from_color(c: &Color) -> Self {
+        c.to_oklch()
+    }
+
+    fn into_color(self) -> Color {
+        Color::from_oklch(self.l, self.c, self.h, self.alpha)
+    }
+
+    fn mix(&self, other: &Self, fraction: Fraction) -> Self {
+        // make sure that the hue is preserved when mixing with gray colors
+        let self_hue = if self.c < 0.1 { other.h } else { self.h };
+        let other_hue = if other.c < 0.1 { self.h } else { other.h };
+
+        Self {
+            l: interpolate(self.l, other.l, fraction),
+            c: interpolate(self.c, other.c, fraction),
+            h: interpolate_angle(self_hue, other_hue, fraction),
+            alpha: interpolate(self.alpha, other.alpha, fraction),
+        }
+    }
 }
 
 impl From<&Color> for OKLCh {
