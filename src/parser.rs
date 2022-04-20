@@ -2400,6 +2400,117 @@ mod tests {
     }
 
     #[test]
+    fn css_oklab_fn() {
+        // Tests the standard CSS syntax for the `oklab()` function.
+
+        assert_eq!(
+            Some(Color::from_oklab(0.4224, -0.355, 0.434)),
+            parse_color("oklab(42.24% -0.355 0.434)")
+        );
+        // case-insensitive
+        assert_eq!(
+            Some(Color::from_oklab(0.5, -0.355, 0.434)),
+            parse_color("OKLab(50% -0.355 0.434)")
+        );
+        // extra whitespace before and after arguments is ingored
+        assert_eq!(
+            Some(Color::from_oklab(0.15, 0.23, -0.43)),
+            parse_color("oklab(   15% 0.23 -0.43    )")
+        );
+        // extra whitespace between arguments is ignored
+        assert_eq!(
+            Some(Color::from_oklab(0.15, 0.23, -0.43)),
+            parse_color("oklab(15%    0.23      -0.43)")
+        );
+    }
+
+    #[test]
+    fn css_oklab_fn_alpha() {
+        // Tests the standard CSS syntax for the `lab()` function with alpha values.
+
+        assert_eq!(
+            Some(Color::from_oklaba(0.5, -0.23, 0.43, 0.5)),
+            parse_color("oklab(50% -0.23 0.43 / 0.5)")
+        );
+        // alpha can be a percentage
+        assert_eq!(
+            Some(Color::from_oklaba(0.15, -0.355, -0.434, 0.4)),
+            parse_color("oklab(15% -0.355 -0.434 / 40%)")
+        );
+        // no spaces required around alpha separator
+        assert_eq!(
+            Some(Color::from_oklaba(0.75, -0.355, -0.434, 0.4)),
+            parse_color("oklab(75% -0.355 -0.434/0.4)")
+        );
+    }
+
+    #[test]
+    fn css_oklch_fn() {
+        assert_eq!(
+            Some(Color::from_oklch(0.60, 0.5, 280.0)),
+            parse_color("oklch(60% 0.5 280)")
+        );
+        // case-insensitive
+        assert_eq!(
+            Some(Color::from_oklch(0.60, 0.5, 280.0)),
+            parse_color("OKLCh(60% 0.5 280)")
+        );
+        // decimals are preserved
+        assert_eq!(
+            Some(Color::from_oklch(0.233, 0.456, 280.33)),
+            parse_color("oklch(23.3% 0.456 280.33)")
+        );
+        // extra whitespace before and after arguments is ignored
+        assert_eq!(
+            Some(Color::from_oklch(0.60, 0.5, 280.0)),
+            parse_color("oklch(   60% 0.5 280  )")
+        );
+        // extra whitespace between arguments is ignored
+        assert_eq!(
+            Some(Color::from_oklch(0.60, 0.5, 270.0)),
+            parse_color("oklch(60%     0.50    270)")
+        );
+    }
+
+    #[test]
+    fn css_oklch_fn_alpha() {
+        assert_eq!(
+            Some(Color::from_oklcha(0.60, 0.5, 280.0, 0.5)),
+            parse_color("oklch(60% 0.5 280 / 0.5)")
+        );
+        assert_eq!(
+            Some(Color::from_oklcha(0.60, 0.4, 150.0, 0.4)),
+            parse_color("oklch(60% 0.4 150 / 40%)")
+        );
+
+        // spaces are not required around the alpha separator
+        assert_eq!(
+            Some(Color::from_oklcha(0.60, 0.4, 150.0, 0.4)),
+            parse_color("oklch(60% 0.4 150/0.4)")
+        );
+    }
+
+    #[test]
+    fn css_oklch_fn_range() {
+        // negative chroma is clamped to zero
+        assert_eq!(
+            Some(Color::from_oklch(0.75, 0.0, 280.0)),
+            parse_color("oklch(75% -12 280)")
+        );
+
+        // negative angles are equivalent to the normalized angle
+        assert_eq!(
+            Some(Color::from_oklch(0.50, 0.3, 220.0)),
+            parse_color("oklch(50% 0.300 -140)")
+        );
+        // angles > 360deg are equivalent to the normalized angle
+        assert_eq!(
+            Some(Color::from_oklch(0.50, 0.3, 60.0)),
+            parse_color("oklch(50% 0.3 1140)")
+        );
+    }
+
+    #[test]
     fn css_color_fn_xyz() {
         assert_eq!(
             Some(Color::from_xyz(0.3, 0.5, 0.7)),
