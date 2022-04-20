@@ -237,7 +237,7 @@ color_command!(SetCommand, config, matches, color, {
                 }
                 _ => unreachable!(),
             }
-            Color::from_oklab(lab.l, lab.a, lab.b, lab.alpha)
+            Color::from_oklaba(lab.l, lab.a, lab.b, lab.alpha)
         }
         "oklab-hue" | "oklab-chroma" => {
             let mut lch = color.to_oklch();
@@ -250,7 +250,7 @@ color_command!(SetCommand, config, matches, color, {
                 }
                 _ => unreachable!(),
             }
-            Color::from_oklch(lch.l, lch.c, lch.h, lch.alpha)
+            Color::from_oklcha(lch.l, lch.c, lch.h, lch.alpha)
         }
         &_ => {
             unreachable!("Unknown property");

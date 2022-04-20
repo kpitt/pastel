@@ -207,8 +207,12 @@ impl Color {
     /// space. Note: See documentation for `from_xyz`. The same restrictions apply here.
     ///
     /// See: https://bottosson.github.io/posts/oklab/
-    pub fn from_oklab(l: Scalar, a: Scalar, b: Scalar, alpha: Scalar) -> Color {
+    pub fn from_oklaba(l: Scalar, a: Scalar, b: Scalar, alpha: Scalar) -> Color {
         Self::from(&OKLab { l, a, b, alpha })
+    }
+
+    pub fn from_oklab(l: Scalar, a: Scalar, b: Scalar) -> Color {
+        Self::from_oklaba(l, a, b, 1.0)
     }
 
     /// Create a `Color` from lightness, chroma and hue coordinates in the OKLCh color space.
@@ -216,8 +220,12 @@ impl Color {
     /// `from_xyz`. The same restrictions apply here.
     ///
     /// See: https://bottosson.github.io/posts/oklab/
-    pub fn from_oklch(l: Scalar, c: Scalar, h: Scalar, alpha: Scalar) -> Color {
+    pub fn from_oklcha(l: Scalar, c: Scalar, h: Scalar, alpha: Scalar) -> Color {
         Self::from(&OKLCh { l, c, h, alpha })
+    }
+
+    pub fn from_oklch(l: Scalar, c: Scalar, h: Scalar) -> Color {
+        Self::from_oklcha(l, c, h, 1.0)
     }
 
     /// Create a `Color` from  the four colours of the CMYK model: Cyan, Magenta, Yellow and Black.
@@ -1794,7 +1802,7 @@ impl ColorSpace for OKLab {
     }
 
     fn into_color(self) -> Color {
-        Color::from_oklab(self.l, self.a, self.b, self.alpha)
+        Color::from_oklaba(self.l, self.a, self.b, self.alpha)
     }
 
     fn mix(&self, other: &Self, fraction: Fraction) -> Self {
@@ -1860,7 +1868,7 @@ impl ColorSpace for OKLCh {
     }
 
     fn into_color(self) -> Color {
-        Color::from_oklch(self.l, self.c, self.h, self.alpha)
+        Color::from_oklcha(self.l, self.c, self.h, self.alpha)
     }
 
     fn mix(&self, other: &Self, fraction: Fraction) -> Self {
@@ -2397,25 +2405,25 @@ mod tests {
     fn oklab_conversion() {
         assert_eq!(
             Color::from_xyz(0.950456, 1.000000, 1.089058),
-            Color::from_oklab(1.0, 0.0, 0.0, 1.0)
+            Color::from_oklab(1.0, 0.0, 0.0)
         );
         assert_eq!(
             Color::from_xyz(1.0, 0.0, 0.0),
-            Color::from_oklab(0.449937, 1.235758, -0.018982, 1.0)
+            Color::from_oklab(0.449937, 1.235758, -0.018982)
         );
         assert_eq!(
             Color::from_xyz(0.0, 1.0, 0.0),
-            Color::from_oklab(0.921816, -0.671211, 0.263400, 1.0)
+            Color::from_oklab(0.921816, -0.671211, 0.263400)
         );
         assert_eq!(
             Color::from_xyz(0.0, 0.0, 1.0),
-            Color::from_oklab(0.152597, -1.415088, -0.448819, 1.0)
+            Color::from_oklab(0.152597, -1.415088, -0.448819)
         );
 
         let roundtrip = |h, s, l| {
             let color1 = Color::from_hsl(h, s, l);
             let lab1 = color1.to_oklab();
-            let color2 = Color::from_oklab(lab1.l, lab1.a, lab1.b, 1.0);
+            let color2 = Color::from_oklab(lab1.l, lab1.a, lab1.b);
             assert_eq!(&color1, &color2);
         };
 
@@ -2428,25 +2436,25 @@ mod tests {
     fn oklch_conversion() {
         assert_eq!(
             Color::from_xyz(0.950456, 1.000000, 1.089058),
-            Color::from_oklch(1.0, 0.0, 0.0, 1.0)
+            Color::from_oklch(1.0, 0.0, 0.0)
         );
         assert_eq!(
             Color::from_xyz(1.0, 0.0, 0.0),
-            Color::from_oklch(0.449937, 1.235904, 359.1200, 1.0)
+            Color::from_oklch(0.449937, 1.235904, 359.1200)
         );
         assert_eq!(
             Color::from_xyz(0.0, 1.0, 0.0),
-            Color::from_oklch(0.921816, 0.721044, 158.5737, 1.0)
+            Color::from_oklch(0.921816, 0.721044, 158.5737)
         );
         assert_eq!(
             Color::from_xyz(0.0, 0.0, 1.0),
-            Color::from_oklch(0.152597, 1.484558, 197.5973, 1.0)
+            Color::from_oklch(0.152597, 1.484558, 197.5973)
         );
 
         let roundtrip = |h, s, l| {
             let color1 = Color::from_hsl(h, s, l);
             let lch1 = color1.to_oklch();
-            let color2 = Color::from_oklch(lch1.l, lch1.c, lch1.h, 1.0);
+            let color2 = Color::from_oklch(lch1.l, lch1.c, lch1.h);
             assert_eq!(&color1, &color2);
         };
 
@@ -2728,31 +2736,31 @@ mod tests {
 
     #[test]
     fn to_oklab_string() {
-        let c1 = Color::from_oklab(0.450, 1.236, -0.019, 1.0);
+        let c1 = Color::from_oklab(0.450, 1.236, -0.019);
         assert_eq!("oklab(45% 1.236 -0.019)", c1.to_oklab_string());
 
-        let c2 = Color::from_oklab(0.922, -0.671, 0.263, 1.0);
+        let c2 = Color::from_oklab(0.922, -0.671, 0.263);
         assert_eq!("oklab(92.2% -0.671 0.263)", c2.to_oklab_string());
     }
 
     #[test]
     fn to_oklab_string_alpha() {
-        let c = Color::from_oklab(0.153, -1.415, -0.449, 0.25);
+        let c = Color::from_oklaba(0.153, -1.415, -0.449, 0.25);
         assert_eq!("oklab(15.3% -1.415 -0.449 / 0.25)", c.to_oklab_string());
     }
 
     #[test]
     fn to_oklch_string() {
-        let c = Color::from_oklch(0.52, 0.44, 271.0, 1.0);
+        let c = Color::from_oklch(0.52, 0.44, 271.0);
         assert_eq!("oklch(52% 0.44 271)", c.to_oklch_string());
 
-        let c1 = Color::from_oklch(0.45142857, 0.2222222, 135.1415926, 1.0);
+        let c1 = Color::from_oklch(0.45142857, 0.2222222, 135.1415926);
         assert_eq!("oklch(45.1429% 0.222222 135.1416)", c1.to_oklch_string());
     }
 
     #[test]
     fn to_oklch_string_alpha() {
-        let c = Color::from_oklch(0.3, 0.4, 330.0, 0.5);
+        let c = Color::from_oklcha(0.3, 0.4, 330.0, 0.5);
         assert_eq!("oklch(30% 0.4 330 / 0.5)", c.to_oklch_string());
     }
 
