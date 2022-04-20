@@ -223,6 +223,35 @@ color_command!(SetCommand, config, matches, color, {
             }
             Color::from_lchuv(lch.l, lch.c, lch.h, lch.alpha)
         }
+        "oklab-lightness" | "oklab-a" | "oklab-b" => {
+            let mut lab = color.to_oklab();
+            match property {
+                "oklab-lightness" => {
+                    lab.l = value;
+                }
+                "oklab-a" => {
+                    lab.a = value;
+                }
+                "oklab-b" => {
+                    lab.b = value;
+                }
+                _ => unreachable!(),
+            }
+            Color::from_oklab(lab.l, lab.a, lab.b, lab.alpha)
+        }
+        "oklab-hue" | "oklab-chroma" => {
+            let mut lch = color.to_oklch();
+            match property {
+                "oklab-hue" => {
+                    lch.h = value;
+                }
+                "oklab-chroma" => {
+                    lch.c = value;
+                }
+                _ => unreachable!(),
+            }
+            Color::from_oklch(lch.l, lch.c, lch.h, lch.alpha)
+        }
         &_ => {
             unreachable!("Unknown property");
         }

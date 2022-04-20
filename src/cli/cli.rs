@@ -370,6 +370,8 @@ pub fn build_cli() -> App<'static, 'static> {
                                            "lab-hue", "lab-chroma",
                                            "luv-u", "luv-v",
                                            "luv-hue", "luv-chroma",
+                                           "oklab-lightness", "oklab-a", "oklab-b",
+                                           "oklab-hue", "oklab-chroma",
                                            "red", "green", "blue",
                                            "hsl-hue", "hsl-saturation", "hsl-lightness",
                                            "hsv-hue", "hsv-saturation", "hsv-value",
