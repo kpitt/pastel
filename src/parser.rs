@@ -499,7 +499,7 @@ fn oklab_arguments(input: &str) -> IResult<&str, Color> {
         percentage_or_double,
         preceded(space1, double),
         preceded(space1, double),
-        strict_css_alpha,
+        lenient_css_alpha,
     ))(input)?;
 
     let c = Color::from_oklaba(l, a, b, alpha);
@@ -518,7 +518,7 @@ fn oklch_arguments(input: &str) -> IResult<&str, Color> {
         percentage_or_double,
         preceded(space1, double),
         preceded(space1, hue_angle),
-        strict_css_alpha,
+        lenient_css_alpha,
     ))(input)?;
 
     Ok((input, Color::from_oklcha(l, c, h, alpha)))
@@ -2484,6 +2484,28 @@ mod tests {
     }
 
     #[test]
+    fn oklab_fn_modern_lenient() {
+        // Tests lenient parsing of the "modern" space-separated format.
+
+        // percent sign after lightness is optional, but is interpreted as the
+        // raw lightness value
+        assert_eq!(
+            Some(Color::from_oklab(60.0, -0.355, 0.434)),
+            parse_color("oklab(60.00 -.355 .434)")
+        );
+
+        // alpha can be separated with just a space
+        assert_eq!(
+            Some(Color::from_oklaba(0.15, -0.355, -0.434, 0.4)),
+            parse_color("oklab(15% -0.355 -0.434 40%)")
+        );
+        assert_eq!(
+            Some(Color::from_oklaba(0.75, -0.355, -0.434, 0.4)),
+            parse_color("oklab(75% -0.355 -0.434 0.4)")
+        );
+    }
+
+    #[test]
     fn css_oklch_fn() {
         assert_eq!(
             Some(Color::from_oklch(0.60, 0.5, 280.0)),
@@ -2546,6 +2568,27 @@ mod tests {
         assert_eq!(
             Some(Color::from_oklch(0.50, 0.3, 60.0)),
             parse_color("oklch(50% 0.3 1140)")
+        );
+    }
+
+    #[test]
+    fn oklch_fn_modern_lenient() {
+        // Percent sign is optional for lightness value, but it is treated as
+        // the actual value so it is not scaled.  A value of 50 for OKLCh
+        // lightness doesn't make any sense as a visible color, but it _is_
+        // valid.
+        assert_eq!(
+            Some(Color::from_oklch(50.0, 0.5, 280.0)),
+            parse_color("oklch(50 0.5 280)")
+        );
+        // no slash separator for alpha value
+        assert_eq!(
+            Some(Color::from_oklcha(0.6, 0.5, 280.0, 0.5)),
+            parse_color("oklch(60% 0.5 280 0.5)")
+        );
+        assert_eq!(
+            Some(Color::from_oklcha(0.6, 0.4, 150.0, 0.4)),
+            parse_color("oklch(60% 0.40 150 40%)")
         );
     }
 
