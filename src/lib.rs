@@ -1178,18 +1178,21 @@ impl From<&LChuv> for Color {
 
 impl From<&OKLab> for Color {
     fn from(color: &OKLab) -> Self {
-        // Given OKLab, convert to XYZ relative to D65
         #![allow(clippy::many_single_char_names)]
+        // Clamp negative lightness to 0.
+        let l0 = f64::max(color.l, 0.0);
+
+        // Given OKLab, convert to XYZ relative to D65
         let l_ =
-            0.999_999_998_450_519_814_32 * color.l +
+            0.999_999_998_450_519_814_32 * l0 +
             0.396_337_792_173_767_856_78 * color.a +
             0.215_803_758_060_758_803_39 * color.b;
         let m_ =
-            1.000_000_008_881_760_776_70 * color.l -
+            1.000_000_008_881_760_776_70 * l0 -
             0.105_561_342_323_656_349_40 * color.a -
             0.063_854_174_771_705_903_402 * color.b;
         let s_ =
-            1.000_000_054_672_410_917_70 * color.l -
+            1.000_000_054_672_410_917_70 * l0 -
             0.089_484_182_094_965_759_684 * color.a -
             1.291_485_537_864_091_739_90 * color.b;
 

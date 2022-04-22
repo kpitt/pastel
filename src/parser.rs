@@ -2484,6 +2484,15 @@ mod tests {
     }
 
     #[test]
+    fn css_oklab_fn_range() {
+        // negative lightness is clamped to zero
+        assert_eq!(
+            Some(Color::from_oklab(0.0, 0.2, -0.3)),
+            parse_color("oklab(-15% 0.2 -0.3)")
+        );
+    }
+
+    #[test]
     fn oklab_fn_modern_lenient() {
         // Tests lenient parsing of the "modern" space-separated format.
 
@@ -2553,6 +2562,12 @@ mod tests {
 
     #[test]
     fn css_oklch_fn_range() {
+        // negative lightness is clamped to zero
+        assert_eq!(
+            Some(Color::from_oklch(0.0, 0.2, 280.0)),
+            parse_color("oklch(-15% 0.2 280)")
+        );
+
         // negative chroma is clamped to zero
         assert_eq!(
             Some(Color::from_oklch(0.75, 0.0, 280.0)),
