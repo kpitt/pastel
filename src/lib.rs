@@ -878,6 +878,17 @@ impl Color {
         delta_e::ciede2000(&self.to_lab(), &other.to_lab())
     }
 
+    /// Compute the perceived 'distance' between two colors according to the OKLab delta-E.
+    /// Like CIEDE76, DeltaEOK is just the Euclidean distance, but it is a far more accurate
+    /// measure in OKLab space because of the improved perceptual uniformity.  The ranges for
+    /// the Lab component values in OKLab are much smaller than in CIELAB, so the delta-E
+    /// values are correspondingly smaller also.  Two colors with a CIEDE2000 value of 1.0
+    /// (the target threshold of human perceptibility) will typically produce a DeltaEOK
+    /// value somewhere in the neighborhood of 0.0025.
+    pub fn distance_delta_e_ok(&self, other: &Color) -> Scalar {
+        delta_e::ok(&self.to_oklab(), &other.to_oklab())
+    }
+
     /// Mix two colors by linearly interpolating between them in the specified color space.
     /// For the angle-like components (hue), the shortest path along the unit circle is chosen.
     pub fn mix<C: ColorSpace>(self: &Color, other: &Color, fraction: Fraction) -> Color {

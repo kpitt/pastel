@@ -1,4 +1,4 @@
-use super::Lab;
+use super::{Lab, OKLab};
 use std::f64;
 
 // The code below is adapted from https://github.com/elliotekj/DeltaE
@@ -145,6 +145,10 @@ fn radians_to_degrees(radians: f64) -> f64 {
 
 fn degrees_to_radians(degrees: f64) -> f64 {
     degrees * (f64::consts::PI / 180.0)
+}
+
+pub fn ok(c1: &OKLab, c2: &OKLab) -> f64 {
+    ((c1.l - c2.l).powi(2) + (c1.a - c2.a).powi(2) + (c1.b - c2.b).powi(2)).sqrt()
 }
 
 #[cfg(test)]
