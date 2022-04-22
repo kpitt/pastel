@@ -487,6 +487,43 @@ fn hcl_legacy_arguments(input: &str) -> IResult<&str, (f64, f64, f64, f64)> {
     ))(input)
 }
 
+fn parse_oklab(input: &str) -> IResult<&str, Color> {
+    preceded(
+        tag_no_case("oklab"),
+        fn_arguments(oklab_arguments),
+    )(input)
+}
+
+fn oklab_arguments(input: &str) -> IResult<&str, Color> {
+    let (input, (l, a, b, alpha)) = tuple((
+        percentage_or_double,
+        preceded(space1, double),
+        preceded(space1, double),
+        strict_css_alpha,
+    ))(input)?;
+
+    let c = Color::from_oklaba(l, a, b, alpha);
+    Ok((input, c))
+}
+
+fn parse_oklch(input: &str) -> IResult<&str, Color> {
+    preceded(
+        tag_no_case("oklch"),
+        fn_arguments(oklch_arguments),
+    )(input)
+}
+
+fn oklch_arguments(input: &str) -> IResult<&str, Color> {
+    let (input, (l, c, h, alpha)) = tuple((
+        percentage_or_double,
+        preceded(space1, double),
+        preceded(space1, hue_angle),
+        strict_css_alpha,
+    ))(input)?;
+
+    Ok((input, Color::from_oklcha(l, c, h, alpha)))
+}
+
 fn parse_css_colorspace(input: &str) -> IResult<&str, Color> {
     preceded(
         tag_no_case("color"),
@@ -568,6 +605,8 @@ pub fn parse_color(input: &str) -> Option<Color> {
         all_consuming(parse_luv),
         all_consuming(parse_lchuv),
         all_consuming(parse_hcl),
+        all_consuming(parse_oklab),
+        all_consuming(parse_oklch),
         all_consuming(parse_css_colorspace),
         all_consuming(parse_named),
         // Most supported formats have clear markers that the parser can detect.
