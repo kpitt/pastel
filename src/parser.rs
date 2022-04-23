@@ -487,6 +487,43 @@ fn hcl_legacy_arguments(input: &str) -> IResult<&str, (f64, f64, f64, f64)> {
     ))(input)
 }
 
+fn parse_oklab(input: &str) -> IResult<&str, Color> {
+    preceded(
+        tag_no_case("oklab"),
+        fn_arguments(oklab_arguments),
+    )(input)
+}
+
+fn oklab_arguments(input: &str) -> IResult<&str, Color> {
+    let (input, (l, a, b, alpha)) = tuple((
+        percentage_or_double,
+        preceded(space1, double),
+        preceded(space1, double),
+        lenient_css_alpha,
+    ))(input)?;
+
+    let c = Color::from_oklaba(l, a, b, alpha);
+    Ok((input, c))
+}
+
+fn parse_oklch(input: &str) -> IResult<&str, Color> {
+    preceded(
+        tag_no_case("oklch"),
+        fn_arguments(oklch_arguments),
+    )(input)
+}
+
+fn oklch_arguments(input: &str) -> IResult<&str, Color> {
+    let (input, (l, c, h, alpha)) = tuple((
+        percentage_or_double,
+        preceded(space1, double),
+        preceded(space1, hue_angle),
+        lenient_css_alpha,
+    ))(input)?;
+
+    Ok((input, Color::from_oklcha(l, c, h, alpha)))
+}
+
 fn parse_css_colorspace(input: &str) -> IResult<&str, Color> {
     preceded(
         tag_no_case("color"),
@@ -568,6 +605,8 @@ pub fn parse_color(input: &str) -> Option<Color> {
         all_consuming(parse_luv),
         all_consuming(parse_lchuv),
         all_consuming(parse_hcl),
+        all_consuming(parse_oklab),
+        all_consuming(parse_oklch),
         all_consuming(parse_css_colorspace),
         all_consuming(parse_named),
         // Most supported formats have clear markers that the parser can detect.
@@ -2397,6 +2436,175 @@ mod tests {
         assert_eq!(None, parse_color("hcl(50, 30)"));
         // no alpha argument after comma
         assert_eq!(None, parse_color("hcl(50%, 30, 280, )"));
+    }
+
+    #[test]
+    fn css_oklab_fn() {
+        // Tests the standard CSS syntax for the `oklab()` function.
+
+        assert_eq!(
+            Some(Color::from_oklab(0.4224, -0.355, 0.434)),
+            parse_color("oklab(42.24% -0.355 0.434)")
+        );
+        // case-insensitive
+        assert_eq!(
+            Some(Color::from_oklab(0.5, -0.355, 0.434)),
+            parse_color("OKLab(50% -0.355 0.434)")
+        );
+        // extra whitespace before and after arguments is ingored
+        assert_eq!(
+            Some(Color::from_oklab(0.15, 0.23, -0.43)),
+            parse_color("oklab(   15% 0.23 -0.43    )")
+        );
+        // extra whitespace between arguments is ignored
+        assert_eq!(
+            Some(Color::from_oklab(0.15, 0.23, -0.43)),
+            parse_color("oklab(15%    0.23      -0.43)")
+        );
+    }
+
+    #[test]
+    fn css_oklab_fn_alpha() {
+        // Tests the standard CSS syntax for the `lab()` function with alpha values.
+
+        assert_eq!(
+            Some(Color::from_oklaba(0.5, -0.23, 0.43, 0.5)),
+            parse_color("oklab(50% -0.23 0.43 / 0.5)")
+        );
+        // alpha can be a percentage
+        assert_eq!(
+            Some(Color::from_oklaba(0.15, -0.355, -0.434, 0.4)),
+            parse_color("oklab(15% -0.355 -0.434 / 40%)")
+        );
+        // no spaces required around alpha separator
+        assert_eq!(
+            Some(Color::from_oklaba(0.75, -0.355, -0.434, 0.4)),
+            parse_color("oklab(75% -0.355 -0.434/0.4)")
+        );
+    }
+
+    #[test]
+    fn css_oklab_fn_range() {
+        // negative lightness is clamped to zero
+        assert_eq!(
+            Some(Color::from_oklab(0.0, 0.2, -0.3)),
+            parse_color("oklab(-15% 0.2 -0.3)")
+        );
+    }
+
+    #[test]
+    fn oklab_fn_modern_lenient() {
+        // Tests lenient parsing of the "modern" space-separated format.
+
+        // percent sign after lightness is optional, but is interpreted as the
+        // raw lightness value
+        assert_eq!(
+            Some(Color::from_oklab(60.0, -0.355, 0.434)),
+            parse_color("oklab(60.00 -.355 .434)")
+        );
+
+        // alpha can be separated with just a space
+        assert_eq!(
+            Some(Color::from_oklaba(0.15, -0.355, -0.434, 0.4)),
+            parse_color("oklab(15% -0.355 -0.434 40%)")
+        );
+        assert_eq!(
+            Some(Color::from_oklaba(0.75, -0.355, -0.434, 0.4)),
+            parse_color("oklab(75% -0.355 -0.434 0.4)")
+        );
+    }
+
+    #[test]
+    fn css_oklch_fn() {
+        assert_eq!(
+            Some(Color::from_oklch(0.60, 0.5, 280.0)),
+            parse_color("oklch(60% 0.5 280)")
+        );
+        // case-insensitive
+        assert_eq!(
+            Some(Color::from_oklch(0.60, 0.5, 280.0)),
+            parse_color("OKLCh(60% 0.5 280)")
+        );
+        // decimals are preserved
+        assert_eq!(
+            Some(Color::from_oklch(0.233, 0.456, 280.33)),
+            parse_color("oklch(23.3% 0.456 280.33)")
+        );
+        // extra whitespace before and after arguments is ignored
+        assert_eq!(
+            Some(Color::from_oklch(0.60, 0.5, 280.0)),
+            parse_color("oklch(   60% 0.5 280  )")
+        );
+        // extra whitespace between arguments is ignored
+        assert_eq!(
+            Some(Color::from_oklch(0.60, 0.5, 270.0)),
+            parse_color("oklch(60%     0.50    270)")
+        );
+    }
+
+    #[test]
+    fn css_oklch_fn_alpha() {
+        assert_eq!(
+            Some(Color::from_oklcha(0.60, 0.5, 280.0, 0.5)),
+            parse_color("oklch(60% 0.5 280 / 0.5)")
+        );
+        assert_eq!(
+            Some(Color::from_oklcha(0.60, 0.4, 150.0, 0.4)),
+            parse_color("oklch(60% 0.4 150 / 40%)")
+        );
+
+        // spaces are not required around the alpha separator
+        assert_eq!(
+            Some(Color::from_oklcha(0.60, 0.4, 150.0, 0.4)),
+            parse_color("oklch(60% 0.4 150/0.4)")
+        );
+    }
+
+    #[test]
+    fn css_oklch_fn_range() {
+        // negative lightness is clamped to zero
+        assert_eq!(
+            Some(Color::from_oklch(0.0, 0.2, 280.0)),
+            parse_color("oklch(-15% 0.2 280)")
+        );
+
+        // negative chroma is clamped to zero
+        assert_eq!(
+            Some(Color::from_oklch(0.75, 0.0, 280.0)),
+            parse_color("oklch(75% -12 280)")
+        );
+
+        // negative angles are equivalent to the normalized angle
+        assert_eq!(
+            Some(Color::from_oklch(0.50, 0.3, 220.0)),
+            parse_color("oklch(50% 0.300 -140)")
+        );
+        // angles > 360deg are equivalent to the normalized angle
+        assert_eq!(
+            Some(Color::from_oklch(0.50, 0.3, 60.0)),
+            parse_color("oklch(50% 0.3 1140)")
+        );
+    }
+
+    #[test]
+    fn oklch_fn_modern_lenient() {
+        // Percent sign is optional for lightness value, but it is treated as
+        // the actual value so it is not scaled.  A value of 50 for OKLCh
+        // lightness doesn't make any sense as a visible color, but it _is_
+        // valid.
+        assert_eq!(
+            Some(Color::from_oklch(50.0, 0.5, 280.0)),
+            parse_color("oklch(50 0.5 280)")
+        );
+        // no slash separator for alpha value
+        assert_eq!(
+            Some(Color::from_oklcha(0.6, 0.5, 280.0, 0.5)),
+            parse_color("oklch(60% 0.5 280 0.5)")
+        );
+        assert_eq!(
+            Some(Color::from_oklcha(0.6, 0.4, 150.0, 0.4)),
+            parse_color("oklch(60% 0.40 150 40%)")
+        );
     }
 
     #[test]

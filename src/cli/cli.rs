@@ -35,9 +35,11 @@ pub fn build_cli() -> App<'static, 'static> {
         .short("s")
         .value_name("name")
         .help("The colorspace in which to interpolate")
-        .possible_values(&["Lab", "LCh", "Luv", "LChuv", "HCL", "RGB", "HSL", "HSV", "HWB"])
+        .possible_values(&[
+            "Lab", "LCh", "Luv", "LChuv", "HCL", "OKLab", "OKLCh", "RGB", "HSL", "HSV", "HWB"]
+        )
         .case_insensitive(true)
-        .default_value("Lab")
+        .default_value("OKLab")
         .required(true);
 
     App::new(crate_name!())
@@ -221,6 +223,8 @@ pub fn build_cli() -> App<'static, 'static> {
                                            "lch", "lab-chroma", "lab-hue",
                                            "luv", "luv-lightness", "luv-u", "luv-v",
                                            "lchuv", "luv-chroma", "luv-hue", "hcl",
+                                           "oklab", "oklab-lightness", "oklab-a", "oklab-b",
+                                           "oklch", "oklab-chroma", "oklab-hue",
                                            "luminance", "brightness",
                                            "ansi-8bit", "ansi-24bit",
                                            "ansi-8bit-escapecode", "ansi-24bit-escapecode",
@@ -366,6 +370,8 @@ pub fn build_cli() -> App<'static, 'static> {
                                            "lab-hue", "lab-chroma",
                                            "luv-u", "luv-v",
                                            "luv-hue", "luv-chroma",
+                                           "oklab-lightness", "oklab-a", "oklab-b",
+                                           "oklab-hue", "oklab-chroma",
                                            "red", "green", "blue",
                                            "hsl-hue", "hsl-saturation", "hsl-lightness",
                                            "hsv-hue", "hsv-saturation", "hsv-value",
