@@ -1226,6 +1226,41 @@ mod tests {
     }
 
     #[test]
+    fn css_hsl_fn_range() {
+        // negative saturation is clamped to 0
+        assert_eq!(
+            Some(Color::from_hsl(280.0, 0.0, 0.5)),
+            parse_color("hsl(280, -20%, 50%)")
+        );
+        // saturation over 100% is clamped to 100%
+        assert_eq!(
+            Some(Color::from_hsl(270.0, 1.0, 0.7)),
+            parse_color("hsl(270 160% 70%)")
+        );
+
+        // negative lightness is clamped to 0
+        assert_eq!(
+            Some(Color::from_hsl(270.0, 0.6, 0.0)),
+            parse_color("hsl(270 60% -10%)")
+        );
+        // lightness over 100% is clamped to 100%
+        assert_eq!(
+            Some(Color::from_hsl(280.0, 0.2, 1.0)),
+            parse_color("hsl(280, 20%, 150%)")
+        );
+
+        // hues outside of [0, 360) range are equivalent to the normalized angle
+        assert_eq!(
+            Some(Color::from_hsl(280.0, 0.2, 0.5)),
+            parse_color("hsl(-80, 20%, 50%)")
+        );
+        assert_eq!(
+            Some(Color::from_hsl(270.0, 0.6, 0.7)),
+            parse_color("hsl(630 60% 70%)")
+        );
+    }
+
+    #[test]
     fn hsl_fn_modern_lenient() {
         // no slash before alpha value
         assert_eq!(
@@ -1396,6 +1431,41 @@ mod tests {
     }
 
     #[test]
+    fn hsv_fn_range() {
+        // negative saturation is clamped to 0
+        assert_eq!(
+            Some(Color::from_hsv(280.0, 0.0, 0.5)),
+            parse_color("hsv(280, -20%, 50%)")
+        );
+        // saturation over 100% is clamped to 100%
+        assert_eq!(
+            Some(Color::from_hsv(270.0, 1.0, 0.7)),
+            parse_color("hsv(270 160% 70%)")
+        );
+
+        // negative lightness is clamped to 0
+        assert_eq!(
+            Some(Color::from_hsv(270.0, 0.6, 0.0)),
+            parse_color("hsv(270 60% -10%)")
+        );
+        // lightness over 100% is clamped to 100%
+        assert_eq!(
+            Some(Color::from_hsv(280.0, 0.2, 1.0)),
+            parse_color("hsv(280, 20%, 150%)")
+        );
+
+        // hues outside of [0, 360) range are equivalent to the normalized angle
+        assert_eq!(
+            Some(Color::from_hsv(280.0, 0.2, 0.5)),
+            parse_color("hsv(-80, 20%, 50%)")
+        );
+        assert_eq!(
+            Some(Color::from_hsv(270.0, 0.6, 0.7)),
+            parse_color("hsv(630 60% 70%)")
+        );
+    }
+
+    #[test]
     fn parse_hsb_syntax() {
         assert_eq!(
             Some(Color::from_hsv(280.0, 0.2, 0.5)),
@@ -1502,6 +1572,53 @@ mod tests {
         assert_eq!(None, parse_color("hwb(280,20,50%)"));
         assert_eq!(None, parse_color("hwb(280%,20%,50%)"));
         assert_eq!(None, parse_color("hwb(280,20%)"));
+    }
+
+    #[test]
+    fn hwb_fn_range() {
+        // whiteness+blackness > 1 scaled to total of 1 with same ratio
+        assert_eq!(
+            Some(Color::from_hwb(150.0, 0.5, 0.5)),
+            parse_color("hwb(150, 75%, 75%)")
+        );
+        assert_eq!(
+            Some(Color::from_hwb(320.0, 0.75, 0.25)),
+            parse_color("hwb(320 90% 30%)")
+        );
+
+        // negative whiteness and blackness values are clamped to 0
+        assert_eq!(
+            Some(Color::from_hwb(280.0, 0.0, 0.5)),
+            parse_color("hwb(280 -20% 50%)")
+        );
+        assert_eq!(
+            Some(Color::from_hwb(220.0, 0.7, 0.0)),
+            parse_color("hwb(220 70% -70%)")
+        );
+
+        // whiteness and blackness over 100% are clamped to 100% before scaling
+        assert_eq!(
+            Some(Color::from_hwb(120.0, 0.375, 0.625)),
+            parse_color("hwb(120 60% 120%)")
+        );
+        assert_eq!(
+            Some(Color::from_hwb(60.0, 0.8, 0.2)),
+            parse_color("hwb(60 150% 25%)")
+        );
+        assert_eq!(
+            Some(Color::from_hwb(195.0, 0.5, 0.5)),
+            parse_color("hwb(195, 200%, 150%)")
+        );
+
+        // hues outside of [0, 360) range are equivalent to the normalized angle
+        assert_eq!(
+            Some(Color::from_hwb(280.0, 0.2, 0.5)),
+            parse_color("hwb(-80, 20%, 50%)")
+        );
+        assert_eq!(
+            Some(Color::from_hwb(270.0, 0.5, 0.4)),
+            parse_color("hwb(630 50% 40%)")
+        );
     }
 
     #[test]
@@ -1647,6 +1764,25 @@ mod tests {
         assert_eq!(
             Some(Color::from_lab(75.0, -35.5, -43.4, 0.4)),
             parse_color("lab(75% -35.5 -43.4/0.4)")
+        );
+    }
+
+    #[test]
+    fn css_lab_fn_range() {
+        // negative lightness is clamped to zero
+        assert_eq!(
+            Some(Color::from_lab(0.0, 20.0, 28.0, 1.0)),
+            parse_color("lab(-15% 20 28)")
+        );
+
+        // lightness > 100% is not clamped
+        assert_eq!(
+            Some(Color::from_lab(120.0, 20.0, -30.0, 1.0)),
+            parse_color("lab(120% 20 -30)")
+        );
+        assert_ne!(
+            Some(Color::from_lab(100.0, 20.0, -30.0, 1.0)),
+            parse_color("lab(120% 20 -30)")
         );
     }
 
@@ -1822,6 +1958,22 @@ mod tests {
 
     #[test]
     fn css_lch_fn_range() {
+        // negative lightness is clamped to zero
+        assert_eq!(
+            Some(Color::from_lch(0.0, 20.0, 280.0, 1.0)),
+            parse_color("lch(-15% 20 280)")
+        );
+
+        // lightness > 100% is not clamped
+        assert_eq!(
+            Some(Color::from_lch(120.0, 50.0, 300.0, 1.0)),
+            parse_color("lch(120% 50 300)")
+        );
+        assert_ne!(
+            Some(Color::from_lch(100.0, 50.0, 300.0, 1.0)),
+            parse_color("lch(120% 50 300)")
+        );
+
         // negative chroma is clamped to zero
         assert_eq!(
             Some(Color::from_lch(75.0, 0.0, 280.0, 1.0)),
@@ -2065,6 +2217,25 @@ mod tests {
     }
 
     #[test]
+    fn luv_fn_range() {
+        // negative lightness is clamped to zero
+        assert_eq!(
+            Some(Color::from_luv(0.0, 20.0, 28.0, 1.0)),
+            parse_color("luv(-15% 20 28)")
+        );
+
+        // lightness > 100% is not clamped
+        assert_eq!(
+            Some(Color::from_luv(120.0, 20.0, -30.0, 1.0)),
+            parse_color("luv(120% 20 -30)")
+        );
+        assert_ne!(
+            Some(Color::from_luv(100.0, 20.0, -30.0, 1.0)),
+            parse_color("luv(120% 20 -30)")
+        );
+    }
+
+    #[test]
     fn luv_fn_cieluv_alias() {
         // Tests that "CIELuv" (case-insensitive) is a valid alias for "luv"
         // with either modern- or legacy-style arguments.
@@ -2164,6 +2335,22 @@ mod tests {
 
     #[test]
     fn lchuv_fn_modern_range() {
+        // negative lightness is clamped to zero
+        assert_eq!(
+            Some(Color::from_lchuv(0.0, 20.0, 280.0, 1.0)),
+            parse_color("lchuv(-15% 20 280)")
+        );
+
+        // lightness > 100% is not clamped
+        assert_eq!(
+            Some(Color::from_lchuv(120.0, 50.0, 300.0, 1.0)),
+            parse_color("lchuv(120% 50 300)")
+        );
+        assert_ne!(
+            Some(Color::from_lchuv(100.0, 50.0, 300.0, 1.0)),
+            parse_color("lchuv(120% 50 300)")
+        );
+
         // negative chroma is clamped to zero
         assert_eq!(
             Some(Color::from_lchuv(75.0, 0.0, 280.0, 1.0)),
@@ -2355,6 +2542,22 @@ mod tests {
 
     #[test]
     fn hcl_fn_modern_range() {
+        // negative lightness is clamped to zero
+        assert_eq!(
+            Some(Color::from_lchuv(0.0, 20.0, 280.0, 1.0)),
+            parse_color("hcl(280 20 -15%)")
+        );
+
+        // lightness > 100% is not clamped
+        assert_eq!(
+            Some(Color::from_lchuv(120.0, 50.0, 300.0, 1.0)),
+            parse_color("hcl(300 50 120%)")
+        );
+        assert_ne!(
+            Some(Color::from_lchuv(100.0, 50.0, 300.0, 1.0)),
+            parse_color("hcl(300 50 120%)")
+        );
+
         // negative chroma is clamped to zero
         assert_eq!(
             Some(Color::from_lchuv(75.0, 0.0, 280.0, 1.0)),
@@ -2490,6 +2693,16 @@ mod tests {
             Some(Color::from_oklab(0.0, 0.2, -0.3)),
             parse_color("oklab(-15% 0.2 -0.3)")
         );
+
+        // lightness > 100% is not clamped
+        assert_eq!(
+            Some(Color::from_oklab(1.2, 0.2, -0.3)),
+            parse_color("oklab(120% 0.2 -0.3)")
+        );
+        assert_ne!(
+            Some(Color::from_oklab(1.0, 0.2, -0.3)),
+            parse_color("oklab(120% 0.2 -0.3)")
+        );
     }
 
     #[test]
@@ -2566,6 +2779,16 @@ mod tests {
         assert_eq!(
             Some(Color::from_oklch(0.0, 0.2, 280.0)),
             parse_color("oklch(-15% 0.2 280)")
+        );
+
+        // lightness > 100% is not clamped
+        assert_eq!(
+            Some(Color::from_oklch(1.2, 0.5, 300.0)),
+            parse_color("oklch(120% 0.5 300)")
+        );
+        assert_ne!(
+            Some(Color::from_oklch(1.0, 0.5, 300.0)),
+            parse_color("oklch(120% 0.5 300)")
         );
 
         // negative chroma is clamped to zero
