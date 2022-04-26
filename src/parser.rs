@@ -843,10 +843,35 @@ mod tests {
         assert_ne!(Some(rgb(140, 0, 153)), parse_color("rgb(55% 0% 60%)"));
         assert_eq!(Some(rgb(140, 0, 153)), parse_color("rgb(54.902% 0% 60%)"));
         assert_eq!(Some(rgb(142, 0, 153)), parse_color("rgb(55.6863% 0% 60%)"));
+    }
 
-        // out-of-gamut not clamped
-        assert_ne!(Some(rgb(255, 255, 0)), parse_color("rgb(100% 100% -45%)"));
-        assert_eq!(rgbf(1.0, 1.0, -0.45), parse_color("rgb(100% 100% -45%)"));
+
+    #[test]
+    fn css_rgb_fn_out_of_gamut() {
+        // above-gamut values are not clamped
+        assert_eq!(rgbf(0.3, 1.2, 0.7), parse_color("rgb(30% 120% 70%)"));
+        assert_ne!(rgbf(0.3, 1.0, 0.7), parse_color("rgb(30% 120% 70%)"));
+        assert_eq!(rgbf(1.1, 0.7, 1.5), parse_color("rgb(110% 70% 150%)"));
+        assert_ne!(rgbf(1.0, 0.7, 1.0), parse_color("rgb(110% 70% 150%)"));
+
+        assert_eq!(rgbf255(64.0, 280.0, 262.0),parse_color("rgb(64 280 262)"));
+        assert_ne!(rgbf255(64.0, 255.0, 255.0),parse_color("rgb(64 280 262)"));
+
+        // negative values are not clamped
+        assert_eq!(rgbf(-0.1, -0.05, 0.7), parse_color("rgb(-10% -5% 70%)"));
+        assert_ne!(rgbf(0.0, 0.0, 0.7), parse_color("rgb(-10% -5% 70%)"));
+        assert_eq!(rgbf(0.5, 0.0, -0.25), parse_color("rgb(50% 0% -25%)"));
+        assert_ne!(rgbf(0.5, 0.0, 0.0), parse_color("rgb(50% 0% -25%)"));
+
+        assert_eq!(rgbf255(-8.0, 224.0, -32.0),parse_color("rgb(-8 224 -32)"));
+        assert_ne!(rgbf255(0.0, 224.0, 0.0),parse_color("rgb(-8 224 0)"));
+
+        // color can have both over- and under-gamut values
+        assert_eq!(rgbf(-0.1, 1.2, 0.4),parse_color("rgb(-10% 120% 40%)"));
+        assert_ne!(rgbf(0.0, 1.0, 0.4),parse_color("rgb(-10% 120% 40%)"));
+
+        assert_eq!(rgbf255(-16.0, 280.0, 92.0),parse_color("rgb(-16 280 92)"));
+        assert_ne!(rgbf255(0.0, 255.0, 92.0),parse_color("rgb(-16 280 92)"));
     }
 
     #[test]
@@ -2880,7 +2905,7 @@ mod tests {
     }
 
     #[test]
-    fn css_color_fn_xyz_d65_aliase() {
+    fn css_color_fn_xyz_d65_alias() {
         assert_eq!(
             parse_color("color(xyz 0.3 0.5 0.7)"),
             parse_color("color(xyz-d65 0.3 0.5 0.7)")
@@ -2959,6 +2984,55 @@ mod tests {
         assert_eq!(None, parse_color("color(srgb 0.3 0.5 0.7 1.0)"));
         // comma separators not allowed
         assert_eq!(None, parse_color("color(srgb 0.3, 0.5, 0.7)"));
+    }
+
+    #[test]
+    fn css_color_fn_srgb_out_of_gamut() {
+        // above-gamut values are not clamped
+        assert_eq!(
+            rgbf(0.3, 1.2, 0.7),
+            parse_color("color(srgb 0.3 1.2 0.7)")
+        );
+        assert_ne!(
+            rgbf(0.3, 1.2, 0.7),
+            parse_color("color(srgb 0.3 1.0 0.7)")
+        );
+        assert_eq!(
+            rgbf(1.1, 0.7, 1.5),
+            parse_color("color(srgb 110% 70% 150%)")
+        );
+        assert_ne!(
+            rgbf(1.0, 0.7, 1.0),
+            parse_color("color(srgb 110% 70% 150%)")
+        );
+
+        // negative values are not clamped
+        assert_eq!(
+            rgbf(0.5, 0.0, -0.25),
+            parse_color("color(srgb 50% 0% -25%)")
+        );
+        assert_ne!(
+            rgbf(0.5, 0.0, 0.0),
+            parse_color("color(srgb 50% 0% -25%)")
+        );
+        assert_eq!(
+            rgbf(-0.1, -0.05, 0.7),
+            parse_color("color(srgb -0.1 -0.05 0.7)")
+        );
+        assert_ne!(
+            rgbf(0.0, 0.0, 0.7),
+            parse_color("color(srgb -0.1 -0.05 0.7)")
+        );
+
+        // color can have both over- and under-gamut values
+        assert_eq!(
+            rgbf(-0.1, 1.2, 0.4),
+            parse_color("color(srgb -0.1 1.2 0.4)")
+        );
+        assert_ne!(
+            rgbf(0.0, 1.0, 0.4),
+            parse_color("color(srgb -0.1 1.2 0.4)")
+        );
     }
 
     #[test]
