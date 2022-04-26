@@ -893,6 +893,29 @@ mod tests {
     }
 
     #[test]
+    fn css_rgb_fn_alpha_range() {
+        // negative alpha values are clamped to 0
+        assert_eq!(
+            Some(rgba(64, 128, 192, 0.0)),
+            parse_color("rgb(64, 128, 192, -5%)")
+        );
+        assert_eq!(
+            rgbaf(0.75, 0.5, 0.25, 0.0),
+            parse_color("rgb(75% 50% 25% / -0.3)")
+        );
+
+        // alpha greater than 100% is clamped to 1 (100%)
+        assert_eq!(
+            Some(rgba(64, 128, 192, 1.0)),
+            parse_color("rgb(64, 128, 192, 1.5)")
+        );
+        assert_eq!(
+            rgbaf(0.75, 0.5, 0.25, 1.0),
+            parse_color("rgb(75% 50% 25% / 120%)")
+        );
+    }
+
+    #[test]
     fn rgb_fn_modern_lenient() {
         // allow mixing numbers and percentages
         assert_eq!(
@@ -1282,6 +1305,29 @@ mod tests {
         assert_eq!(
             Some(Color::from_hsl(270.0, 0.6, 0.7)),
             parse_color("hsl(630 60% 70%)")
+        );
+    }
+
+    #[test]
+    fn css_hsl_fn_alpha_range() {
+        // negative alpha values are clamped to 0
+        assert_eq!(
+            Some(Color::from_hsla(280.0, 0.2, 0.5, 0.0)),
+            parse_color("hsl(280 20% 50% / -0.5)")
+        );
+        assert_eq!(
+            Some(Color::from_hsla(280.0, 0.2, 0.5, 0.0)),
+            parse_color("hsl(280, 20%, 50%, -3.5%)")
+        );
+
+        // alpha greater than 100% is clamped to 1 (100%)
+        assert_eq!(
+            Some(Color::from_hsla(280.0, 0.2, 0.5, 1.0)),
+            parse_color("hsl(280 20% 50% / 150%)")
+        );
+        assert_eq!(
+            Some(Color::from_hsla(280.0, 0.2, 0.5, 1.0)),
+            parse_color("hsl(280, 20%, 50%, 1.2)")
         );
     }
 
@@ -1812,6 +1858,29 @@ mod tests {
     }
 
     #[test]
+    fn css_lab_fn_alpha_range() {
+        // negative alpha values are clamped to 0
+        assert_eq!(
+            Some(Color::from_lab(50.0, -23.0, 43.0, 0.0)),
+            parse_color("lab(50% -23 43 / -0.25)")
+        );
+        assert_eq!(
+            Some(Color::from_lab(15.0, -35.5, -43.4, 0.0)),
+            parse_color("lab(15% -35.5 -43.4 / -4%)")
+        );
+
+        // alpha greater than 100% is clamped to 1 (100%)
+        assert_eq!(
+            Some(Color::from_lab(15.0, -35.5, -43.4, 1.0)),
+            parse_color("lab(15% -35.5 -43.4 / 104%)")
+        );
+        assert_eq!(
+            Some(Color::from_lab(75.0, -35.5, -43.4, 1.0)),
+            parse_color("lab(75% -35.5 -43.4 / 1.4)")
+        );
+    }
+
+    #[test]
     fn lab_fn_modern_lenient() {
         // Tests lenient parsing of the "modern" space-separated format.
 
@@ -2014,6 +2083,29 @@ mod tests {
         assert_eq!(
             Some(Color::from_lch(50.0, 30.0, 60.0, 1.0)),
             parse_color("lch(50% 30 1140)")
+        );
+    }
+
+    #[test]
+    fn css_lch_fn_alpha_range() {
+        // negative alpha values are clamped to 0
+        assert_eq!(
+            Some(Color::from_lch(60.0, 50.0, 280.0, 0.0)),
+            parse_color("lch(60% 50 280 / -0.5)")
+        );
+        assert_eq!(
+            Some(Color::from_lch(60.0, 40.0, 150.0, 0.0)),
+            parse_color("lch(60% 40 150 / -40%)")
+        );
+
+        // alpha greater than 100% is clamped to 1 (100%)
+        assert_eq!(
+            Some(Color::from_lch(60.0, 50.0, 280.0, 1.0)),
+            parse_color("lch(60% 50 280 / 115%)")
+        );
+        assert_eq!(
+            Some(Color::from_lch(60.0, 40.0, 150.0, 1.0)),
+            parse_color("lch(60% 40 150 / 1.75)")
         );
     }
 
@@ -2731,6 +2823,29 @@ mod tests {
     }
 
     #[test]
+    fn css_oklab_fn_alpha_range() {
+        // negative alpha values are clamped to 0
+        assert_eq!(
+            Some(Color::from_oklaba(0.5, -0.23, 0.43, 0.0)),
+            parse_color("oklab(50% -0.23 0.43 / -0.5)")
+        );
+        assert_eq!(
+            Some(Color::from_oklaba(0.15, -0.355, -0.434, 0.0)),
+            parse_color("oklab(15% -0.355 -0.434 / -40%)")
+        );
+
+        // alpha greater than 100% is clamped to 1 (100%)
+        assert_eq!(
+            Some(Color::from_oklaba(0.5, -0.23, 0.43, 1.0)),
+            parse_color("oklab(50% -0.23 0.43 / 150%)")
+        );
+        assert_eq!(
+            Some(Color::from_oklaba(0.15, -0.355, -0.434, 1.0)),
+            parse_color("oklab(15% -0.355 -0.434 / 1.1)")
+        );
+    }
+
+    #[test]
     fn oklab_fn_modern_lenient() {
         // Tests lenient parsing of the "modern" space-separated format.
 
@@ -2835,6 +2950,29 @@ mod tests {
     }
 
     #[test]
+    fn css_oklch_fn_alpha_range() {
+        // negative alpha values are clamped to 0
+        assert_eq!(
+            Some(Color::from_oklcha(0.60, 0.5, 280.0, 0.0)),
+            parse_color("oklch(60% 0.5 280 / -0.25)")
+        );
+        assert_eq!(
+            Some(Color::from_oklcha(0.60, 0.4, 150.0, 0.0)),
+            parse_color("oklch(60% 0.4 150 / -4%)")
+        );
+
+        // alpha greater than 100% is clamped to 1 (100%)
+        assert_eq!(
+            Some(Color::from_oklcha(0.60, 0.5, 280.0, 1.0)),
+            parse_color("oklch(60% 0.5 280 / 123%)")
+        );
+        assert_eq!(
+            Some(Color::from_oklcha(0.60, 0.4, 150.0, 1.0)),
+            parse_color("oklch(60% 0.4 150 / 1.11)")
+        );
+    }
+
+    #[test]
     fn oklch_fn_modern_lenient() {
         // Percent sign is optional for lightness value, but it is treated as
         // the actual value so it is not scaled.  A value of 50 for OKLCh
@@ -2902,6 +3040,29 @@ mod tests {
         assert_eq!(None, parse_color("color(xyz 0.3, 0.5, 0.7)"));
         // percentages are disallowed
         assert_eq!(None, parse_color("color(xyz 30% 50% 70%)"));
+    }
+
+    #[test]
+    fn css_color_fn_xyz_alpha_range() {
+        // negative alpha values are clamped to 0
+        assert_eq!(
+            Some(Color::from_xyza(0.3, 0.5, 0.7, 0.0)),
+            parse_color("color(xyz 0.3 0.5 0.7 / -0.1)")
+        );
+        assert_eq!(
+            Some(Color::from_xyza(0.3, 0.5, 0.7, 0.0)),
+            parse_color("color(xyz 0.3 0.5 0.7 / -5%)")
+        );
+
+        // alpha greater than 100% is clamped to 1 (100%)
+        assert_eq!(
+            Some(Color::from_xyza(0.3, 0.5, 0.7, 1.0)),
+            parse_color("color(xyz 0.3 0.5 0.7 / 115%)")
+        );
+        assert_eq!(
+            Some(Color::from_xyza(0.3, 0.5, 0.7, 1.0)),
+            parse_color("color(xyz 0.3 0.5 0.7 / 1.15)")
+        );
     }
 
     #[test]
@@ -3032,6 +3193,29 @@ mod tests {
         assert_ne!(
             rgbf(0.0, 1.0, 0.4),
             parse_color("color(srgb -0.1 1.2 0.4)")
+        );
+    }
+
+    #[test]
+    fn css_color_fn_srgb_alpha_range() {
+        // negative alpha values are clamped to 0
+        assert_eq!(
+            rgbaf(0.25, 0.5, 0.75, 0.0),
+            parse_color("color(srgb 0.25 0.5 0.75 / -5%)")
+        );
+        assert_eq!(
+            rgbaf(0.75, 0.5, 0.25, 0.0),
+            parse_color("color(srgb 75% 50% 25% / -0.3)")
+        );
+
+        // alpha greater than 100% is clamped to 1 (100%)
+        assert_eq!(
+            rgbaf(0.25, 0.5, 0.75, 1.0),
+            parse_color("color(srgb 0.25 0.5 0.75 / 1.5)")
+        );
+        assert_eq!(
+            rgbaf(0.75, 0.5, 0.25, 1.0),
+            parse_color("color(srgb 75% 50% 25% / 120%)")
         );
     }
 
