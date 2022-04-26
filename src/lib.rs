@@ -1048,12 +1048,12 @@ impl From<&HSVA> for Color {
 
 impl From<&HWBA> for Color {
     fn from(color: &HWBA) -> Self {
-        if color.w + color.b > 1.0 {
-            let gray = color.w / (color.w + color.b);
+        let w = clamp(0.0, 1.0, color.w);
+        let b = clamp(0.0, 1.0, color.b);
+        if w + b > 1.0 {
+            let gray = w / (w + b);
             Self::from_rgba_float(gray, gray, gray, color.alpha)
         } else {
-            let w = clamp(0.0, 1.0, color.w);
-            let b = clamp(0.0, 1.0, color.b);
             let v = 1.0 - b;
             let s = 1.0 - (w / v);
             Self::from(&HSVA {
@@ -1105,7 +1105,10 @@ impl From<&Lab> for Color {
             }
         };
 
-        let l_ = (color.l + 16.0) / 116.0;
+        // Clamp negative lightness to 0.
+        let l = f64::max(color.l, 0.0);
+
+        let l_ = (l + 16.0) / 116.0;
         let x = D65_XN * finv(l_ + color.a / 500.0);
         let y = D65_YN * finv(l_);
         let z = D65_ZN * finv(l_ - color.b / 200.0);
@@ -1148,13 +1151,18 @@ impl From<&Luv> for Color {
             9.0 * y / (x + 15.0 * y + 3.0 * z)
         };
 
-        let u_ = color.u / (13.0 * color.l) + uprime(D65_XN, D65_YN, D65_ZN);
-        let v_ = color.v / (13.0 * color.l) + vprime(D65_XN, D65_YN, D65_ZN);
+        // Clamp negative lightness to 0.
+        let l = f64::max(color.l, 0.0);
 
-        let y = if color.l > 8.0 {
-            D65_YN * Scalar::powf((color.l + 16.0) / 116.0, 3.0)
+        let u_ = if l > 0.0 { color.u / (13.0 * l) } else { 0.0 }
+            + uprime(D65_XN, D65_YN, D65_ZN);
+        let v_ = if l > 0.0 { color.v / (13.0 * l) } else { 0.0 }
+            + vprime(D65_XN, D65_YN, D65_ZN);
+
+        let y = if l > 8.0 {
+            D65_YN * Scalar::powf((l + 16.0) / 116.0, 3.0)
         } else {
-            D65_YN * color.l * Scalar::powf(3.0 / 29.0, 3.0)
+            D65_YN * l * Scalar::powf(3.0 / 29.0, 3.0)
         };
         let x = y * (9.0 * u_) / (4.0 * v_);
         let z = y * (12.0 - 3.0 * u_ - 20.0 * v_) / (4.0 * v_);
