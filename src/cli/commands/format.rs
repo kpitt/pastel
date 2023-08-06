@@ -2,7 +2,6 @@ use crate::commands::prelude::*;
 use crate::utility::similar_colors;
 
 use pastel::ansi::Mode;
-use pastel::Format;
 
 pub struct FormatCommand;
 
@@ -20,22 +19,22 @@ impl ColorCommand for FormatCommand {
         let replace_escape = |code: &str| code.replace('\x1b', "\\x1b");
 
         let output = match format_type.as_ref() {
-            "rgb" => color.to_rgb_string(Format::Spaces),
-            "rgb-float" => color.to_rgb_float_string(Format::Spaces),
+            "rgb" => color.to_rgb_string(),
+            "rgb-float" => color.to_rgb_float_string(),
             "hex" => color.to_rgb_hex_string(true),
-            "hsl" => color.to_hsl_string(Format::Spaces),
+            "hsl" => color.to_hsl_string(),
             "hsl-hue" => format!("{:.0}", color.to_hsla().h),
             "hsl-saturation" => format!("{:.4}", color.to_hsla().s),
             "hsl-lightness" => format!("{:.4}", color.to_hsla().l),
-            "hsv" => color.to_hsv_string(Format::Spaces),
+            "hsv" => color.to_hsv_string(),
             "hsv-hue" => format!("{:.0}", color.to_hsva().h),
             "hsv-saturation" => format!("{:.4}", color.to_hsva().s),
             "hsv-value" => format!("{:.4}", color.to_hsva().v),
-            "lch" => color.to_lch_string(Format::Spaces),
+            "lch" => color.to_lch_string(),
             "lch-lightness" => format!("{:.2}", color.to_lch().l),
             "lch-chroma" => format!("{:.2}", color.to_lch().c),
             "lch-hue" => format!("{:.2}", color.to_lch().h),
-            "lab" => color.to_lab_string(Format::Spaces),
+            "lab" => color.to_lab_string(),
             "lab-a" => format!("{:.2}", color.to_lab().a),
             "lab-b" => format!("{:.2}", color.to_lab().b),
             "luminance" => format!("{:.3}", color.luminance()),
@@ -44,7 +43,7 @@ impl ColorCommand for FormatCommand {
             "ansi-24bit" => replace_escape(&color.to_ansi_sequence(Mode::TrueColor)),
             "ansi-8bit-escapecode" => color.to_ansi_sequence(Mode::Ansi8Bit),
             "ansi-24bit-escapecode" => color.to_ansi_sequence(Mode::TrueColor),
-            "cmyk" => color.to_cmyk_string(Format::Spaces),
+            "cmyk" => color.to_cmyk_string(),
             "name" => similar_colors(color)[0].name.to_owned(),
             &_ => {
                 unreachable!("Unknown format type");

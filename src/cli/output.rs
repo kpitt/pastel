@@ -6,7 +6,6 @@ use crate::hdcanvas::Canvas;
 use crate::utility::similar_colors;
 
 use pastel::Color;
-use pastel::Format;
 
 // #[derive(Debug)]
 pub struct Output<'a> {
@@ -85,12 +84,12 @@ impl Output<'_> {
         canvas.draw_text(
             text_position_y + 2 + text_y_offset,
             text_position_x,
-            &format!("RGB: {}", color.to_rgb_string(Format::Spaces)),
+            &format!("RGB: {}", color.to_rgb_string()),
         );
         canvas.draw_text(
             text_position_y + 4 + text_y_offset,
             text_position_x,
-            &format!("HSL: {}", color.to_hsl_string(Format::Spaces)),
+            &format!("HSL: {}", color.to_hsl_string()),
         );
 
         canvas.draw_text(
@@ -110,7 +109,7 @@ impl Output<'_> {
             self.show_color_tty(config, color)?;
             writeln!(self.handle)?;
         } else {
-            writeln!(self.handle, "{}", color.to_hsl_string(Format::NoSpaces))?;
+            writeln!(self.handle, "{}", color.to_hsl_string())?;
         }
         self.colors_shown += 1;
 
