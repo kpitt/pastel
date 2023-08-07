@@ -78,6 +78,16 @@ fn parse_alpha<'a>(input: &'a str) -> IResult<&'a str, f64> {
     Ok((input, alpha.unwrap_or(1.0)))
 }
 
+fn parse_css_alpha<'a>(input: &'a str) -> IResult<&'a str, f64> {
+    let (input, alpha) = opt(|input: &'a str| {
+        let (input, _) = space0(input)?;
+        let (input, _) = char('/')(input)?;
+        let (input, _) = space0(input)?;
+        alt((parse_percentage, double))(input)
+    })(input)?;
+    Ok((input, alpha.unwrap_or(1.0)))
+}
+
 fn parse_hex(input: &str) -> IResult<&str, Color> {
     let (input, _) = opt_hash_char(input)?;
     let (input, hex_chars) = hex_digit1(input)?;
@@ -147,6 +157,26 @@ fn parse_numeric_rgb(input: &str) -> IResult<&str, Color> {
     Ok((input, c))
 }
 
+fn parse_css_numeric_rgb(input: &str) -> IResult<&str, Color> {
+    let (input, _) = alt((tag_no_case("rgb("), tag_no_case("rgba(")))(input)?;
+    let (input, _) = space0(input)?;
+    let (input, r) = double(input)?;
+    let (input, _) = space1(input)?;
+    let (input, g) = double(input)?;
+    let (input, _) = space1(input)?;
+    let (input, b) = double(input)?;
+    let (input, alpha) = parse_css_alpha(input)?;
+    let (input, _) = space0(input)?;
+    let (input, _) = char(')')(input)?;
+
+    let r = r / 255.;
+    let g = g / 255.;
+    let b = b / 255.;
+    let c = Color::from_rgba_float(r, g, b, alpha);
+
+    Ok((input, c))
+}
+
 fn parse_percentage_rgb(input: &str) -> IResult<&str, Color> {
     let (input, prefixed) = opt(alt((tag("rgb("), tag("rgba("))))(input)?;
     let is_prefixed = prefixed.is_some();
@@ -165,6 +195,23 @@ fn parse_percentage_rgb(input: &str) -> IResult<&str, Color> {
     Ok((input, c))
 }
 
+fn parse_css_percentage_rgb(input: &str) -> IResult<&str, Color> {
+    let (input, _) = alt((tag_no_case("rgb("), tag_no_case("rgba(")))(input)?;
+    let (input, _) = space0(input)?;
+    let (input, r) = parse_percentage(input)?;
+    let (input, _) = space1(input)?;
+    let (input, g) = parse_percentage(input)?;
+    let (input, _) = space1(input)?;
+    let (input, b) = parse_percentage(input)?;
+    let (input, alpha) = parse_css_alpha(input)?;
+    let (input, _) = space0(input)?;
+    let (input, _) = char(')')(input)?;
+
+    let c = Color::from_rgba_float(r, g, b, alpha);
+
+    Ok((input, c))
+}
+
 fn parse_hsl(input: &str) -> IResult<&str, Color> {
     let (input, _) = alt((tag("hsl("), tag("hsla(")))(input)?;
     let (input, _) = space0(input)?;
@@ -174,6 +221,23 @@ fn parse_hsl(input: &str) -> IResult<&str, Color> {
     let (input, _) = parse_separator(input)?;
     let (input, l) = parse_percentage(input)?;
     let (input, alpha) = parse_alpha(input)?;
+    let (input, _) = space0(input)?;
+    let (input, _) = char(')')(input)?;
+
+    let c = Color::from_hsla(h, s, l, alpha);
+
+    Ok((input, c))
+}
+
+fn parse_css_hsl(input: &str) -> IResult<&str, Color> {
+    let (input, _) = alt((tag_no_case("hsl("), tag_no_case("hsla(")))(input)?;
+    let (input, _) = space0(input)?;
+    let (input, h) = parse_angle(input)?;
+    let (input, _) = space1(input)?;
+    let (input, s) = parse_percentage(input)?;
+    let (input, _) = space1(input)?;
+    let (input, l) = parse_percentage(input)?;
+    let (input, alpha) = parse_css_alpha(input)?;
     let (input, _) = space0(input)?;
     let (input, _) = char(')')(input)?;
 
@@ -265,8 +329,11 @@ fn parse_named(input: &str) -> IResult<&str, Color> {
 pub fn parse_color(input: &str) -> Option<Color> {
     alt((
         all_consuming(parse_hex),
+        all_consuming(parse_css_numeric_rgb),
+        all_consuming(parse_css_percentage_rgb),
         all_consuming(parse_numeric_rgb),
         all_consuming(parse_percentage_rgb),
+        all_consuming(parse_css_hsl),
         all_consuming(parse_hsl),
         all_consuming(parse_hsv),
         all_consuming(parse_gray),
@@ -340,6 +407,47 @@ fn parse_rgb_functional_syntax() {
     assert_eq!(None, parse_color("rgb(255,0,0"));
     assert_eq!(None, parse_color("rgb (256,0,0)"));
     assert_eq!(None, parse_color("rgb(100%,0,0)"));
+    assert_eq!(None, parse_color("rgb(2550119)"));
+}
+
+#[test]
+fn parse_css_rgb_syntax() {
+    assert_eq!(Some(rgb(255, 0, 153)), parse_color("rgb(255 0 153)"));
+    assert_eq!(Some(rgb(255, 0, 153)), parse_color("rgb( 255  0  153 )"));
+    assert_eq!(Some(rgb(255, 0, 153)), parse_color("rgb(255 0 153.0)"));
+    // `rgba` is equivalent to `rgb`
+    assert_eq!(Some(rgb(255, 0, 153)), parse_color("rgba(255 0 153)"));
+
+    assert_eq!(
+        Some(rgb(255, 8, 119)),
+        parse_color("  rgb( 255    8    119 )  ")
+    );
+
+    assert_eq!(Some(rgb(255, 0, 127)), parse_color("rgb(100% 0% 49.8%)"));
+    assert_eq!(Some(rgb(255, 0, 153)), parse_color("rgb(100% 0% 60%)"));
+    assert_eq!(Some(rgb(255, 0, 119)), parse_color("rgb(100% 0% 46.7%)"));
+    assert_eq!(Some(rgb(3, 54, 119)), parse_color("rgb(1% 21.2% 46.7%)"));
+    assert_eq!(Some(rgb(255, 0, 119)), parse_color("rgb(255 0 119)"));
+    assert_eq!(
+        Some(rgb(255, 0, 119)),
+        parse_color("rgb(    255      0      119)")
+    );
+    assert_eq!(Some(rgb(255, 0, 153)), parse_color("rgb( 100%   0%  60% )"));
+
+    assert_eq!(Some(rgb(100, 5, 1)), parse_color("rgb(1e2 .5E1 .5e0)"));
+    assert_eq!(Some(rgb(140, 0, 153)), parse_color("rgb(55% 0% 60%)"));
+    assert_eq!(Some(rgb(142, 0, 153)), parse_color("rgb(55.5% 0% 60%)"));
+    assert_eq!(Some(rgb(255, 0, 0)), parse_color("rgb(256,0,0)"));
+    assert_eq!(Some(rgb(255, 255, 0)), parse_color("rgb(100%,100%,-45%)"));
+
+    // function names are case-insensitive
+    assert_eq!(Some(rgb(255, 0, 153)), parse_color("RGB(255 0 153)"));
+    assert_eq!(Some(rgb(255, 0, 153)), parse_color("RgbA(255 0 153)"));
+
+    assert_eq!(None, parse_color("rgb(255 0)"));
+    assert_eq!(None, parse_color("rgb(255 0 0"));
+    assert_eq!(None, parse_color("rgb (256 0 0)"));
+    assert_eq!(None, parse_color("rgb(100% 0 0)"));
     assert_eq!(None, parse_color("rgb(2550119)"));
 }
 
@@ -423,6 +531,80 @@ fn parse_hsl_syntax() {
     assert_eq!(None, parse_color("hsl(280,20,50%)"));
     assert_eq!(None, parse_color("hsl(280%,20%,50%)"));
     assert_eq!(None, parse_color("hsl(280,20%)"));
+}
+
+#[test]
+fn parse_css_hsl_syntax() {
+    assert_eq!(
+        Some(Color::from_hsl(280.0, 0.2, 0.5)),
+        parse_color("hsl(280 20% 50%)")
+    );
+    assert_eq!(
+        Some(Color::from_hsl(280.0, 0.2, 0.5)),
+        parse_color("hsl(280deg 20% 50%)")
+    );
+    assert_eq!(
+        Some(Color::from_hsl(280.0, 0.2, 0.5)),
+        parse_color("hsl(280° 20% 50%)")
+    );
+    assert_eq!(
+        Some(Color::from_hsl(280.33, 0.123, 0.456)),
+        parse_color("hsl(280.33001 12.3% 45.6%)")
+    );
+    assert_eq!(
+        Some(Color::from_hsl(280.0, 0.2, 0.5)),
+        parse_color("hsl(  280  20%  50%)")
+    );
+    // `hsla()` can be used without an alhpa component
+    assert_eq!(
+        Some(Color::from_hsl(270.0, 0.6, 0.7)),
+        parse_color("hsla(270 60% 70%)")
+    );
+
+    assert_eq!(
+        Some(Color::from_hsl(-140.0, 0.2, 0.5)),
+        parse_color("hsl(-140° 20% 50%)")
+    );
+
+    assert_eq!(
+        Some(Color::from_hsl(90.0, 0.2, 0.5)),
+        parse_color("hsl(100grad 20% 50%)")
+    );
+    assert_eq!(
+        Some(Color::from_hsl(90.05, 0.2, 0.5)),
+        parse_color("hsl(1.5708rad 20% 50%)")
+    );
+    assert_eq!(
+        Some(Color::from_hsl(90.0, 0.2, 0.5)),
+        parse_color("hsl(0.25turn 20% 50%)")
+    );
+    assert_eq!(
+        Some(Color::from_hsl(45.0, 0.2, 0.5)),
+        parse_color("hsl(50grad 20% 50%)")
+    );
+    assert_eq!(
+        Some(Color::from_hsl(45.0, 0.2, 0.5)),
+        parse_color("hsl(0.7854rad 20% 50%)")
+    );
+    assert_eq!(
+        Some(Color::from_hsl(45.0, 0.2, 0.5)),
+        parse_color("hsl(0.125turn 20% 50%)")
+    );
+
+    // function names are case-insensitive
+    assert_eq!(
+        Some(Color::from_hsl(270.0, 0.6, 0.7)),
+        parse_color("HSL(270 60% 70%)")
+    );
+    assert_eq!(
+        Some(Color::from_hsl(270.0, 0.6, 0.7)),
+        parse_color("HslA(270 60% 70%)")
+    );
+
+    assert_eq!(None, parse_color("hsl(280 20%,50)"));
+    assert_eq!(None, parse_color("hsl(280 20 50%)"));
+    assert_eq!(None, parse_color("hsl(280% 20% 50%)"));
+    assert_eq!(None, parse_color("hsl(280 20%)"));
 }
 
 #[test]
@@ -670,5 +852,109 @@ fn parse_alpha_syntax() {
     assert_eq!(
         format!("{:?}", Some(rgba(10, 0, 0, 0.329))),
         format!("{:?}", parse_color("0a000054"))
+    );
+}
+
+#[test]
+fn parse_css_hsl_alpha() {
+    // alpha can be specified as a number from 0.0 to 1.0, or as a percentage
+    assert_eq!(
+        Some(Color::from_hsla(10.0, 0.5, 0.5, 0.7)),
+        parse_color("hsl(10 50% 50% / 0.7)")
+    );
+    assert_eq!(
+        Some(Color::from_hsla(10.0, 0.5, 0.5, 0.7)),
+        parse_color("hsl(10 50% 50% / 70%)")
+    );
+
+    // `hsla()` function is also valid
+    assert_eq!(
+        Some(Color::from_hsla(10.0, 0.5, 0.5, 0.7)),
+        parse_color("hsla(10 50% 50% / 0.7)")
+    );
+
+    // spaces are not required around the '/' separator
+    assert_eq!(
+        Some(Color::from_hsla(10.0, 0.5, 0.5, 0.7)),
+        parse_color("hsl(10 50% 50%/0.7)")
+    );
+    assert_eq!(
+        Some(Color::from_hsla(10.0, 0.5, 0.5, 0.7)),
+        parse_color("hsl(10 50% 50%/70%)")
+    );
+
+    // extra spaces are allowed
+    assert_eq!(
+        Some(Color::from_hsla(10.0, 0.5, 0.5, 0.7)),
+        parse_color("hsl(10   50%   50%  /  0.7)")
+    );
+
+    // an explicit 100% (or 1.0) alpha is valid
+    assert_eq!(
+        Some(Color::from_hsla(10.0, 0.5, 0.5, 1.0)),
+        parse_color("hsl(10 50% 50% / 1.0)")
+    );
+    assert_eq!(
+        Some(Color::from_hsla(10.0, 0.5, 0.5, 1.0)),
+        parse_color("hsl(10 50% 50% / 1)")
+    );
+    assert_eq!(
+        Some(Color::from_hsla(10.0, 0.5, 0.5, 1.0)),
+        parse_color("hsl(10 50% 50% / 100%)")
+    );
+}
+
+#[test]
+fn parse_css_rgb_alpha() {
+    // alpha can be specified as a number from 0.0 to 1.0, or as a percentage
+    assert_eq!(
+        Some(rgba(10, 20, 30, 0.7)),
+        parse_color("rgb(10 20 30 / 0.7)")
+    );
+    assert_eq!(
+        Some(rgba(10, 20, 30, 0.7)),
+        parse_color("rgb(10 20 30 / 70%)")
+    );
+
+    // `rgba` is equivalent to `rgb`
+    assert_eq!(
+        Some(rgba(10, 20, 30, 0.7)),
+        parse_color("rgba(10 20 30 / 0.7)")
+    );
+
+    // spaces are not required around the '/' separator
+    assert_eq!(
+        Some(rgba(10, 20, 30, 0.7)),
+        parse_color("rgb(10 20 30/0.7)")
+    );
+    assert_eq!(
+        Some(rgba(10, 20, 30, 0.7)),
+        parse_color("rgb(10 20 30/70%)")
+    );
+
+    // extra spaces are allowed
+    assert_eq!(
+        Some(rgba(10, 20, 30, 0.7)),
+        parse_color("rgb(10   20   30  /  0.7)")
+    );
+
+    // alpha can also be combined with percentage channel values
+    assert_eq!(
+        Some(rgba(255, 0, 128, 0.7)),
+        parse_color("rgb(100% 0% 50% / 0.7)")
+    );
+
+    // an explicit 100% (or 1.0) alpha is valid
+    assert_eq!(
+        Some(rgba(10, 20, 30, 1.0)),
+        parse_color("rgb(10 20 30 / 1.0)")
+    );
+    assert_eq!(
+        Some(rgba(10, 20, 30, 1.0)),
+        parse_color("rgb(10 20 30 / 1)")
+    );
+    assert_eq!(
+        Some(rgba(10, 20, 30, 1.0)),
+        parse_color("rgb(10 20 30 / 100%)")
     );
 }
