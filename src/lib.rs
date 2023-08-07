@@ -159,23 +159,19 @@ impl Color {
         HSLA::from(self)
     }
 
-    /// Format the color as a HSL-representation string (`hsla(123, 50.3%, 80.1%, 0.4)`). If the
-    /// alpha channel is `1.0`, the simplified `hsl()` format will be used instead.
+    /// Format the color as an `hsl()` color function (`hsl(123 50.3% 80.1% / 0.4)`).
+    /// If the alpha channel is `1.0`, it will be omitted.
     pub fn to_hsl_string(&self) -> String {
-        let (a_prefix, a) = if self.alpha == 1.0 {
-            ("", "".to_string())
+        let a = if self.alpha == 1.0 {
+            "".to_string()
         } else {
-            (
-                "a",
-                format!(", {alpha}", alpha = MaxPrecision::wrap(3, self.alpha),),
-            )
+            format!(" / {alpha}", alpha = MaxPrecision::wrap(3, self.alpha))
         };
         format!(
-            "hsl{a_prefix}({h:.0}, {s:.1}%, {l:.1}%{a})",
-            a_prefix = a_prefix,
+            "hsl({h:.0} {s:.1}% {l:.1}%{a})",
             h = self.hue.value(),
-            s = 100.0 * self.saturation,
-            l = 100.0 * self.lightness,
+            s = MaxPrecision::wrap(2, 100.0 * self.saturation),
+            l = MaxPrecision::wrap(2, 100.0 * self.lightness),
             a = a,
         )
     }
@@ -215,8 +211,9 @@ impl Color {
         RGBA::<u8>::from(self)
     }
 
-    /// Format the color as a RGB-representation string (`rgba(255, 127, 0, 0.5)`). If the alpha channel
-    /// is `1.0`, the simplified `rgb()` format will be used instead.
+    /// Format the color as an `rgba()` color function with numeric channal values in the range of
+    /// 0 to 255 (`rgba(255 127 0 / 0.5)`). If the alpha channel is `1.0`, it will be omitted and
+    /// the simplified `rgb()` format will be used instead.
     pub fn to_rgb_string(&self) -> String {
         let rgba = RGBA::<u8>::from(self);
         let (a_prefix, a) = if self.alpha == 1.0 {
@@ -224,11 +221,11 @@ impl Color {
         } else {
             (
                 "a",
-                format!(", {alpha}", alpha = MaxPrecision::wrap(3, rgba.alpha),),
+                format!(" / {alpha}", alpha = MaxPrecision::wrap(3, rgba.alpha)),
             )
         };
         format!(
-            "rgb{a_prefix}({r}, {g}, {b}{a})",
+            "rgb{a_prefix}({r} {g} {b}{a})",
             a_prefix = a_prefix,
             r = rgba.r,
             g = rgba.g,
@@ -255,24 +252,25 @@ impl Color {
         )
     }
 
-    /// Format the color as a floating point RGB-representation string (`rgb(1.0, 0.5, 0)`). If the alpha channel
-    /// is `1.0`, the simplified `rgb()` format will be used instead.
-    pub fn to_rgb_float_string(&self) -> String {
+    /// Format the color as an `rgba()` color function with percentage channal values
+    /// (`rgba(100% 50% 0% / 0.5)`). If the alpha channel is `1.0`, it will be omitted and the
+    /// simplified `rgb()` format will be used instead.
+    pub fn to_rgb_percent_string(&self) -> String {
         let rgba = RGBA::<f64>::from(self);
         let (a_prefix, a) = if self.alpha == 1.0 {
             ("", "".to_string())
         } else {
             (
                 "a",
-                format!(", {alpha}", alpha = MaxPrecision::wrap(3, rgba.alpha),),
+                format!(" / {alpha}", alpha = MaxPrecision::wrap(3, rgba.alpha)),
             )
         };
         format!(
-            "rgb{a_prefix}({r:.3}, {g:.3}, {b:.3}{a})",
+            "rgb{a_prefix}({r}% {g}% {b}%{a})",
             a_prefix = a_prefix,
-            r = rgba.r,
-            g = rgba.g,
-            b = rgba.b,
+            r = MaxPrecision::wrap(1, 100.0 * rgba.r),
+            g = MaxPrecision::wrap(1, 100.0 * rgba.g),
+            b = MaxPrecision::wrap(1, 100.0 * rgba.b),
             a = a,
         )
     }
@@ -1690,30 +1688,27 @@ mod tests {
     #[test]
     fn to_hsl_string() {
         let c = Color::from_hsl(91.3, 0.541, 0.983);
-        assert_eq!("hsl(91, 54.1%, 98.3%)", c.to_hsl_string());
+        assert_eq!("hsl(91 54.1% 98.3%)", c.to_hsl_string());
     }
 
     #[test]
     fn to_rgb_string() {
         let c = Color::from_rgb(255, 127, 4);
-        assert_eq!("rgb(255, 127, 4)", c.to_rgb_string());
+        assert_eq!("rgb(255 127 4)", c.to_rgb_string());
     }
 
     #[test]
-    fn to_rgb_float_string() {
-        assert_eq!(
-            "rgb(0.000, 0.000, 0.000)",
-            Color::black().to_rgb_float_string()
-        );
+    fn to_rgb_percent_string() {
+        assert_eq!("rgb(0% 0% 0%)", Color::black().to_rgb_percent_string());
 
         assert_eq!(
-            "rgb(1.000, 1.000, 1.000)",
-            Color::white().to_rgb_float_string()
+            "rgb(100% 100% 100%)",
+            Color::white().to_rgb_percent_string()
         );
 
         // some minor rounding errors here, but that is to be expected:
         let c = Color::from_rgb_float(0.12, 0.45, 0.78);
-        assert_eq!("rgb(0.122, 0.451, 0.780)", c.to_rgb_float_string());
+        assert_eq!("rgb(12.2% 45.1% 78%)", c.to_rgb_percent_string());
     }
 
     #[test]
@@ -1894,7 +1889,7 @@ mod tests {
         for alpha_int in 0..255 {
             let hex_string = format!("#000000{:02x}", alpha_int);
             let parsed_from_hex = hex_string.parse::<Color>().unwrap();
-            let rgba_string = parsed_from_hex.to_rgb_float_string();
+            let rgba_string = parsed_from_hex.to_rgb_percent_string();
             let parsed_from_rgba = rgba_string.parse::<Color>().unwrap();
             assert_eq!(hex_string, parsed_from_rgba.to_rgb_hex_string(true));
         }
