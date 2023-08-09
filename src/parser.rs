@@ -42,6 +42,11 @@ fn parse_percentage(input: &str) -> IResult<&str, f64> {
     Ok((input, percent / 100.))
 }
 
+fn parse_number_or_percentage(input: &str) -> IResult<&str, f64> {
+    let (input, value) = alt((parse_percentage, double))(input)?;
+    Ok((input, value))
+}
+
 fn parse_degrees(input: &str) -> IResult<&str, f64> {
     let (input, d) = double(input)?;
     let (input, _) = alt((tag("°"), tag("deg"), tag("")))(input)?;
@@ -326,6 +331,36 @@ fn parse_named(input: &str) -> IResult<&str, Color> {
     }
 }
 
+fn parse_css_color_fn<'a>(input: &'a str) -> IResult<&'a str, Color> {
+    let (input, _) = tag_no_case("color(")(input)?;
+
+    let (input, color) = parse_cie_xyz65_color_space(input)?;
+
+    let (input, _) = space0(input)?;
+    let (input, _) = char(')')(input)?;
+
+    Ok((input, color))
+}
+
+// CSS Color 4 defines separate D65-adapted (`xyz-d65`, or just `xyz`) and D5-adapted (`xyz-d50`)
+// color spaces.  Currently, `pastel` does not support chromatic adaptation, and only uses the D65
+// illuminant, so we only support the `xyz-d65` color space here.
+fn parse_cie_xyz65_color_space<'a>(input: &'a str) -> IResult<&'a str, Color> {
+    let (input, _) = alt((tag_no_case("xyz-d65"), tag_no_case("xyz")))(input)?;
+    let (input, _) = space1(input)?;
+    let (input, x) = parse_number_or_percentage(input)?;
+    let (input, _) = space1(input)?;
+    let (input, y) = parse_number_or_percentage(input)?;
+    let (input, _) = space1(input)?;
+    let (input, z) = parse_number_or_percentage(input)?;
+    let (input, alpha) = parse_css_alpha(input)?;
+    let (input, _) = space0(input)?;
+
+    let c = Color::from_xyz(x, y, z, alpha);
+
+    Ok((input, c))
+}
+
 pub fn parse_color(input: &str) -> Option<Color> {
     alt((
         all_consuming(parse_hex),
@@ -335,6 +370,7 @@ pub fn parse_color(input: &str) -> Option<Color> {
         all_consuming(parse_percentage_rgb),
         all_consuming(parse_css_hsl),
         all_consuming(parse_hsl),
+        all_consuming(parse_css_color_fn),
         all_consuming(parse_hsv),
         all_consuming(parse_gray),
         all_consuming(parse_lab),
@@ -555,7 +591,7 @@ fn parse_css_hsl_syntax() {
         Some(Color::from_hsl(280.0, 0.2, 0.5)),
         parse_color("hsl(  280  20%  50%)")
     );
-    // `hsla()` can be used without an alhpa component
+    // `hsla` is equivalent to `hsl`
     assert_eq!(
         Some(Color::from_hsl(270.0, 0.6, 0.7)),
         parse_color("hsla(270 60% 70%)")
@@ -867,7 +903,7 @@ fn parse_css_hsl_alpha() {
         parse_color("hsl(10 50% 50% / 70%)")
     );
 
-    // `hsla()` function is also valid
+    // `hsla` is equivalent to `hsl`
     assert_eq!(
         Some(Color::from_hsla(10.0, 0.5, 0.5, 0.7)),
         parse_color("hsla(10 50% 50% / 0.7)")
@@ -957,4 +993,110 @@ fn parse_css_rgb_alpha() {
         Some(rgba(10, 20, 30, 1.0)),
         parse_color("rgb(10 20 30 / 100%)")
     );
+}
+
+#[test]
+fn parse_xyz65_color_space_syntax() {
+    fn xyz(x: f64, y: f64, z: f64) -> Color {
+        Color::from_xyz(x, y, z, 1.0)
+    }
+
+    assert_eq!(
+        Some(xyz(0.3, 0.5, 0.7)),
+        parse_color("color(xyz-d65 0.3 0.5 0.7)")
+    );
+
+    assert_eq!(
+        Some(xyz(0.950_470, 1.0, 1.088_830)),
+        parse_color("color(xyz-d65 0.950470 1 1.088830)")
+    );
+
+    assert_eq!(
+        Some(xyz(-0.004, 1.007, -1.2222)),
+        parse_color("color(xyz-d65 -0.004 1.007000 -1.2222)")
+    );
+
+    // percentages are allowed
+    assert_eq!(
+        Some(xyz(0.3, 0.5, 0.7)),
+        parse_color("color(xyz-d65 30% 50% 70%)")
+    );
+    // numbers and percentages can be mixed
+    assert_eq!(
+        Some(xyz(0.3, 0.5, 0.7)),
+        parse_color("color(xyz-d65 0.3 50% 0.7)")
+    );
+
+    // `xyz` is equivalent to `xyz-d65`
+    assert_eq!(
+        Some(xyz(0.3, 0.5, 0.7)),
+        parse_color("color(xyz 0.3 0.5 0.7)")
+    );
+
+    // extra spaces are allowed
+    assert_eq!(
+        Some(xyz(0.3, 0.5, 0.7)),
+        parse_color("color(xyz-d65  0.3   0.5    0.7)")
+    );
+
+    // color space name is case-insensitive
+    assert_eq!(
+        Some(xyz(0.3, 0.5, 0.7)),
+        parse_color("color(XYZ 0.3 0.5 0.7)")
+    );
+    assert_eq!(
+        Some(xyz(0.3, 0.5, 0.7)),
+        parse_color("color(Xyz 0.3 0.5 0.7)")
+    );
+    assert_eq!(
+        Some(xyz(0.3, 0.5, 0.7)),
+        parse_color("color(xyz-D65 0.3 0.5 0.7)")
+    );
+
+    // alpha is supported
+    assert_eq!(
+        Some(Color::from_xyz(0.3, 0.5, 0.7, 0.9)),
+        parse_color("color(xyz-d65 0.3 0.5 0.7 / 0.9)")
+    );
+
+    // not enough parameters
+    assert_eq!(None, parse_color("color(xyz-d65 0.3 0.5)"));
+    // too many parameters
+    assert_eq!(None, parse_color("color(xyz-d65 0.3 0.5 0.7 1.0)"));
+    // comma separators not allowed
+    assert_eq!(None, parse_color("color(xyz-d65 0.3, 0.5, 0.7)"));
+}
+
+#[test]
+fn parse_xyz50_color_space_syntax() {
+    // The D50-adapted `xyz-d50` color space is not currently supported.
+    assert_eq!(None, parse_color("color(xyz-d50 0.3 0.5 0.7)"));
+}
+
+#[test]
+fn parse_colorspace_ci() {
+    // This tests case-insensitivity for the outer `color()` function only.
+    // Case-insensitivity for each color space name should be tested separately.
+
+    fn xyz(x: f64, y: f64, z: f64) -> Color {
+        Color::from_xyz(x, y, z, 1.0)
+    }
+
+    assert_eq!(
+        Some(xyz(0.3, 0.5, 0.7)),
+        parse_color("Color(xyz 0.3 0.5 0.7)")
+    );
+    assert_eq!(
+        Some(xyz(0.3, 0.5, 0.7)),
+        parse_color("COLOR(xyz 0.3 0.5 0.7)")
+    );
+    assert_eq!(
+        Some(xyz(0.3, 0.5, 0.7)),
+        parse_color("cOLOr(xyz 0.3 0.5 0.7)")
+    );
+}
+
+#[test]
+fn parse_undefined_colorspace() {
+    assert_eq!(None, parse_color("color(qqqq 0.1 0.2 0.3 0.4)"));
 }
