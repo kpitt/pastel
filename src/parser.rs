@@ -334,7 +334,7 @@ fn parse_named(input: &str) -> IResult<&str, Color> {
 fn parse_css_color_fn<'a>(input: &'a str) -> IResult<&'a str, Color> {
     let (input, _) = tag_no_case("color(")(input)?;
 
-    let (input, color) = parse_cie_xyz65_color_space(input)?;
+    let (input, color) = alt((parse_srgb_color_space, parse_cie_xyz65_color_space))(input)?;
 
     let (input, _) = space0(input)?;
     let (input, _) = char(')')(input)?;
@@ -342,10 +342,26 @@ fn parse_css_color_fn<'a>(input: &'a str) -> IResult<&'a str, Color> {
     Ok((input, color))
 }
 
+fn parse_srgb_color_space(input: &str) -> IResult<&str, Color> {
+    let (input, _) = tag_no_case("srgb")(input)?;
+    let (input, _) = space1(input)?;
+    let (input, r) = parse_number_or_percentage(input)?;
+    let (input, _) = space1(input)?;
+    let (input, g) = parse_number_or_percentage(input)?;
+    let (input, _) = space1(input)?;
+    let (input, b) = parse_number_or_percentage(input)?;
+    let (input, alpha) = parse_css_alpha(input)?;
+    let (input, _) = space0(input)?;
+
+    let c = Color::from_rgba_float(r, g, b, alpha);
+
+    Ok((input, c))
+}
+
 // CSS Color 4 defines separate D65-adapted (`xyz-d65`, or just `xyz`) and D5-adapted (`xyz-d50`)
 // color spaces.  Currently, `pastel` does not support chromatic adaptation, and only uses the D65
 // illuminant, so we only support the `xyz-d65` color space here.
-fn parse_cie_xyz65_color_space<'a>(input: &'a str) -> IResult<&'a str, Color> {
+fn parse_cie_xyz65_color_space(input: &str) -> IResult<&str, Color> {
     let (input, _) = alt((tag_no_case("xyz-d65"), tag_no_case("xyz")))(input)?;
     let (input, _) = space1(input)?;
     let (input, x) = parse_number_or_percentage(input)?;
@@ -993,6 +1009,82 @@ fn parse_css_rgb_alpha() {
         Some(rgba(10, 20, 30, 1.0)),
         parse_color("rgb(10 20 30 / 100%)")
     );
+}
+
+#[test]
+fn parse_srgb_color_space_syntax() {
+    assert_eq!(Some(rgb(255, 0, 153)), parse_color("color(srgb 1 0 0.6)"));
+    assert_eq!(Some(rgb(255, 0, 153)), parse_color("color(srgb 1.0 0 0.6)"));
+    assert_eq!(Some(rgb(255, 0, 119)), parse_color("color(srgb 1 0 0.467)"));
+
+    assert_eq!(
+        Some(rgb(255, 0, 127)),
+        parse_color("color(srgb 100% 0% 49.8%)")
+    );
+    assert_eq!(
+        Some(rgb(255, 0, 153)),
+        parse_color("color(srgb 100% 0% 60%)")
+    );
+    assert_eq!(
+        Some(rgb(255, 0, 119)),
+        parse_color("color(srgb 100% 0% 46.7%)")
+    );
+    assert_eq!(
+        Some(rgb(3, 54, 119)),
+        parse_color("color(srgb 1% 21.2% 46.7%)")
+    );
+    assert_eq!(
+        Some(rgb(140, 0, 153)),
+        parse_color("color(srgb 55% 0% 60%)")
+    );
+    assert_eq!(
+        Some(rgb(142, 0, 153)),
+        parse_color("color(srgb 55.5% 0% 60%)")
+    );
+
+    // numbers and percentages can be mixed
+    assert_eq!(Some(rgb(140, 0, 153)), parse_color("color(srgb 55% 0 0.6)"));
+
+    assert_eq!(
+        Some(rgb(255, 0, 153)),
+        parse_color("color(srgb  1  0  0.6 )")
+    );
+    assert_eq!(
+        Some(rgb(255, 0, 153)),
+        parse_color("color(srgb  100%   0%  60% )")
+    );
+    assert_eq!(
+        Some(rgb(255, 8, 119)),
+        parse_color("  color(srgb 1    0.031    0.467 )  ")
+    );
+
+    assert_eq!(Some(rgb(255, 0, 0)), parse_color("color(srgb 1.1 0 0)"));
+    assert_eq!(
+        Some(rgb(255, 255, 0)),
+        parse_color("color(srgb 100% 100% -45%)")
+    );
+
+    // color space name is case-insensitive
+    assert_eq!(Some(rgb(255, 0, 153)), parse_color("color(SRGB 1 0 0.6)"));
+    assert_eq!(Some(rgb(255, 0, 153)), parse_color("color(sRgb 1 0 0.6)"));
+
+    // alpha is supported
+    assert_eq!(
+        Some(rgba(255, 0, 153, 0.9)),
+        parse_color("color(srgb 1 0 0.6 / 0.9)")
+    );
+    assert_eq!(
+        Some(rgba(255, 0, 153, 0.9)),
+        parse_color("color(srgb 1 0 0.6 / 90%)")
+    );
+
+    assert_eq!(None, parse_color("color(srgb 1 0)"));
+    assert_eq!(None, parse_color("color(srgb 1 0 0 1)"));
+    assert_eq!(None, parse_color("color(srgb 1 0 0"));
+    assert_eq!(None, parse_color("color (srgb 1.01 0 0)"));
+    assert_eq!(None, parse_color("color(srgb 2550119)"));
+    // comma separators not allowed
+    assert_eq!(None, parse_color("color(srgb 0.3, 0.5, 0.7)"));
 }
 
 #[test]
