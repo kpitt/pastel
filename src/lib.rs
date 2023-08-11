@@ -903,9 +903,9 @@ impl From<&LCh> for Color {
 impl From<&CMYK> for Color {
     fn from(color: &CMYK) -> Self {
         #![allow(clippy::many_single_char_names)]
-        let r = 255.0 * ((1.0 - color.c) / 100.0) * ((1.0 - color.k) / 100.0);
-        let g = 255.0 * ((1.0 - color.m) / 100.0) * ((1.0 - color.k) / 100.0);
-        let b = 255.0 * ((1.0 - color.y) / 100.0) * ((1.0 - color.k) / 100.0);
+        let r = (1.0 - color.c) * (1.0 - color.k);
+        let g = (1.0 - color.m) * (1.0 - color.k);
+        let b = (1.0 - color.y) * (1.0 - color.k);
 
         Color::from(&RGBA::<f64> {
             r,
