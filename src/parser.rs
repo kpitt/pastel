@@ -377,6 +377,30 @@ fn parse_cie_xyz65_color_space(input: &str) -> IResult<&str, Color> {
     Ok((input, c))
 }
 
+// Parse CMYK colors as the `device-cmyk()` function defined in CSS Color 5.  The simpler `cmyk()`
+// is also accepted.  We have no color profile info here, so all CMYK colors are represented as
+// uncalibrated colors using the naive RGB conversion.
+fn parse_css_device_cmyk(input: &str) -> IResult<&str, Color> {
+    let (input, _) = opt(tag_no_case("device-"))(input)?;
+    let (input, _) = tag_no_case("cmyk(")(input)?;
+    let (input, _) = space0(input)?;
+    let (input, c) = parse_number_or_percentage(input)?;
+    let (input, _) = space1(input)?;
+    let (input, m) = parse_number_or_percentage(input)?;
+    let (input, _) = space1(input)?;
+    let (input, y) = parse_number_or_percentage(input)?;
+    let (input, _) = space1(input)?;
+    let (input, k) = parse_number_or_percentage(input)?;
+    // accept alpha component for compatibility, but not currently supported for CMYK
+    let (input, _alpha) = parse_css_alpha(input)?;
+    let (input, _) = space0(input)?;
+    let (input, _) = char(')')(input)?;
+
+    let c = Color::from_cmyk(c, m, y, k);
+
+    Ok((input, c))
+}
+
 pub fn parse_color(input: &str) -> Option<Color> {
     alt((
         all_consuming(parse_hex),
@@ -391,6 +415,7 @@ pub fn parse_color(input: &str) -> Option<Color> {
         all_consuming(parse_gray),
         all_consuming(parse_lab),
         all_consuming(parse_lch),
+        all_consuming(parse_css_device_cmyk),
         all_consuming(parse_named),
     ))(input.trim())
     .ok()
@@ -1191,4 +1216,73 @@ fn parse_colorspace_ci() {
 #[test]
 fn parse_undefined_colorspace() {
     assert_eq!(None, parse_color("color(qqqq 0.1 0.2 0.3 0.4)"));
+}
+
+#[test]
+fn parse_css_device_cmyk_syntax() {
+    assert_eq!(
+        Some(Color::from_cmyk(0.8, 0.2, 0.6, 0.4)),
+        parse_color("device-cmyk(80% 20% 60% 40%)")
+    );
+    assert_eq!(
+        Some(Color::from_cmyk(0.8, 0.2, 0.6, 0.4)),
+        parse_color("device-cmyk(0.8 0.2 0.6 0.4)")
+    );
+    assert_eq!(
+        Some(Color::from_cmyk(0.8, 0.2, 0.6, 0.4)),
+        parse_color("device-cmyk(80% 0.2 0.6 40%)")
+    );
+
+    assert_eq!(
+        Some(Color::from_cmyk(0.8, 0.2, 0.6, 0.4)),
+        parse_color("device-cmyk(80.0% 20.000% 60% 40.%)")
+    );
+    assert_eq!(
+        Some(Color::from_cmyk(0.8, 0.2, 0.6, 0.4)),
+        parse_color("device-cmyk(0.800 0.2 .6 0.40)")
+    );
+
+    assert_eq!(
+        Some(Color::red()),
+        parse_color("device-cmyk(0% 100% 100% 0%)")
+    );
+    assert_eq!(
+        Some(Color::green()),
+        parse_color("device-cmyk(100% 0% 100% 50%)")
+    );
+    assert_eq!(
+        Some(Color::blue()),
+        parse_color("device-cmyk(100% 100% 0% 0%)")
+    );
+    assert_eq!(Some(Color::yellow()), parse_color("device-cmyk(0 0 1 0)"));
+    assert_eq!(
+        Some(rgb(255, 165, 0)), // orange
+        parse_color("device-cmyk(0 0.353 1 0)")
+    );
+    assert_eq!(Some(Color::purple()), parse_color("device-cmyk(0 1 0 0.5)"));
+
+    // `cmyk` is equivalent to `device-cmyk`
+    assert_eq!(
+        Some(Color::from_cmyk(0.8, 0.2, 0.6, 0.4)),
+        parse_color("cmyk(0.8 0.2 0.6 0.4)")
+    );
+
+    // function names are case-insensitive
+    assert_eq!(
+        Some(Color::from_cmyk(0.8, 0.2, 0.6, 0.4)),
+        parse_color("Device-CMYK(80% 20% 60% 40%)")
+    );
+
+    // alpha value is allowed for compatibility, but is ignored because it
+    // isn't currently supported by the color library
+    assert_eq!(
+        Some(Color::from_cmyk(0.8, 0.2, 0.6, 0.4)),
+        parse_color("device-cmyk(80% 20% 60% 40% / 0.5)")
+    );
+
+    assert_eq!(None, parse_color("device-cmyk(0,1,1,0)"));
+    assert_eq!(None, parse_color("device-cmyk(0 1 1)"));
+    assert_eq!(None, parse_color("device-cmyk(0 1)"));
+    assert_eq!(None, parse_color("device-cmyk(50%)"));
+    assert_eq!(None, parse_color("device-cmyk(0 1 0.5 1 0)"));
 }
