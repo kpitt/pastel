@@ -84,6 +84,98 @@ pub fn d50_to_d65(xyz: Vec3) -> Vec3 {
     mat3_dot(M, xyz)
 }
 
+// CIE Lab and LCH
+
+// Illuminant D50 constants used for Lab color space conversions.
+const D50_XN: Scalar = 0.3457 / 0.3585;
+const D50_YN: Scalar = 1.00000;
+const D50_ZN: Scalar = (1.0 - 0.3457 - 0.3585) / 0.3585;
+
+// from CIE standard, which now defines these as a rational fraction
+const LAB_EPSILON: Scalar = 216. / 24389.; // 6^3/29^3
+const LAB_KAPPA: Scalar = 24389. / 27.; // 29^3/3^3
+
+/// Converts an array of XYZ values to D50-adapted CIE Lab, assuming XYZ is
+/// relative to D50.
+pub fn xyz_to_lab(xyz: Vec3) -> Vec3 {
+    let f = |v: Scalar| {
+        if v > LAB_EPSILON {
+            v.cbrt()
+        } else {
+            (LAB_KAPPA * v + 16.) / 116.
+        }
+    };
+
+    // compute f values from xyz values scaled relative to reference white
+    let [x, y, z] = xyz;
+    let fx = f(x / D50_XN);
+    let fy = f(y / D50_YN);
+    let fz = f(z / D50_ZN);
+
+    let l = 116. * fy - 16.;
+    let a = 500. * (fx - fy);
+    let b = 200. * (fy - fz);
+
+    [l, a, b]
+}
+
+/// Converts an array of D65-adapted Lab channel values to XYZ relative to D50.
+/// (http://www.brucelindbloom.com/index.html?Eqn_Lab_to_XYZ.html)
+pub fn lab_to_xyz(lab: Vec3) -> Vec3 {
+    // compute f values, starting with the luminance-related term
+    let [l, a, b] = lab;
+    let fy = (l + 16.) / 116.;
+    let fx = (a / 500.) + fy;
+    let fz = fy - (b / 200.);
+
+    // compute reference-relative xyz
+    let xr = if fx.powi(3) > LAB_EPSILON {
+        fx.powi(3)
+    } else {
+        (116. * fx - 16.) / LAB_KAPPA
+    };
+    let yr = if l > LAB_KAPPA * LAB_EPSILON {
+        Scalar::powi((l + 16.) / 116., 3)
+    } else {
+        l / LAB_KAPPA
+    };
+    let zr = if fz.powi(3) > LAB_EPSILON {
+        fz.powi(3)
+    } else {
+        (116. * fz - 16.) / LAB_KAPPA
+    };
+
+    // compute XYZ by scaling by reference white
+    [xr * D50_XN, yr * D50_YN, zr * D50_ZN]
+}
+
+/// Converts an array of Cartesian Lab coordinates to polar LCh form.  This is a
+/// simple coordinate system conversion that can be used with either CIELAB or
+/// Oklab color values.
+pub fn lab_to_lch(lab: Vec3) -> Vec3 {
+    let [l, a, b] = lab;
+    let c = Scalar::sqrt(a.powi(2) + b.powi(2));
+    let h = Scalar::atan2(b, a) * 180.0 / PI;
+
+    [l, c, normalize_hue(h)]
+}
+
+/// Converts an array of polar LCh coordinates to Cartesian Lab form.  This is a
+/// simple coordinate system conversion that can be used with either CIELAB or
+/// Oklab color values.
+pub fn lch_to_lab(lch: Vec3) -> Vec3 {
+    let [l, c, h] = lch;
+    let a = c * Scalar::cos(h * PI / 180.0);
+    let b = c * Scalar::sin(h * PI / 180.0);
+
+    [l, a, b]
+}
+
+/// Ensures that hue, in degrees, is in the range [0..360)
+fn normalize_hue(hue: Scalar) -> Scalar {
+    hue - 360.0 * (hue / 360.0).floor()
+}
+
 // OKLab and OKLCH
 // https://bottosson.github.io/posts/oklab/
 
@@ -125,29 +217,6 @@ pub fn oklab_to_xyz(lab: Vec3) -> Vec3 {
 
     let [l_, m_, s_] = mat3_dot(M2_, lab);
     mat3_dot(M1_, [l_.powi(3), m_.powi(3), s_.powi(3)])
-}
-
-/// Ensures that hue, in degrees, is in the range [0..360)
-fn normalize_hue(hue: Scalar) -> Scalar {
-    hue - 360.0 * (hue / 360.0).floor()
-}
-
-/// Converts an array of Cartesian Oklab coordinates to an array of polar Oklch coordinates.
-pub fn oklab_to_oklch(oklab: Vec3) -> Vec3 {
-    let [ok_l, ok_a, ok_b] = oklab;
-    let ok_c = Scalar::sqrt(ok_a.powi(2) + ok_b.powi(2));
-    let ok_h = Scalar::atan2(ok_b, ok_a) * 180.0 / PI;
-
-    [ok_l, ok_c, normalize_hue(ok_h)]
-}
-
-/// Converts an array of polar Oklch coordinates to an array of Cartesian Oklab coordinates.
-pub fn oklch_to_oklab(oklch: Vec3) -> Vec3 {
-    let [ok_l, ok_c, ok_h] = oklch;
-    let ok_a = ok_c * Scalar::cos(ok_h * PI / 180.0);
-    let ok_b = ok_c * Scalar::sin(ok_h * PI / 180.0);
-
-    [ok_l, ok_a, ok_b]
 }
 
 #[cfg(test)]
