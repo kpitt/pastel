@@ -119,3 +119,124 @@ pub fn oklch_to_oklab(oklch: Vec3) -> Vec3 {
 
     [ok_l, ok_a, ok_b]
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // more precise D65 white point, defined by 4-figure CIE x,y chromaticities
+    const D65: Vec3 = [0.3127 / 0.3290, 1.00000, (1.0 - 0.3127 - 0.3290) / 0.3290];
+
+    fn round(v: Scalar, places: i32) -> Scalar {
+        let scale: Scalar = 10f64.powi(places);
+        (v * scale).round() / scale
+    }
+
+    macro_rules! assert_rounded_eq {
+        ($expected:expr, $given:expr, $places:expr) => {
+            let rd = |v| round(v, $places);
+            match (&($expected), &($given)) {
+                (expected, given) => {
+                    let rounded_expected = match (*expected) {
+                        [a, b, c] => [rd(a), rd(b), rd(c)],
+                    };
+                    let rounded_given = match (*given) {
+                        [a, b, c] => [rd(a), rd(b), rd(c)],
+                    };
+                    assert!(
+                        rounded_given == rounded_expected,
+                        "assert_rounded_eq!({}, {})
+
+    left  = {:?}
+    right = {:?}
+
+",
+                        stringify!($expected),
+                        stringify!($given),
+                        rounded_expected,
+                        rounded_given
+                    );
+                }
+            }
+        };
+        ($expected:expr, $given:expr) => {
+            assert_rounded_eq!($expected, $given, 6);
+        };
+    }
+
+    #[test]
+    fn test_xyz_to_oklab() {
+        // Unit vectors and white point are considered to be exact values.
+        // Conversions of exact values should be accurate to at least 6 places.
+        assert_rounded_eq!([1.000, 0.000, 0.000], xyz_to_oklab(D65));
+        assert_rounded_eq!(
+            [0.449_937, 1.235_758, -0.018_982],
+            xyz_to_oklab([1.000, 0.000, 0.000])
+        );
+        assert_rounded_eq!(
+            [0.921_816, -0.671_211, 0.263_400],
+            xyz_to_oklab([0.000, 1.000, 0.000])
+        );
+        assert_rounded_eq!(
+            [0.152_597, -1.415_088, -0.448_819],
+            xyz_to_oklab([0.000, 0.000, 1.000])
+        );
+    }
+
+    #[test]
+    fn test_oklab_to_xyz() {
+        assert_rounded_eq!(D65, oklab_to_xyz([1.000, 0.000, 0.000]));
+        // Rounding loses some precision, so conversions of 6-place rounded
+        // inputs may only be accurate to 5 places.
+        assert_rounded_eq!(
+            [1.000, 0.000, 0.000],
+            oklab_to_xyz([0.449_937, 1.235_758, -0.018_982]),
+            5
+        );
+        assert_rounded_eq!(
+            [0.000, 1.000, 0.000],
+            oklab_to_xyz([0.921_816, -0.671_211, 0.263_400]),
+            5
+        );
+        assert_rounded_eq!(
+            [0.000, 0.000, 1.000],
+            oklab_to_xyz([0.152_597, -1.415_088, -0.448_819]),
+            5
+        );
+    }
+
+    #[test]
+    fn test_xyz_oklab_xyz_roundtrip() {
+        // round trips with no intermediate rounding are accurate to at least 7 places
+        let roundtrip = |x, y, z| {
+            let xyz = [x, y, z];
+            let xyz_as_lab = xyz_to_oklab(xyz);
+            let lab_as_xyz = oklab_to_xyz(xyz_as_lab);
+            assert_rounded_eq!(xyz, lab_as_xyz, 7);
+        };
+
+        roundtrip(0.950, 1.000, 1.089);
+        roundtrip(1.000, 0.000, 0.000);
+        roundtrip(0.000, 1.000, 0.000);
+        roundtrip(0.000, 0.000, 1.000);
+    }
+
+    #[test]
+    fn test_oklab_xyz_oklab_roundtrip() {
+        // round trips with no intermediate rounding are accurate to at least 7 places
+        let roundtrip = |l, a, b| {
+            let lab = [l, a, b];
+            let lab_as_xyz = oklab_to_xyz(lab);
+            let xyz_as_lab = xyz_to_oklab(lab_as_xyz);
+            assert_rounded_eq!(lab, xyz_as_lab, 7);
+        };
+
+        roundtrip(1.000, 0.000, 0.000);
+        roundtrip(1.000, 1.000, 0.000);
+        roundtrip(1.000, 0.000, 1.000);
+        roundtrip(1.000, 0.000, -1.000);
+        roundtrip(0.450, 1.236, -0.019);
+        roundtrip(0.922, -0.671, 0.263);
+        roundtrip(0.153, -1.415, -0.449);
+    }
+}
