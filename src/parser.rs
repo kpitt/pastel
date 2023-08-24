@@ -341,6 +341,7 @@ fn parse_named(input: &str) -> IResult<&str, Color> {
 
 fn parse_css_color_fn<'a>(input: &'a str) -> IResult<&'a str, Color> {
     let (input, _) = tag_no_case("color(")(input)?;
+    let (input, _) = space0(input)?;
 
     let (input, color) = alt((
         parse_srgb_color_space,
@@ -1191,6 +1192,10 @@ fn parse_srgb_color_space_syntax() {
         Some(rgb(255, 8, 119)),
         parse_color("  color(srgb 1    0.031    0.467 )  ")
     );
+    assert_eq!(
+        Some(rgb(255, 0, 153)),
+        parse_color("color(   srgb   1 0 0.6)")
+    );
 
     assert_eq!(Some(rgb(255, 0, 0)), parse_color("color(srgb 1.1 0 0)"));
     assert_eq!(
@@ -1264,6 +1269,10 @@ fn parse_xyz65_color_space_syntax() {
         Some(xyz(0.3, 0.5, 0.7)),
         parse_color("color(xyz-d65  0.3   0.5    0.7)")
     );
+    assert_eq!(
+        Some(xyz(0.3, 0.5, 0.7)),
+        parse_color("color(   xyz-d65   0.3 0.5 0.7)")
+    );
 
     // color space name is case-insensitive
     assert_eq!(
@@ -1336,6 +1345,10 @@ fn parse_lab65_color_space_syntax() {
     assert_eq!(
         Some(Color::from_lab(15.0, 23.0, -43.0, 1.0)),
         parse_color("color(lab-d65     15    23      -43)")
+    );
+    assert_eq!(
+        Some(Color::from_lab(15.0, 23.0, -43.0, 1.0)),
+        parse_color("color(   lab-d65   15 23 -43)")
     );
     assert_eq!(
         Some(Color::from_lab(15.0, 23.0, -43.0, 0.6)),
@@ -1493,6 +1506,10 @@ fn parse_lch65_color_space_syntax() {
     assert_eq!(
         Some(Color::from_lch(15.0, 25.0, 90.0, 1.0)),
         parse_color("color(lch-d65     15    25      90)")
+    );
+    assert_eq!(
+        Some(Color::from_lch(15.0, 25.0, 90.0, 1.0)),
+        parse_color("color(   lch-d65   15 25 90)")
     );
     assert_eq!(
         Some(Color::from_lch(15.0, 25.0, 90.0, 0.6)),
