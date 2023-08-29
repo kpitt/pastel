@@ -340,7 +340,7 @@ fn parse_named(input: &str) -> IResult<&str, Color> {
     }
 }
 
-fn parse_css_color_fn<'a>(input: &'a str) -> IResult<&'a str, Color> {
+fn parse_css_color_fn(input: &str) -> IResult<&str, Color> {
     let (input, _) = tag_no_case("color(")(input)?;
     let (input, _) = space0(input)?;
 
@@ -466,7 +466,7 @@ fn parse_css_lch65(input: &str) -> IResult<&str, Color> {
 // inconsistent and confusing values.  Where there is no ambiguity, however, we try to be lenient
 // for broader compatibility.
 
-fn parse_cie_lab65_color_space<'a>(input: &'a str) -> IResult<&'a str, Color> {
+fn parse_cie_lab65_color_space(input: &str) -> IResult<&str, Color> {
     // Custom color space "<dashed-ident>" prefix is optional.
     let (input, _) = opt(tag("--"))(input)?;
     let (input, _) = tag_no_case("lab-d65")(input)?;
@@ -485,7 +485,7 @@ fn parse_cie_lab65_color_space<'a>(input: &'a str) -> IResult<&'a str, Color> {
     Ok((input, c))
 }
 
-fn parse_cie_lch65_color_space<'a>(input: &'a str) -> IResult<&'a str, Color> {
+fn parse_cie_lch65_color_space(input: &str) -> IResult<&str, Color> {
     // Custom color space "<dashed-ident>" prefix is optional.
     let (input, _) = opt(tag("--"))(input)?;
     let (input, _) = tag_no_case("lch-d65")(input)?;
