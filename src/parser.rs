@@ -386,7 +386,7 @@ fn parse_lin_srgb_color_space(input: &str) -> IResult<&str, Color> {
     let (input, alpha) = parse_css_alpha(input)?;
     let (input, _) = space0(input)?;
 
-    let (r, g, b) = gam_srgb((r_, g_, b_));
+    let [r, g, b] = gam_srgb([r_, g_, b_]);
     let c = Color::from_rgba_float(r, g, b, alpha);
 
     Ok((input, c))

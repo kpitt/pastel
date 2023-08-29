@@ -824,7 +824,7 @@ impl From<&XYZ> for Color {
         let g_ = -0.9689 * color.x + 1.8758 * color.y + 0.0415 * color.z;
         let b_ = 0.0557 * color.x - 0.2040 * color.y + 1.0570 * color.z;
 
-        let (r, g, b) = gam_srgb((r_, g_, b_));
+        let [r, g, b] = gam_srgb([r_, g_, b_]);
         Self::from(&RGBA::<f64> {
             r,
             g,
@@ -1114,7 +1114,7 @@ pub struct XYZ {
 impl From<&Color> for XYZ {
     fn from(color: &Color) -> Self {
         let rec = RGBA::from(color);
-        let (r_, g_, b_) = lin_srgb((rec.r, rec.g, rec.b));
+        let [r_, g_, b_] = lin_srgb([rec.r, rec.g, rec.b]);
 
         let x = 0.4124 * r_ + 0.3576 * g_ + 0.1805 * b_;
         let y = 0.2126 * r_ + 0.7152 * g_ + 0.0722 * b_;

@@ -2,6 +2,9 @@ use crate::helper::mod_positive;
 
 pub type Scalar = f64;
 
+/// A 3-element vector of Scalar values.
+pub type Vec3 = [Scalar; 3];
+
 /// The hue of a color, represented by an angle (degrees).
 #[derive(Debug, Clone, Copy)]
 pub struct Hue {

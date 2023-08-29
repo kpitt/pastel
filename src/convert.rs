@@ -1,19 +1,18 @@
-// Various color conversion functions ported from the sample code in the W3C CSS Color 4.
+//! Various color conversion functions ported from the sample code in the
+//! W3C CSS Color 4 draft.
 
-use crate::types::Scalar;
-
-type ChannelTuple = (Scalar, Scalar, Scalar);
+use crate::types::{Scalar, Vec3};
 
 // sRGB-related functions
 
-/// Converts a tuple of sRGB values where in-gamut values are in the range [0 - 1]
-/// to linear light (un-companded) form.
+/// Converts an array of sRGB values where in-gamut values are in the range
+/// [0 - 1] to linear light (un-companded) form.
 /// (https://en.wikipedia.org/wiki/SRGB)
 ///
 /// Extended transfer function:
 /// For negative values, linear portion is extended on reflection of axis,
 /// then reflected power function is used.
-pub fn lin_srgb(rgb: ChannelTuple) -> ChannelTuple {
+pub fn lin_srgb(rgb: Vec3) -> Vec3 {
     let finv = |val: Scalar| {
         let abs = val.abs();
 
@@ -24,18 +23,18 @@ pub fn lin_srgb(rgb: ChannelTuple) -> ChannelTuple {
         }
     };
 
-    let (r, g, b) = rgb;
-    (finv(r), finv(g), finv(b))
+    let [r, g, b] = rgb;
+    [finv(r), finv(g), finv(b)]
 }
 
-/// Converts a tuple of linear-light sRGB values in the range 0.0-1.0
+/// Converts an array of linear-light sRGB values in the range 0.0-1.0
 /// to gamma corrected form.
 /// (https://en.wikipedia.org/wiki/SRGB)
 ///
 /// Extended transfer function:
 /// For negative values, linear portion is extended on reflection of axis,
 /// then reflected power function is used.
-pub fn gam_srgb(rgb: ChannelTuple) -> ChannelTuple {
+pub fn gam_srgb(rgb: Vec3) -> Vec3 {
     let f = |val: Scalar| {
         let abs = val.abs();
 
@@ -46,6 +45,6 @@ pub fn gam_srgb(rgb: ChannelTuple) -> ChannelTuple {
         }
     };
 
-    let (r, g, b) = rgb;
-    (f(r), f(g), f(b))
+    let [r, g, b] = rgb;
+    [f(r), f(g), f(b)]
 }
