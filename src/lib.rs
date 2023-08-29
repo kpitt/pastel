@@ -1,5 +1,6 @@
 pub mod ansi;
 pub mod colorspace;
+pub mod convert;
 pub mod delta_e;
 pub mod distinct;
 mod helper;
@@ -11,6 +12,7 @@ mod types;
 use std::{fmt, str::FromStr};
 
 use colorspace::ColorSpace;
+use convert::{gam_srgb, lin_srgb};
 pub use helper::Fraction;
 use helper::{clamp, interpolate, interpolate_angle, mod_positive, MaxPrecision};
 use types::{Hue, Scalar};
@@ -818,19 +820,11 @@ impl From<&RGBA<f64>> for Color {
 
 impl From<&XYZ> for Color {
     fn from(color: &XYZ) -> Self {
-        #![allow(clippy::many_single_char_names)]
-        let f = |c| {
-            if c <= 0.003_130_8 {
-                12.92 * c
-            } else {
-                1.055 * Scalar::powf(c, 1.0 / 2.4) - 0.055
-            }
-        };
+        let r_ = 3.2406 * color.x - 1.5372 * color.y - 0.4986 * color.z;
+        let g_ = -0.9689 * color.x + 1.8758 * color.y + 0.0415 * color.z;
+        let b_ = 0.0557 * color.x - 0.2040 * color.y + 1.0570 * color.z;
 
-        let r = f(3.2406 * color.x - 1.5372 * color.y - 0.4986 * color.z);
-        let g = f(-0.9689 * color.x + 1.8758 * color.y + 0.0415 * color.z);
-        let b = f(0.0557 * color.x - 0.2040 * color.y + 1.0570 * color.z);
-
+        let (r, g, b) = gam_srgb((r_, g_, b_));
         Self::from(&RGBA::<f64> {
             r,
             g,
@@ -903,9 +897,9 @@ impl From<&LCh> for Color {
 impl From<&CMYK> for Color {
     fn from(color: &CMYK) -> Self {
         #![allow(clippy::many_single_char_names)]
-        let r = 255.0 * ((1.0 - color.c) / 100.0) * ((1.0 - color.k) / 100.0);
-        let g = 255.0 * ((1.0 - color.m) / 100.0) * ((1.0 - color.k) / 100.0);
-        let b = 255.0 * ((1.0 - color.y) / 100.0) * ((1.0 - color.k) / 100.0);
+        let r = (1.0 - color.c) * (1.0 - color.k);
+        let g = (1.0 - color.m) * (1.0 - color.k);
+        let b = (1.0 - color.y) * (1.0 - color.k);
 
         Color::from(&RGBA::<f64> {
             r,
@@ -1119,23 +1113,12 @@ pub struct XYZ {
 
 impl From<&Color> for XYZ {
     fn from(color: &Color) -> Self {
-        #![allow(clippy::many_single_char_names)]
-        let finv = |c_: f64| {
-            if c_ <= 0.04045 {
-                c_ / 12.92
-            } else {
-                Scalar::powf((c_ + 0.055) / 1.055, 2.4)
-            }
-        };
-
         let rec = RGBA::from(color);
-        let r = finv(rec.r);
-        let g = finv(rec.g);
-        let b = finv(rec.b);
+        let (r_, g_, b_) = lin_srgb((rec.r, rec.g, rec.b));
 
-        let x = 0.4124 * r + 0.3576 * g + 0.1805 * b;
-        let y = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-        let z = 0.0193 * r + 0.1192 * g + 0.9505 * b;
+        let x = 0.4124 * r_ + 0.3576 * g_ + 0.1805 * b_;
+        let y = 0.2126 * r_ + 0.7152 * g_ + 0.0722 * b_;
+        let z = 0.0193 * r_ + 0.1192 * g_ + 0.9505 * b_;
 
         XYZ {
             x,
