@@ -4,6 +4,7 @@ pub mod convert;
 pub mod delta_e;
 pub mod distinct;
 mod helper;
+pub mod matrix;
 pub mod named;
 pub mod parser;
 pub mod random;
@@ -15,7 +16,8 @@ use colorspace::ColorSpace;
 use convert::{gam_srgb, lin_srgb};
 pub use helper::Fraction;
 use helper::{clamp, interpolate, interpolate_angle, mod_positive, MaxPrecision};
-use types::{Hue, Scalar};
+use matrix::mat3_dot;
+use types::{Hue, Mat3, Scalar};
 
 /// The representation of a color.
 ///
@@ -820,11 +822,15 @@ impl From<&RGBA<f64>> for Color {
 
 impl From<&XYZ> for Color {
     fn from(color: &XYZ) -> Self {
-        let r_ = 3.2406 * color.x - 1.5372 * color.y - 0.4986 * color.z;
-        let g_ = -0.9689 * color.x + 1.8758 * color.y + 0.0415 * color.z;
-        let b_ = 0.0557 * color.x - 0.2040 * color.y + 1.0570 * color.z;
+        #[rustfmt::skip]
+        const M_: Mat3 = [
+              3.2406, -1.5372, -0.4986,
+             -0.9689,  1.8758,  0.0415,
+              0.0557, -0.2040,  1.0570,
+        ];
 
-        let (r, g, b) = gam_srgb((r_, g_, b_));
+        let r_g_b_ = mat3_dot(M_, [color.x, color.y, color.z]);
+        let [r, g, b] = gam_srgb(r_g_b_);
         Self::from(&RGBA::<f64> {
             r,
             g,
@@ -836,10 +842,14 @@ impl From<&XYZ> for Color {
 
 impl From<&LMS> for Color {
     fn from(color: &LMS) -> Self {
-        #![allow(clippy::many_single_char_names)]
-        let x = 1.91020 * color.l - 1.112_120 * color.m + 0.201_908 * color.s;
-        let y = 0.37095 * color.l + 0.629_054 * color.m + 0.000_000 * color.s;
-        let z = 0.00000 * color.l + 0.000_000 * color.m + 1.000_000 * color.s;
+        #[rustfmt::skip]
+        const M: Mat3 = [
+            1.91020, -1.112_120, 0.201_908,
+            0.37095,  0.629_054, 0.000_000,
+            0.00000,  0.000_000, 1.000_000
+        ];
+
+        let [x, y, z] = mat3_dot(M, [color.l, color.m, color.s]);
         Self::from(&XYZ {
             x,
             y,
@@ -1113,12 +1123,16 @@ pub struct XYZ {
 
 impl From<&Color> for XYZ {
     fn from(color: &Color) -> Self {
-        let rec = RGBA::from(color);
-        let (r_, g_, b_) = lin_srgb((rec.r, rec.g, rec.b));
+        #[rustfmt::skip]
+        const M: Mat3 = [
+            0.4124, 0.3576, 0.1805,
+            0.2126, 0.7152, 0.0722,
+            0.0193, 0.1192, 0.9505,
+        ];
 
-        let x = 0.4124 * r_ + 0.3576 * g_ + 0.1805 * b_;
-        let y = 0.2126 * r_ + 0.7152 * g_ + 0.0722 * b_;
-        let z = 0.0193 * r_ + 0.1192 * g_ + 0.9505 * b_;
+        let rec = RGBA::from(color);
+        let r_g_b_ = lin_srgb([rec.r, rec.g, rec.b]);
+        let [x, y, z] = mat3_dot(M, r_g_b_);
 
         XYZ {
             x,
@@ -1148,10 +1162,15 @@ pub struct LMS {
 
 impl From<&Color> for LMS {
     fn from(color: &Color) -> Self {
+        #[rustfmt::skip]
+        const M: Mat3 = [
+             0.38971, 0.68898, -0.07868,
+            -0.22981, 1.18340,  0.04641,
+             0.00000, 0.00000,  1.00000,
+        ];
+
         let XYZ { x, y, z, alpha } = XYZ::from(color);
-        let l = 0.38971 * x + 0.68898 * y - 0.07868 * z;
-        let m = -0.22981 * x + 1.18340 * y + 0.04641 * z;
-        let s = 0.00000 * x + 0.00000 * y + 1.00000 * z;
+        let [l, m, s] = mat3_dot(M, [x, y, z]);
 
         LMS { l, m, s, alpha }
     }
