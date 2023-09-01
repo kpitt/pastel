@@ -79,6 +79,25 @@ impl Color {
         })
     }
 
+    /// Create a `Color` from a hue, and whiteness and blackness values with a
+    /// floating point alpha value between 0.0 and 1.0.
+    ///
+    /// See:
+    /// - https://en.wikipedia.org/wiki/HWB_color_model
+    pub fn from_hwba(hue: Scalar, whiteness: Scalar, blackness: Scalar, alpha: Scalar) -> Color {
+        Self::from(&HWBA {
+            h: hue,
+            w: whiteness,
+            b: blackness,
+            alpha,
+        })
+    }
+
+    /// Create a `Color` from a hue, and whiteness and blackness values.
+    pub fn from_hwb(hue: Scalar, whiteness: Scalar, blackness: Scalar) -> Color {
+        Self::from_hwba(hue, whiteness, blackness, 1.0)
+    }
+
     /// Create a `Color` from integer RGB values between 0 and 255 and a floating
     /// point alpha value between 0.0 and 1.0.
     pub fn from_rgba(r: u8, g: u8, b: u8, alpha: Scalar) -> Color {
@@ -223,6 +242,13 @@ impl Color {
             v = 100.0 * hsv.v,
             a = a,
         )
+    }
+
+    /// Convert a `Color` to its hue, whiteness, blackness, and alpha values. The hue is given in
+    /// degrees, as a number between 0.0 and 360.0. Whiteness, blackness, and alpha are numbers
+    /// between 0.0 and 1.0.
+    pub fn to_hwba(&self) -> HWBA {
+        HWBA::from(self)
     }
 
     /// Convert a `Color` to its red, green, blue and alpha values. The RGB values are integers in
@@ -768,6 +794,26 @@ impl From<&HSVA> for Color {
     }
 }
 
+impl From<&HWBA> for Color {
+    fn from(color: &HWBA) -> Self {
+        if color.w + color.b >= 1.0 {
+            let gray = color.w / (color.w + color.b);
+            Self::from_rgba_float(gray, gray, gray, color.alpha)
+        } else {
+            let w = clamp(0.0, 1.0, color.w);
+            let b = clamp(0.0, 1.0, color.b);
+            let v = 1.0 - b;
+            let s = 1.0 - (w / v);
+            Self::from(&HSVA {
+                h: color.h,
+                s,
+                v,
+                alpha: color.alpha,
+            })
+        }
+    }
+}
+
 impl From<&RGBA<u8>> for Color {
     fn from(color: &RGBA<u8>) -> Self {
         let max_chroma = u8::max(u8::max(color.r, color.g), color.b);
@@ -1112,6 +1158,30 @@ impl fmt::Display for HSVA {
         write!(f, "hsv({h}, {s}, {v})", h = self.h, s = self.s, v = self.v)
     }
 }
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct HWBA {
+    pub h: Scalar,
+    pub w: Scalar,
+    pub b: Scalar,
+    pub alpha: Scalar,
+}
+
+impl From<&Color> for HWBA {
+    fn from(color: &Color) -> Self {
+        let HSVA { h, s, v, alpha } = HSVA::from(color);
+
+        let w = (1.0 - s) * v;
+        let b = 1.0 - v;
+        HWBA { h, w, b, alpha }
+    }
+}
+
+// impl fmt::Display for HWBA {
+//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+//         write!(f, "hwb({h}, {w}, {b})", h = self.h, w = self.w, b = self.b,)
+//     }
+// }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct XYZ {
@@ -1580,6 +1650,56 @@ mod tests {
         }
     }
 
+    #[test]
+    fn hwb_conversion() {
+        let rgbf = |r, g, b| Color::from_rgb_float(r, g, b);
+        let rgb128 = 128.0 / 255.0;
+
+        assert_eq!(Color::white(), Color::from_hwb(0.0, 1.0, 0.0));
+        assert_eq!(Color::white(), Color::from_hwb(120.0, 1.0, 0.0));
+        assert_eq!(rgbf(0.5, 0.5, 0.5), Color::from_hwb(0.0, 0.5, 0.5));
+        assert_eq!(Color::gray(), Color::from_hwb(300.0, rgb128, 1.0 - rgb128));
+        assert_eq!(Color::black(), Color::from_hwb(0.0, 0.0, 1.0));
+        assert_eq!(Color::black(), Color::from_hwb(240.0, 0.0, 1.0));
+        assert_eq!(Color::red(), Color::from_hwb(0.0, 0.0, 0.0));
+        assert_eq!(
+            Color::from_hsl(60.0, 1.0, 0.375),
+            Color::from_hwb(60.0, 0.0, 0.25)
+        ); //yellow-green
+        assert_eq!(Color::green(), Color::from_hwb(120.0, 0.0, 1.0 - rgb128));
+        assert_eq!(
+            Color::from_hsl(240.0, 1.0, 0.75),
+            Color::from_hwb(240.0, 0.5, 0.0)
+        ); // blue-ish
+
+        assert_eq!(
+            Color::from_hsl(49.5, 0.8922, 0.4973),
+            Color::from_hwb(49.5, 0.0536, 0.0590)
+        ); //yellow
+        assert_eq!(
+            Color::from_hsl(162.4, 0.7794, 0.4468),
+            Color::from_hwb(162.4, 0.09856, 0.20496)
+        ); // cyan 2
+
+        assert_eq!(
+            Color::from_rgba_float(0.75, 0.0, 0.75, 0.4),
+            Color::from_hwba(300.0, 0.0, 0.25, 0.4)
+        )
+    }
+
+    #[test]
+    fn hwb_roundtrip_conversion() {
+        let roundtrip = |h, s, l| {
+            let color1 = Color::from_hsl(h, s, l);
+            let hwb1 = color1.to_hwba();
+            let color2 = Color::from_hwb(hwb1.h, hwb1.w, hwb1.b);
+            assert_eq!(&color1, &color2);
+        };
+
+        for hue in 0..360 {
+            roundtrip(Scalar::from(hue), 0.2, 0.8);
+        }
+    }
     #[test]
     fn xyz_conversion() {
         assert_eq!(Color::white(), Color::from_xyz(0.9505, 1.0, 1.0890, 1.0));
