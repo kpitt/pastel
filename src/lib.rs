@@ -1029,9 +1029,13 @@ impl From<&Color> for RGBA<f64> {
 impl From<&Color> for RGBA<u8> {
     fn from(color: &Color) -> Self {
         let c = RGBA::<f64>::from(color);
-        let r = Scalar::round(255.0 * c.r) as u8;
-        let g = Scalar::round(255.0 * c.g) as u8;
-        let b = Scalar::round(255.0 * c.b) as u8;
+        // Tiny rounding errors in `f64` floating point calculations can cause effectively equal
+        // values to round to different integers.  We expect `f64` rounding errors to be less than
+        // the precision of an `f32` in most cases, so we can eliminate many of these rounding
+        // anomalies by first converting the values to `f32` before rounding.
+        let r = f32::round((255.0 * c.r) as f32) as u8;
+        let g = f32::round((255.0 * c.g) as f32) as u8;
+        let b = f32::round((255.0 * c.b) as f32) as u8;
 
         RGBA {
             r,
