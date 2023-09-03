@@ -15,6 +15,13 @@ pub fn clamp(lower: Scalar, upper: Scalar, x: Scalar) -> Scalar {
     Scalar::max(Scalar::min(upper, x), lower)
 }
 
+/// Rounds a number to the specified number of significant digits instead of to
+/// a fixed number of decimal places.
+pub fn precision(sig: u32, x: Scalar) -> Scalar {
+    let pow_10 = 10u64.pow(sig - (x.log10().ceil() as u32)) as f64;
+    (x * pow_10).round() / pow_10
+}
+
 #[derive(Debug, Clone, Copy)]
 pub struct Fraction {
     f: Scalar,

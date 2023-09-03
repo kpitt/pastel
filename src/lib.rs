@@ -15,7 +15,7 @@ use std::{fmt, str::FromStr};
 use colorspace::ColorSpace;
 use convert::{gam_srgb, lin_srgb};
 pub use helper::Fraction;
-use helper::{clamp, interpolate, interpolate_angle, mod_positive, MaxPrecision};
+use helper::{clamp, interpolate, interpolate_angle, mod_positive, precision, MaxPrecision};
 use matrix::mat3_dot;
 use types::{Hue, Mat3, Scalar};
 
