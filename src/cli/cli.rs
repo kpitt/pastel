@@ -213,6 +213,7 @@ pub fn build_cli() -> Command<'static> {
                         .possible_values(&["rgb", "rgb-float", "hex",
                                            "hsl", "hsl-hue", "hsl-saturation", "hsl-lightness",
                                            "hsv", "hsv-hue", "hsv-saturation", "hsv-value",
+                                           "hwb", "hwb-hue", "hwb-whiteness", "hwb-blackness",
                                            "lch", "lch-lightness", "lch-chroma", "lch-hue",
                                            "lab", "lab-a", "lab-b",
                                            "luminance", "brightness",

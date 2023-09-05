@@ -41,6 +41,18 @@ const D65_XN: Scalar = 0.950_470;
 const D65_YN: Scalar = 1.0;
 const D65_ZN: Scalar = 1.088_830;
 
+fn format_css_alpha(alpha: Scalar, format: Format) -> String {
+    if alpha == 1.0 {
+        String::from("")
+    } else {
+        format!(
+            "{space}/{space}{alpha}",
+            alpha = MaxPrecision::wrap(3, alpha),
+            space = if format == Format::Spaces { " " } else { "" }
+        )
+    }
+}
+
 impl Color {
     pub fn from_hsla(hue: Scalar, saturation: Scalar, lightness: Scalar, alpha: Scalar) -> Color {
         Self::from(&HSLA {
@@ -249,6 +261,18 @@ impl Color {
     /// between 0.0 and 1.0.
     pub fn to_hwba(&self) -> HWBA {
         HWBA::from(self)
+    }
+
+    /// Format the color as a HWB-representation string (`hwb(123, 50.3%, 80.1%)`).
+    pub fn to_hwb_string(&self, format: Format) -> String {
+        let hwb = HWBA::from(self);
+        format!(
+            "hwb({h:.0} {w}% {b}%{alpha})",
+            h = hwb.h,
+            w = MaxPrecision::wrap(1, 100.0 * hwb.w),
+            b = MaxPrecision::wrap(1, 100.0 * hwb.b),
+            alpha = format_css_alpha(hwb.alpha, format)
+        )
     }
 
     /// Convert a `Color` to its red, green, blue and alpha values. The RGB values are integers in
@@ -1860,6 +1884,48 @@ mod tests {
     fn to_hsl_string() {
         let c = Color::from_hsl(91.3, 0.541, 0.983);
         assert_eq!("hsl(91, 54.1%, 98.3%)", c.to_hsl_string(Format::Spaces));
+    }
+
+    #[test]
+    fn to_hwb_string() {
+        let c = Color::from_hwb(91.0, 0.541, 0.383);
+        // modern CSS functional syntax
+        assert_eq!("hwb(91 54.1% 38.3%)", c.to_hwb_string(Format::Spaces));
+        // spaces are required, so NoSpaces has no effect without akpha
+        assert_eq!("hwb(91 54.1% 38.3%)", c.to_hwb_string(Format::NoSpaces));
+
+        let c1 = Color::from_hwb(91.3, 0.541, 0.383172);
+        // hue is rounded to integer, w and b are rounded to 1 decimal
+        assert_eq!("hwb(91 54.1% 38.3%)", c1.to_hwb_string(Format::Spaces));
+
+        let c2 = Color::from_hwb(90.0, 0.5, 0.25);
+        // trailing decimal zeros are not included
+        assert_eq!("hwb(90 50% 25%)", c2.to_hwb_string(Format::Spaces));
+
+        let c2a = Color::from_hwba(90.0, 0.5, 0.25, 0.8);
+        // non-unit alpha is serialized as a number
+        assert_eq!("hwb(90 50% 25% / 0.8)", c2a.to_hwb_string(Format::Spaces));
+        // spaces are optional around alpha separator, so NoSpaces applies
+        assert_eq!("hwb(90 50% 25%/0.8)", c2a.to_hwb_string(Format::NoSpaces));
+    }
+
+    // Test alternative alpha formats once for shared function.  Each format that
+    // uses CSS alpha should test that it is applied.
+    #[test]
+    fn css_alpha_string() {
+        // unit alpha returns empty string regardless of Spaces option
+        assert_eq!("", format_css_alpha(1.0, Format::Spaces));
+        assert_eq!("", format_css_alpha(1.0, Format::NoSpaces));
+
+        // alpha is serialized as a number, not a percentage
+        assert_eq!(" / 0.75", format_css_alpha(0.75, Format::Spaces));
+        // spaces are optional around alpha separator, so NoSpaces applies
+        assert_eq!("/0.75", format_css_alpha(0.75, Format::NoSpaces));
+
+        // values are rounded to 3 decimal places
+        assert_eq!(" / 0.812", format_css_alpha(0.8118, Format::Spaces));
+        // no trailing decimal zeros, even after rounding
+        assert_eq!(" / 0.8", format_css_alpha(0.799999, Format::Spaces));
     }
 
     #[test]
