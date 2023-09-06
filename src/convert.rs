@@ -54,6 +54,36 @@ pub fn gam_srgb(rgb: Vec3) -> Vec3 {
     [f(r), f(g), f(b)]
 }
 
+// Chromatic adaptation
+
+/// Transforms an array of D65-adapted XYZ color components to the D50 white
+/// point using the Bradford chromatic adaption.
+/// (http://www.brucelindbloom.com/index.html?Eqn_ChromAdapt.html)
+pub fn d65_to_d50(xyz: Vec3) -> Vec3 {
+    #[rustfmt::skip]
+    const M: Mat3 = [
+          1.0479298208405488,   0.022946793341019088, -0.05019222954313557,
+          0.029627815688159344, 0.990434484573249,    -0.01707382502938514,
+         -0.009243058152591178, 0.015055144896577895,  0.7518742899580008
+    ];
+
+    mat3_dot(M, xyz)
+}
+
+/// Transforms an array of D50-adapted XYZ color components to the D65 white
+/// point using the Bradford chromatic adaption.
+/// (http://www.brucelindbloom.com/index.html?Eqn_ChromAdapt.html)
+pub fn d50_to_d65(xyz: Vec3) -> Vec3 {
+    #[rustfmt::skip]
+    const M: Mat3 = [
+         0.9554734527042182,   -0.023098536874261423, 0.0632593086610217,
+        -0.028369706963208136,  1.0099954580058226,   0.021041398966943008,
+         0.012314001688319899, -0.020507696433477912, 1.3303659366080753
+    ];
+
+    mat3_dot(M, xyz)
+}
+
 // OKLab and OKLCH
 // https://bottosson.github.io/posts/oklab/
 
