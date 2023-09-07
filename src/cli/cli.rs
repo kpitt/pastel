@@ -38,7 +38,7 @@ pub fn build_cli() -> Command<'static> {
         .short('s')
         .value_name("name")
         .help("The colorspace in which to interpolate")
-        .possible_values(&["Lab", "LCh", "RGB", "HSL"])
+        .possible_values(&["Lab", "LCh", "RGB", "HSL", "HWB"])
         .ignore_case(true)
         .default_value("Lab");
 
@@ -213,6 +213,7 @@ pub fn build_cli() -> Command<'static> {
                         .possible_values(&["rgb", "rgb-float", "hex",
                                            "hsl", "hsl-hue", "hsl-saturation", "hsl-lightness",
                                            "hsv", "hsv-hue", "hsv-saturation", "hsv-value",
+                                           "hwb", "hwb-hue", "hwb-whiteness", "hwb-blackness",
                                            "lch", "lch-lightness", "lch-chroma", "lch-hue",
                                            "lab", "lab-a", "lab-b",
                                            "luminance", "brightness",
@@ -356,7 +357,8 @@ pub fn build_cli() -> Command<'static> {
                         .possible_values(&["lightness", "hue", "chroma",
                                            "lab-a", "lab-b",
                                            "red", "green", "blue",
-                                           "hsl-hue", "hsl-saturation", "hsl-lightness"])
+                                           "hsl-hue", "hsl-saturation", "hsl-lightness",
+                                           "hwb-hue", "hwb-whiteness", "hwb-blackness"])
                         .ignore_case(true)
                         .required(true),
                 )
