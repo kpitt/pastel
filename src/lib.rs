@@ -1206,8 +1206,16 @@ impl ColorSpace for HWBA {
 
     fn mix(&self, other: &Self, fraction: Fraction) -> Self {
         // make sure that the hue is preserved when mixing with gray colors
-        let self_hue = if (self.w + self.b) >= 1.0 { other.h } else { self.h };
-        let other_hue = if (other.w + other.b) >= 1.0 { self.h } else { other.h };
+        let self_hue = if (self.w + self.b) >= 1.0 {
+            other.h
+        } else {
+            self.h
+        };
+        let other_hue = if (other.w + other.b) >= 1.0 {
+            self.h
+        } else {
+            other.h
+        };
 
         Self {
             h: interpolate_angle(self_hue, other_hue, fraction),
@@ -2034,10 +2042,18 @@ mod tests {
 
         let hue_after_mixing = |other| input.mix::<HWBA>(&other, Fraction::from(0.5)).to_hsla().h;
 
-        assert_relative_eq!(hue, hue_after_mixing(Color::black()), epsilon=1.0e-6);
-        assert_relative_eq!(hue, hue_after_mixing(Color::graytone(0.2)), epsilon=1.0e-6);
-        assert_relative_eq!(hue, hue_after_mixing(Color::graytone(0.7)), epsilon=1.0e-6);
-        assert_relative_eq!(hue, hue_after_mixing(Color::white()), epsilon=1.0e-6);
+        assert_relative_eq!(hue, hue_after_mixing(Color::black()), epsilon = 1.0e-6);
+        assert_relative_eq!(
+            hue,
+            hue_after_mixing(Color::graytone(0.2)),
+            epsilon = 1.0e-6
+        );
+        assert_relative_eq!(
+            hue,
+            hue_after_mixing(Color::graytone(0.7)),
+            epsilon = 1.0e-6
+        );
+        assert_relative_eq!(hue, hue_after_mixing(Color::white()), epsilon = 1.0e-6);
     }
 
     #[test]
