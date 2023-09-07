@@ -1711,7 +1711,7 @@ mod tests {
 
     #[test]
     fn hwb_conversion() {
-        let rgbf = |r, g, b| Color::from_rgb_float(r, g, b);
+        let rgbf = Color::from_rgb_float;
         let rgb128 = 128.0 / 255.0;
 
         assert_eq!(Color::white(), Color::from_hwb(0.0, 1.0, 0.0));
