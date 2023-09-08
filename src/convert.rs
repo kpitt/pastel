@@ -4,9 +4,13 @@
 use std::f64::consts::PI;
 
 use crate::{
-    matrix::mat3_dot,
+    matrix::{mat3_dot, vec3_elem_mul},
     types::{Mat3, Scalar, Vec3},
 };
+
+// standard white points, defined by 4-figure CIE x,y chromaticities
+pub const D50: Vec3 = [0.3457 / 0.3585, 1.00000, (1.0 - 0.3457 - 0.3585) / 0.3585];
+pub const D65: Vec3 = [0.3127 / 0.3290, 1.00000, (1.0 - 0.3127 - 0.3290) / 0.3290];
 
 // sRGB-related functions
 
@@ -86,11 +90,6 @@ pub fn d50_to_d65(xyz: Vec3) -> Vec3 {
 
 // CIE Lab and LCH
 
-// Illuminant D50 constants used for Lab color space conversions.
-const D50_XN: Scalar = 0.3457 / 0.3585;
-const D50_YN: Scalar = 1.00000;
-const D50_ZN: Scalar = (1.0 - 0.3457 - 0.3585) / 0.3585;
-
 // from CIE standard, which now defines these as a rational fraction
 const LAB_EPSILON: Scalar = 216. / 24389.; // 6^3/29^3
 const LAB_KAPPA: Scalar = 24389. / 27.; // 29^3/3^3
@@ -108,9 +107,9 @@ pub fn xyz_to_lab(xyz: Vec3) -> Vec3 {
 
     // compute f values from xyz values scaled relative to reference white
     let [x, y, z] = xyz;
-    let fx = f(x / D50_XN);
-    let fy = f(y / D50_YN);
-    let fz = f(z / D50_ZN);
+    let fx = f(x / D50[0]);
+    let fy = f(y / D50[1]);
+    let fz = f(z / D50[2]);
 
     let l = 116. * fy - 16.;
     let a = 500. * (fx - fy);
@@ -146,7 +145,7 @@ pub fn lab_to_xyz(lab: Vec3) -> Vec3 {
     };
 
     // compute XYZ by scaling by reference white
-    [xr * D50_XN, yr * D50_YN, zr * D50_ZN]
+    vec3_elem_mul([xr, yr, zr], D50)
 }
 
 /// Converts an array of Cartesian Lab coordinates to polar LCh form.  This is a

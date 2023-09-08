@@ -13,3 +13,12 @@ pub fn mat3_dot(m: Mat3, v: Vec3) -> Vec3 {
         m20.mul_add(v0, m21.mul_add(v1, m22 * v2)),
     ]
 }
+
+/// Calculates the element-wise product of two 3-element vectors.
+#[inline]
+pub fn vec3_elem_mul(a: Vec3, b: Vec3) -> Vec3 {
+    let [a0, a1, a2] = a;
+    let [b0, b1, b2] = b;
+
+    [a0 * b0, a1 * b1, a2 * b2]
+}
