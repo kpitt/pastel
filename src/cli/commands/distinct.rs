@@ -4,7 +4,7 @@ use crate::commands::prelude::*;
 
 use pastel::ansi::Stream;
 use pastel::distinct::{self, DistanceMetric, IterationStatistics};
-use pastel::{Fraction, HSLA};
+use pastel::{hsl::HSLA, Fraction};
 
 pub struct DistinctCommand;
 
