@@ -15,6 +15,9 @@ pub mod random;
 mod types;
 pub mod xyz;
 
+#[cfg(test)]
+mod test_helper;
+
 use std::{fmt, str::FromStr};
 
 // Re-export color space types
@@ -1163,16 +1166,8 @@ impl ColorScale {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_helper::assert_almost_equal;
     use approx::assert_relative_eq;
-
-    fn assert_almost_equal(c1: &Color, c2: &Color) {
-        let c1 = c1.to_rgba();
-        let c2 = c2.to_rgba();
-
-        assert!((c1.r as i32 - c2.r as i32).abs() <= 1);
-        assert!((c1.g as i32 - c2.g as i32).abs() <= 1);
-        assert!((c1.b as i32 - c2.b as i32).abs() <= 1);
-    }
 
     #[test]
     fn color_partial_eq() {
