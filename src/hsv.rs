@@ -83,6 +83,16 @@ impl fmt::Display for HSVA {
 }
 
 impl HSVA {
+    #[inline]
+    pub fn new(h: Scalar, s: Scalar, v: Scalar) -> Self {
+        Self::with_alpha(h, s, v, 1.0)
+    }
+
+    #[inline]
+    pub fn with_alpha(h: Scalar, s: Scalar, v: Scalar, alpha: Scalar) -> Self {
+        HSVA { h, s, v, alpha }
+    }
+
     /// Format the color as a HSV-representation string (`hsva(123, 50.3%, 80.1%, 0.4)`). If the
     /// alpha channel is `1.0`, the simplified `hsv()` format will be used instead.
     pub fn to_color_string(&self, format: Format) -> String {
