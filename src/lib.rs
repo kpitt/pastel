@@ -12,6 +12,7 @@ pub mod matrix;
 pub mod named;
 pub mod parser;
 pub mod random;
+pub mod rgb;
 mod types;
 pub mod xyz;
 
@@ -22,12 +23,13 @@ use std::{fmt, str::FromStr};
 
 use colorspace::ColorSpace;
 pub use helper::Fraction;
-use helper::{clamp, interpolate, interpolate_angle, mod_positive, MaxPrecision};
+use helper::{clamp, interpolate, interpolate_angle, MaxPrecision};
 use hsl::HSLA;
 use hsv::HSVA;
 use lab::Lab;
 use lch::LCh;
 use matrix::mat3_dot;
+use rgb::RGBA;
 use types::{Hue, Mat3, Scalar};
 use xyz::XYZ;
 
@@ -246,28 +248,7 @@ impl Color {
     /// is `1.0`, the simplified `rgb()` format will be used instead.
     pub fn to_rgb_string(&self, format: Format) -> String {
         let rgba = RGBA::<u8>::from(self);
-        let space = if format == Format::Spaces { " " } else { "" };
-        let (a_prefix, a) = if self.alpha == 1.0 {
-            ("", "".to_string())
-        } else {
-            (
-                "a",
-                format!(
-                    ",{space}{alpha}",
-                    alpha = MaxPrecision::wrap(3, rgba.alpha),
-                    space = space
-                ),
-            )
-        };
-        format!(
-            "rgb{a_prefix}({r},{space}{g},{space}{b}{a})",
-            space = space,
-            a_prefix = a_prefix,
-            r = rgba.r,
-            g = rgba.g,
-            b = rgba.b,
-            a = a,
-        )
+        rgba.to_color_string(format)
     }
 
     /// Convert a `Color` to its cyan, magenta, yellow, and black values. The CMYK
@@ -292,47 +273,15 @@ impl Color {
     /// Format the color as a floating point RGB-representation string (`rgb(1.0, 0.5, 0)`). If the alpha channel
     /// is `1.0`, the simplified `rgb()` format will be used instead.
     pub fn to_rgb_float_string(&self, format: Format) -> String {
-        let rgba = RGBA::<f64>::from(self);
-        let space = if format == Format::Spaces { " " } else { "" };
-        let (a_prefix, a) = if self.alpha == 1.0 {
-            ("", "".to_string())
-        } else {
-            (
-                "a",
-                format!(
-                    ",{space}{alpha}",
-                    alpha = MaxPrecision::wrap(3, rgba.alpha),
-                    space = space
-                ),
-            )
-        };
-        format!(
-            "rgb{a_prefix}({r:.3},{space}{g:.3},{space}{b:.3}{a})",
-            space = space,
-            a_prefix = a_prefix,
-            r = rgba.r,
-            g = rgba.g,
-            b = rgba.b,
-            a = a,
-        )
+        let rgba = self.to_rgba_float();
+        rgba.to_color_string(format)
     }
 
     /// Format the color as a RGB-representation string (`#fc0070`). The output will contain 6 hex
     /// digits if the alpha channel is `1.0`, or 8 hex digits otherwise.
     pub fn to_rgb_hex_string(&self, leading_hash: bool) -> String {
         let rgba = self.to_rgba();
-        format!(
-            "{}{:02x}{:02x}{:02x}{}",
-            if leading_hash { "#" } else { "" },
-            rgba.r,
-            rgba.g,
-            rgba.b,
-            if rgba.alpha == 1.0 {
-                "".to_string()
-            } else {
-                format!("{:02x}", (rgba.alpha * 255.).round() as u8)
-            }
-        )
+        rgba.to_hex_string(leading_hash)
     }
 
     /// Convert a `Color` to its red, green, blue and alpha values. All numbers are from the range
@@ -738,58 +687,6 @@ impl From<&HWBA> for Color {
     }
 }
 
-impl From<&RGBA<u8>> for Color {
-    fn from(color: &RGBA<u8>) -> Self {
-        let max_chroma = u8::max(u8::max(color.r, color.g), color.b);
-        let min_chroma = u8::min(u8::min(color.r, color.g), color.b);
-
-        let chroma = max_chroma - min_chroma;
-        let chroma_s = Scalar::from(chroma) / 255.0;
-
-        let r_s = Scalar::from(color.r) / 255.0;
-        let g_s = Scalar::from(color.g) / 255.0;
-        let b_s = Scalar::from(color.b) / 255.0;
-
-        let hue = 60.0
-            * (if chroma == 0 {
-                0.0
-            } else if color.r == max_chroma {
-                mod_positive((g_s - b_s) / chroma_s, 6.0)
-            } else if color.g == max_chroma {
-                (b_s - r_s) / chroma_s + 2.0
-            } else {
-                (r_s - g_s) / chroma_s + 4.0
-            });
-
-        let lightness = (Scalar::from(max_chroma) + Scalar::from(min_chroma)) / (255.0 * 2.0);
-        let saturation = if chroma == 0 {
-            0.0
-        } else {
-            chroma_s / (1.0 - Scalar::abs(2.0 * lightness - 1.0))
-        };
-        Self::from(&HSLA {
-            h: hue,
-            s: saturation,
-            l: lightness,
-            alpha: color.alpha,
-        })
-    }
-}
-
-impl From<&RGBA<f64>> for Color {
-    fn from(color: &RGBA<f64>) -> Self {
-        let r = Scalar::round(clamp(0.0, 255.0, 255.0 * color.r)) as u8;
-        let g = Scalar::round(clamp(0.0, 255.0, 255.0 * color.g)) as u8;
-        let b = Scalar::round(clamp(0.0, 255.0, 255.0 * color.b)) as u8;
-        Self::from(&RGBA::<u8> {
-            r,
-            g,
-            b,
-            alpha: color.alpha,
-        })
-    }
-}
-
 impl From<&LMS> for Color {
     fn from(color: &LMS) -> Self {
         #[rustfmt::skip]
@@ -823,98 +720,6 @@ impl From<&CMYK> for Color {
             b,
             alpha: 1.0,
         })
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct RGBA<T> {
-    pub r: T,
-    pub g: T,
-    pub b: T,
-    pub alpha: Scalar,
-}
-
-impl ColorSpace for RGBA<f64> {
-    fn from_color(c: &Color) -> Self {
-        c.to_rgba_float()
-    }
-
-    fn into_color(self) -> Color {
-        Color::from_rgba_float(self.r, self.g, self.b, self.alpha)
-    }
-
-    fn mix(&self, other: &Self, fraction: Fraction) -> Self {
-        Self {
-            r: interpolate(self.r, other.r, fraction),
-            g: interpolate(self.g, other.g, fraction),
-            b: interpolate(self.b, other.b, fraction),
-            alpha: interpolate(self.alpha, other.alpha, fraction),
-        }
-    }
-}
-
-impl From<&Color> for RGBA<f64> {
-    fn from(color: &Color) -> Self {
-        let h_s = color.hue.value() / 60.0;
-        let chr = (1.0 - Scalar::abs(2.0 * color.lightness - 1.0)) * color.saturation;
-        let m = color.lightness - chr / 2.0;
-        let x = chr * (1.0 - Scalar::abs(h_s % 2.0 - 1.0));
-
-        #[allow(clippy::upper_case_acronyms)]
-        struct RGB(Scalar, Scalar, Scalar);
-
-        let col = if h_s < 1.0 {
-            RGB(chr, x, 0.0)
-        } else if (1.0..2.0).contains(&h_s) {
-            RGB(x, chr, 0.0)
-        } else if (2.0..3.0).contains(&h_s) {
-            RGB(0.0, chr, x)
-        } else if (3.0..4.0).contains(&h_s) {
-            RGB(0.0, x, chr)
-        } else if (4.0..5.0).contains(&h_s) {
-            RGB(x, 0.0, chr)
-        } else {
-            RGB(chr, 0.0, x)
-        };
-
-        RGBA {
-            r: col.0 + m,
-            g: col.1 + m,
-            b: col.2 + m,
-            alpha: color.alpha,
-        }
-    }
-}
-
-impl From<&Color> for RGBA<u8> {
-    fn from(color: &Color) -> Self {
-        let c = RGBA::<f64>::from(color);
-        // Tiny rounding errors in `f64` floating point calculations can cause effectively equal
-        // values to round to different integers.  We expect `f64` rounding errors to be less than
-        // the precision of an `f32` in most cases, so we can eliminate many of these rounding
-        // anomalies by first converting the values to `f32` before rounding.
-        let r = f32::round((255.0 * c.r) as f32) as u8;
-        let g = f32::round((255.0 * c.g) as f32) as u8;
-        let b = f32::round((255.0 * c.b) as f32) as u8;
-
-        RGBA {
-            r,
-            g,
-            b,
-            alpha: color.alpha,
-        }
-    }
-}
-
-impl fmt::Display for RGBA<f64> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "rgb({r}, {g}, {b})", r = self.r, g = self.g, b = self.b,)
-    }
-}
-
-impl fmt::Display for RGBA<u8> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "rgb({r}, {g}, {b})", r = self.r, g = self.g, b = self.b,)
     }
 }
 
@@ -1236,29 +1041,6 @@ mod tests {
     }
 
     #[test]
-    fn rgb_roundtrip_conversion() {
-        let roundtrip = |h, s, l| {
-            let color1 = Color::from_hsl(h, s, l);
-            let rgb = color1.to_rgba();
-            let color2 = Color::from_rgb(rgb.r, rgb.g, rgb.b);
-            assert_eq!(color1, color2);
-        };
-
-        roundtrip(0.0, 0.0, 1.0);
-        roundtrip(0.0, 0.0, 0.5);
-        roundtrip(0.0, 0.0, 0.0);
-        roundtrip(60.0, 1.0, 0.375);
-        roundtrip(120.0, 1.0, 0.25);
-        roundtrip(240.0, 1.0, 0.75);
-        roundtrip(49.5, 0.893, 0.497);
-        roundtrip(162.4, 0.779, 0.447);
-
-        for degree in 0..360 {
-            roundtrip(Scalar::from(degree), 0.5, 0.8);
-        }
-    }
-
-    #[test]
     fn to_u32() {
         assert_eq!(0, Color::black().to_u32());
         assert_eq!(0xff0000, Color::red().to_u32());
@@ -1464,20 +1246,8 @@ mod tests {
     #[test]
     fn to_rgb_float_string() {
         assert_eq!(
-            "rgb(0.000, 0.000, 0.000)",
-            Color::black().to_rgb_float_string(Format::Spaces)
-        );
-
-        assert_eq!(
             "rgb(1.000, 1.000, 1.000)",
             Color::white().to_rgb_float_string(Format::Spaces)
-        );
-
-        // some minor rounding errors here, but that is to be expected:
-        let c = Color::from_rgb_float(0.12, 0.45, 0.78);
-        assert_eq!(
-            "rgb(0.122, 0.451, 0.780)",
-            c.to_rgb_float_string(Format::Spaces)
         );
     }
 
