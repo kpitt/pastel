@@ -1,10 +1,9 @@
 use std::fmt;
 
+use super::{hsv::HSVA, ColorSpace};
 use crate::{
-    colorspace::ColorSpace,
     format_css_alpha,
     helper::{clamp, interpolate, interpolate_angle, MaxPrecision},
-    hsv::HSVA,
     types::Scalar,
     Color, Format, Fraction,
 };

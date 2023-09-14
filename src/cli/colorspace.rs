@@ -1,4 +1,7 @@
-use pastel::{hsl::HSLA, hwb::HWBA, lab::Lab, lch::LCh, rgb::RGBA, Color, Fraction};
+use pastel::{
+    colorspace::{hsl::HSLA, hwb::HWBA, lab::Lab, lch::LCh, rgb::RGBA},
+    Color, Fraction,
+};
 
 pub fn get_mixing_function(
     colorspace_name: &str,

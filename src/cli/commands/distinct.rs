@@ -2,9 +2,12 @@ use std::io::{self, Write};
 
 use crate::commands::prelude::*;
 
-use pastel::ansi::Stream;
-use pastel::distinct::{self, DistanceMetric, IterationStatistics};
-use pastel::{hsl::HSLA, Fraction};
+use pastel::{
+    ansi::Stream,
+    colorspace::hsl::HSLA,
+    distinct::{self, DistanceMetric, IterationStatistics},
+    Fraction,
+};
 
 pub struct DistinctCommand;
 

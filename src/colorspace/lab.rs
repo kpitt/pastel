@@ -1,10 +1,9 @@
 use std::fmt;
 
+use super::{xyz::XYZ, ColorSpace};
 use crate::{
-    colorspace::ColorSpace,
     helper::{interpolate, MaxPrecision},
     types::Scalar,
-    xyz::XYZ,
     Color, Format, Fraction, D65_XN, D65_YN, D65_ZN,
 };
 

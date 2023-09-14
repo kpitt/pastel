@@ -1,42 +1,27 @@
 pub mod ansi;
-pub mod cmyk;
 pub mod colorspace;
 pub mod convert;
 pub mod delta_e;
 pub mod distinct;
 mod helper;
-pub mod hsl;
-pub mod hsv;
-pub mod hwb;
-pub mod lab;
-pub mod lch;
-pub mod lms;
 pub mod matrix;
 pub mod named;
 pub mod parser;
 pub mod random;
-pub mod rgb;
 mod types;
-pub mod xyz;
 
 #[cfg(test)]
 mod test_helper;
 
 use std::{fmt, str::FromStr};
 
-use cmyk::CMYK;
-use colorspace::ColorSpace;
+use colorspace::{
+    cmyk::CMYK, hsl::HSLA, hsv::HSVA, hwb::HWBA, lab::Lab, lch::LCh, lms::LMS, rgb::RGBA, xyz::XYZ,
+    ColorSpace,
+};
 pub use helper::Fraction;
 use helper::MaxPrecision;
-use hsl::HSLA;
-use hsv::HSVA;
-use hwb::HWBA;
-use lab::Lab;
-use lch::LCh;
-use lms::LMS;
-use rgb::RGBA;
 use types::{Hue, Scalar};
-use xyz::XYZ;
 
 /// The representation of a color.
 ///

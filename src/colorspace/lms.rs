@@ -1,9 +1,9 @@
 use std::fmt;
 
+use super::xyz::XYZ;
 use crate::{
     matrix::mat3_dot,
     types::{Mat3, Scalar},
-    xyz::XYZ,
     Color,
 };
 

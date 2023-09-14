@@ -4,7 +4,7 @@ use rand::prelude::*;
 
 use crate::delta_e;
 use crate::random::{self, RandomizationStrategy};
-use crate::{Color, Lab};
+use crate::{colorspace::lab::Lab, Color};
 
 type Scalar = f64;
 

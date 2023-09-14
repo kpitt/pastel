@@ -1,6 +1,7 @@
 use std::fmt;
 
-use crate::{rgb::RGBA, types::Scalar, Color, Format};
+use super::rgb::RGBA;
+use crate::{types::Scalar, Color, Format};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct CMYK {
