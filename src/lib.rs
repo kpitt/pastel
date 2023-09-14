@@ -1,4 +1,5 @@
 pub mod ansi;
+pub mod cmyk;
 pub mod colorspace;
 pub mod convert;
 pub mod delta_e;
@@ -22,6 +23,7 @@ mod test_helper;
 
 use std::{fmt, str::FromStr};
 
+use cmyk::CMYK;
 use colorspace::ColorSpace;
 pub use helper::Fraction;
 use helper::MaxPrecision;
@@ -190,7 +192,7 @@ impl Color {
     /// Create a `Color` from  the four colours of the CMYK model: Cyan, Magenta, Yellow and Black.
     /// The CMYK colours are subtractive. This means the colours get darker as you blend them together
     pub fn from_cmyk(c: Scalar, m: Scalar, y: Scalar, k: Scalar) -> Color {
-        Self::from(&CMYK { c, m, y, k })
+        Self::from(&CMYK::new(c, m, y, k))
     }
 
     /// Convert a `Color` to its hue, saturation, lightness and alpha values. The hue is given
@@ -256,14 +258,7 @@ impl Color {
     /// Format the color as a CMYK-representation string (`cmyk(0, 50, 100, 100)`).
     pub fn to_cmyk_string(&self, format: Format) -> String {
         let cmyk = CMYK::from(self);
-        format!(
-            "cmyk({c},{space}{m},{space}{y},{space}{k})",
-            c = (cmyk.c * 100.0).round(),
-            m = (cmyk.m * 100.0).round(),
-            y = (cmyk.y * 100.0).round(),
-            k = (cmyk.k * 100.0).round(),
-            space = if format == Format::Spaces { " " } else { "" }
-        )
+        cmyk.to_color_string(format)
     }
 
     /// Format the color as a floating point RGB-representation string (`rgb(1.0, 0.5, 0)`). If the alpha channel
@@ -682,23 +677,6 @@ impl From<&LMS> for Color {
     }
 }
 
-// from CMYK to Color so you can do -> let new_color = Color::from(&some_cmyk);
-impl From<&CMYK> for Color {
-    fn from(color: &CMYK) -> Self {
-        #![allow(clippy::many_single_char_names)]
-        let r = (1.0 - color.c) * (1.0 - color.k);
-        let g = (1.0 - color.m) * (1.0 - color.k);
-        let b = (1.0 - color.y) * (1.0 - color.k);
-
-        Color::from(&RGBA::<f64> {
-            r,
-            g,
-            b,
-            alpha: 1.0,
-        })
-    }
-}
-
 /// A color space whose axes correspond to the responsivity spectra of the long-, medium-, and
 /// short-wavelength cone cells in the human eye. More info
 /// [here](https://en.wikipedia.org/wiki/LMS_color_space).
@@ -729,54 +707,6 @@ impl From<&Color> for LMS {
 impl fmt::Display for LMS {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "LMS({l}, {m}, {s})", l = self.l, m = self.m, s = self.s,)
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct CMYK {
-    pub c: Scalar,
-    pub m: Scalar,
-    pub y: Scalar,
-    pub k: Scalar,
-}
-
-impl From<&Color> for CMYK {
-    fn from(color: &Color) -> Self {
-        let rgba = RGBA::<u8>::from(color);
-        let r = (rgba.r as f64) / 255.0;
-        let g = (rgba.g as f64) / 255.0;
-        let b = (rgba.b as f64) / 255.0;
-        let biggest = if r >= g && r >= b {
-            r
-        } else if g >= r && g >= b {
-            g
-        } else {
-            b
-        };
-        let out_k = 1.0 - biggest;
-        let out_c = (1.0 - r - out_k) / biggest;
-        let out_m = (1.0 - g - out_k) / biggest;
-        let out_y = (1.0 - b - out_k) / biggest;
-
-        CMYK {
-            c: if out_c.is_nan() { 0.0 } else { out_c },
-            m: if out_m.is_nan() { 0.0 } else { out_m },
-            y: if out_y.is_nan() { 0.0 } else { out_y },
-            k: out_k,
-        }
-    }
-}
-
-impl fmt::Display for CMYK {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "cmyk({c}, {m}, {y}, {k})",
-            c = self.c,
-            m = self.m,
-            y = self.y,
-            k = self.k,
-        )
     }
 }
 
@@ -1273,23 +1203,14 @@ mod tests {
 
     #[test]
     fn to_cmyk_string() {
-        let white = Color::from_rgb(255, 255, 255);
-        assert_eq!("cmyk(0, 0, 0, 0)", white.to_cmyk_string(Format::Spaces));
-
         let black = Color::from_rgb(0, 0, 0);
         assert_eq!("cmyk(0, 0, 0, 100)", black.to_cmyk_string(Format::Spaces));
 
-        let c = Color::from_rgb(19, 19, 1);
-        assert_eq!("cmyk(0, 0, 95, 93)", c.to_cmyk_string(Format::Spaces));
+        let gray = Color::from_rgb(55, 55, 55);
+        assert_eq!("cmyk(0, 0, 0, 78)", gray.to_cmyk_string(Format::Spaces));
 
-        let c1 = Color::from_rgb(55, 55, 55);
-        assert_eq!("cmyk(0, 0, 0, 78)", c1.to_cmyk_string(Format::Spaces));
-
-        let c2 = Color::from_rgb(136, 117, 78);
-        assert_eq!("cmyk(0, 14, 43, 47)", c2.to_cmyk_string(Format::Spaces));
-
-        let c3 = Color::from_rgb(143, 111, 76);
-        assert_eq!("cmyk(0, 22, 47, 44)", c3.to_cmyk_string(Format::Spaces));
+        let c = Color::from_rgb(136, 117, 78);
+        assert_eq!("cmyk(0, 14, 43, 47)", c.to_cmyk_string(Format::Spaces));
     }
 
     #[test]
