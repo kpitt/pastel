@@ -1,8 +1,8 @@
 use std::fmt;
 
-use super::{hsl::HSLA, ColorSpace};
+use super::{hsl::HSLA, interpolate, ColorSpace};
 use crate::{
-    helper::{clamp, interpolate, mod_positive, MaxPrecision},
+    helper::{clamp, mod_positive, MaxPrecision},
     types::Scalar,
     Color, Format, Fraction,
 };

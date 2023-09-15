@@ -1,11 +1,7 @@
 use std::fmt;
 
-use super::{xyz::XYZ, ColorSpace};
-use crate::{
-    helper::{interpolate, MaxPrecision},
-    types::Scalar,
-    Color, Format, Fraction, D65_XN, D65_YN, D65_ZN,
-};
+use super::{interpolate, xyz::XYZ, ColorSpace};
+use crate::{helper::MaxPrecision, types::Scalar, Color, Format, Fraction, D65_XN, D65_YN, D65_ZN};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Lab {

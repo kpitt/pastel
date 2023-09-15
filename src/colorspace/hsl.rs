@@ -1,8 +1,8 @@
 use std::fmt;
 
+use super::{interpolate, interpolate_angle, ColorSpace};
 use crate::{
-    colorspace::ColorSpace,
-    helper::{clamp, interpolate, interpolate_angle, MaxPrecision},
+    helper::{clamp, MaxPrecision},
     types::{Hue, Scalar},
     Color, Format, Fraction,
 };
