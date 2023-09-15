@@ -233,6 +233,31 @@ mod tests {
     use super::*;
 
     #[test]
+    fn rgb_to_hsl_conversion() {
+        assert_eq!(Color::white(), Color::from_rgb_float(1.0, 1.0, 1.0));
+        assert_eq!(Color::gray(), Color::from_rgb_float(0.5, 0.5, 0.5));
+        assert_eq!(Color::black(), Color::from_rgb_float(0.0, 0.0, 0.0));
+        assert_eq!(Color::red(), Color::from_rgb_float(1.0, 0.0, 0.0));
+        assert_eq!(
+            Color::from_hsl(60.0, 1.0, 0.375),
+            Color::from_rgb_float(0.75, 0.75, 0.0)
+        ); //yellow-green
+        assert_eq!(Color::green(), Color::from_rgb_float(0.0, 0.5, 0.0));
+        assert_eq!(
+            Color::from_hsl(240.0, 1.0, 0.75),
+            Color::from_rgb_float(0.5, 0.5, 1.0)
+        ); // blue-ish
+        assert_eq!(
+            Color::from_hsl(49.5, 0.893, 0.497),
+            Color::from_rgb_float(0.941, 0.785, 0.053)
+        ); // yellow
+        assert_eq!(
+            Color::from_hsl(162.4, 0.779, 0.447),
+            Color::from_rgb_float(0.099, 0.795, 0.591)
+        ); // cyan 2
+    }
+
+    #[test]
     fn rgb_u8_roundtrip_conversion() {
         let roundtrip = |h, s, l| {
             let color1 = Color::from_hsl(h, s, l);

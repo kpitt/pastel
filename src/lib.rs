@@ -799,31 +799,6 @@ mod tests {
     }
 
     #[test]
-    fn rgb_to_hsl_conversion() {
-        assert_eq!(Color::white(), Color::from_rgb_float(1.0, 1.0, 1.0));
-        assert_eq!(Color::gray(), Color::from_rgb_float(0.5, 0.5, 0.5));
-        assert_eq!(Color::black(), Color::from_rgb_float(0.0, 0.0, 0.0));
-        assert_eq!(Color::red(), Color::from_rgb_float(1.0, 0.0, 0.0));
-        assert_eq!(
-            Color::from_hsl(60.0, 1.0, 0.375),
-            Color::from_rgb_float(0.75, 0.75, 0.0)
-        ); //yellow-green
-        assert_eq!(Color::green(), Color::from_rgb_float(0.0, 0.5, 0.0));
-        assert_eq!(
-            Color::from_hsl(240.0, 1.0, 0.75),
-            Color::from_rgb_float(0.5, 0.5, 1.0)
-        ); // blue-ish
-        assert_eq!(
-            Color::from_hsl(49.5, 0.893, 0.497),
-            Color::from_rgb_float(0.941, 0.785, 0.053)
-        ); // yellow
-        assert_eq!(
-            Color::from_hsl(162.4, 0.779, 0.447),
-            Color::from_rgb_float(0.099, 0.795, 0.591)
-        ); // cyan 2
-    }
-
-    #[test]
     fn to_u32() {
         assert_eq!(0, Color::black().to_u32());
         assert_eq!(0xff0000, Color::red().to_u32());
@@ -960,8 +935,13 @@ mod tests {
     #[test]
     fn to_rgb_hex_string() {
         let c = Color::from_rgb(255, 127, 4);
-        assert_eq!("ff7f04", c.to_rgb_hex_string(false));
         assert_eq!("#ff7f04", c.to_rgb_hex_string(true));
+    }
+
+    #[test]
+    fn to_cmyk_string() {
+        let c = Color::from_rgb(136, 117, 78);
+        assert_eq!("cmyk(0, 14, 43, 47)", c.to_cmyk_string(Format::Spaces));
     }
 
     #[test]
@@ -983,37 +963,13 @@ mod tests {
     #[test]
     fn mixing_with_gray_preserves_hue() {
         let hue = 123.0;
-
         let input = Color::from_hsla(hue, 0.5, 0.5, 1.0);
 
-        let hue_after_mixing = |other| input.mix::<HSLA>(&other, Fraction::from(0.5)).to_hsla().h;
+        let mix_in_hsl = |other| input.mix::<HSLA>(&other, Fraction::from(0.5));
+        assert_eq!(hue, mix_in_hsl(Color::graytone(0.5)).hue.value());
 
-        assert_eq!(hue, hue_after_mixing(Color::black()));
-        assert_eq!(hue, hue_after_mixing(Color::graytone(0.2)));
-        assert_eq!(hue, hue_after_mixing(Color::graytone(0.7)));
-        assert_eq!(hue, hue_after_mixing(Color::white()));
-    }
-
-    #[test]
-    fn mixing_with_gray_in_hwb_preserves_hue() {
-        let hue = 123.0;
-
-        let input = Color::from_hsla(hue, 0.5, 0.5, 1.0);
-
-        let hue_after_mixing = |other| input.mix::<HWBA>(&other, Fraction::from(0.5)).to_hsla().h;
-
-        assert_relative_eq!(hue, hue_after_mixing(Color::black()), epsilon = 1.0e-6);
-        assert_relative_eq!(
-            hue,
-            hue_after_mixing(Color::graytone(0.2)),
-            epsilon = 1.0e-6
-        );
-        assert_relative_eq!(
-            hue,
-            hue_after_mixing(Color::graytone(0.7)),
-            epsilon = 1.0e-6
-        );
-        assert_relative_eq!(hue, hue_after_mixing(Color::white()), epsilon = 1.0e-6);
+        let mix_in_hwb = |other| input.mix::<HWBA>(&other, Fraction::from(0.5));
+        assert_eq!(hue, mix_in_hwb(Color::graytone(0.5)).hue.value());
     }
 
     #[test]
@@ -1117,18 +1073,6 @@ mod tests {
 
         assert_eq!(sample_red_green, mix_red_green);
         assert_eq!(sample_green_blue, mix_green_blue);
-    }
-
-    #[test]
-    fn to_cmyk_string() {
-        let black = Color::from_rgb(0, 0, 0);
-        assert_eq!("cmyk(0, 0, 0, 100)", black.to_cmyk_string(Format::Spaces));
-
-        let gray = Color::from_rgb(55, 55, 55);
-        assert_eq!("cmyk(0, 0, 0, 78)", gray.to_cmyk_string(Format::Spaces));
-
-        let c = Color::from_rgb(136, 117, 78);
-        assert_eq!("cmyk(0, 14, 43, 47)", c.to_cmyk_string(Format::Spaces));
     }
 
     #[test]

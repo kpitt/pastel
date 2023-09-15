@@ -58,11 +58,23 @@ impl Display for MaxPrecision {
     }
 }
 
-#[test]
-fn test_max_precision() {
-    assert_eq!(format!("{}", MaxPrecision::wrap(3, 0.5)), "0.5");
-    assert_eq!(format!("{}", MaxPrecision::wrap(3, 0.51)), "0.51");
-    assert_eq!(format!("{}", MaxPrecision::wrap(3, 0.512)), "0.512");
-    assert_eq!(format!("{}", MaxPrecision::wrap(3, 0.5124)), "0.512");
-    assert_eq!(format!("{}", MaxPrecision::wrap(3, 0.5125)), "0.513");
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use approx::assert_relative_eq;
+
+    #[test]
+    fn test_mod_positive() {
+        assert_relative_eq!(0.5, mod_positive(2.9, 2.4));
+        assert_relative_eq!(1.7, mod_positive(-0.3, 2.0));
+    }
+
+    #[test]
+    fn test_max_precision() {
+        assert_eq!(format!("{}", MaxPrecision::wrap(3, 0.5)), "0.5");
+        assert_eq!(format!("{}", MaxPrecision::wrap(3, 0.51)), "0.51");
+        assert_eq!(format!("{}", MaxPrecision::wrap(3, 0.512)), "0.512");
+        assert_eq!(format!("{}", MaxPrecision::wrap(3, 0.5124)), "0.512");
+        assert_eq!(format!("{}", MaxPrecision::wrap(3, 0.5125)), "0.513");
+    }
 }

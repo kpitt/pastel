@@ -120,4 +120,17 @@ mod tests {
         assert_eq!("hsl(91, 54.1%, 98.3%)", c.to_color_string(Format::Spaces));
         assert_eq!("hsl(91,54.1%,98.3%)", c.to_color_string(Format::NoSpaces));
     }
+
+    #[test]
+    fn mixing_with_gray_preserves_hue() {
+        let hue = 123.0;
+        let base = HSLA::new(hue, 0.5, 0.5);
+
+        let hue_after_mixing = |other| base.mix(&HSLA::from(&other), Fraction::from(0.5)).h;
+
+        assert_eq!(hue, hue_after_mixing(Color::black()));
+        assert_eq!(hue, hue_after_mixing(Color::graytone(0.2)));
+        assert_eq!(hue, hue_after_mixing(Color::graytone(0.7)));
+        assert_eq!(hue, hue_after_mixing(Color::white()));
+    }
 }

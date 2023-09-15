@@ -178,4 +178,17 @@ mod tests {
         // spaces are optional around alpha separator, so NoSpaces applies
         assert_eq!("hwb(90 50% 25%/0.8)", c2a.to_color_string(Format::NoSpaces));
     }
+
+    #[test]
+    fn mixing_with_gray_preserves_hue() {
+        let hue = 123.0;
+        let base = HWBA::new(hue, 0.25, 0.25);
+
+        let hue_after_mixing = |other| base.mix(&HWBA::from(&other), Fraction::from(0.5)).h;
+
+        assert_eq!(hue, hue_after_mixing(Color::black()));
+        assert_eq!(hue, hue_after_mixing(Color::graytone(0.2)));
+        assert_eq!(hue, hue_after_mixing(Color::graytone(0.7)));
+        assert_eq!(hue, hue_after_mixing(Color::white()));
+    }
 }
