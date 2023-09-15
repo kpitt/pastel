@@ -82,10 +82,10 @@ impl Display for MaxPrecision {
 
 #[test]
 fn test_interpolate() {
-    assert_eq!(0.0, interpolate_angle(0.0, 90.0, Fraction::from(0.0)));
-    assert_eq!(45.0, interpolate_angle(0.0, 90.0, Fraction::from(0.5)));
-    assert_eq!(90.0, interpolate_angle(0.0, 90.0, Fraction::from(1.0)));
-    assert_eq!(90.0, interpolate_angle(0.0, 90.0, Fraction::from(1.1)));
+    assert_eq!(0.0, interpolate(0.0, 0.5, Fraction::from(0.0)));
+    assert_eq!(0.25, interpolate(0.0, 0.5, Fraction::from(0.5)));
+    assert_eq!(0.5, interpolate(0.0, 0.5, Fraction::from(1.0)));
+    assert_eq!(0.5, interpolate(0.0, 0.5, Fraction::from(1.1)));
 }
 
 #[test]
