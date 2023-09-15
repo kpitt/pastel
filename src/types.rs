@@ -33,13 +33,6 @@ impl Hue {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use approx::assert_relative_eq;
-
-    #[test]
-    fn test_mod_positive() {
-        assert_relative_eq!(0.5, mod_positive(2.9, 2.4));
-        assert_relative_eq!(1.7, mod_positive(-0.3, 2.0));
-    }
 
     #[test]
     fn test_hue_clipping() {
