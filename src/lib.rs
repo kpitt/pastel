@@ -4,6 +4,7 @@ pub mod convert;
 pub mod delta_e;
 pub mod distinct;
 mod helper;
+pub mod hsl;
 pub mod hsv;
 pub mod matrix;
 pub mod named;
@@ -14,6 +15,7 @@ mod types;
 use std::{fmt, str::FromStr};
 
 // Re-export color space types
+pub use hsl::HSLA;
 pub use hsv::HSVA;
 
 use colorspace::ColorSpace;
@@ -59,22 +61,12 @@ fn format_css_alpha(alpha: Scalar, format: Format) -> String {
 
 impl Color {
     pub fn from_hsla(hue: Scalar, saturation: Scalar, lightness: Scalar, alpha: Scalar) -> Color {
-        Self::from(&HSLA {
-            h: hue,
-            s: saturation,
-            l: lightness,
-            alpha,
-        })
+        Self::from(&HSLA::with_alpha(hue, saturation, lightness, alpha))
     }
 
     ///
     pub fn from_hsl(hue: Scalar, saturation: Scalar, lightness: Scalar) -> Color {
-        Self::from(&HSLA {
-            h: hue,
-            s: saturation,
-            l: lightness,
-            alpha: 1.0,
-        })
+        Self::from(&HSLA::new(hue, saturation, lightness))
     }
 
     pub fn from_hsva(hue: Scalar, saturation: Scalar, value: Scalar, alpha: Scalar) -> Color {
@@ -201,28 +193,8 @@ impl Color {
     /// Format the color as a HSL-representation string (`hsla(123, 50.3%, 80.1%, 0.4)`). If the
     /// alpha channel is `1.0`, the simplified `hsl()` format will be used instead.
     pub fn to_hsl_string(&self, format: Format) -> String {
-        let space = if format == Format::Spaces { " " } else { "" };
-        let (a_prefix, a) = if self.alpha == 1.0 {
-            ("", "".to_string())
-        } else {
-            (
-                "a",
-                format!(
-                    ",{space}{alpha}",
-                    alpha = MaxPrecision::wrap(3, self.alpha),
-                    space = space
-                ),
-            )
-        };
-        format!(
-            "hsl{a_prefix}({h:.0},{space}{s:.1}%,{space}{l:.1}%{a})",
-            space = space,
-            a_prefix = a_prefix,
-            h = self.hue.value(),
-            s = 100.0 * self.saturation,
-            l = 100.0 * self.lightness,
-            a = a,
-        )
+        let hsl = self.to_hsla();
+        hsl.to_color_string(format)
     }
 
     /// Convert a `Color` to its hue, saturation, value and alpha values. The hue is given
@@ -772,17 +744,6 @@ impl FromStr for Color {
     }
 }
 
-impl From<&HSLA> for Color {
-    fn from(color: &HSLA) -> Self {
-        Color {
-            hue: Hue::from(color.h),
-            saturation: clamp(0.0, 1.0, color.s),
-            lightness: clamp(0.0, 1.0, color.l),
-            alpha: clamp(0.0, 1.0, color.alpha),
-        }
-    }
-}
-
 impl From<&HWBA> for Color {
     fn from(color: &HWBA) -> Self {
         if color.w + color.b >= 1.0 {
@@ -1044,54 +1005,6 @@ impl fmt::Display for RGBA<f64> {
 impl fmt::Display for RGBA<u8> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "rgb({r}, {g}, {b})", r = self.r, g = self.g, b = self.b,)
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct HSLA {
-    pub h: Scalar,
-    pub s: Scalar,
-    pub l: Scalar,
-    pub alpha: Scalar,
-}
-
-impl ColorSpace for HSLA {
-    fn from_color(c: &Color) -> Self {
-        c.to_hsla()
-    }
-
-    fn into_color(self) -> Color {
-        Color::from_hsla(self.h, self.s, self.l, self.alpha)
-    }
-
-    fn mix(&self, other: &Self, fraction: Fraction) -> Self {
-        // make sure that the hue is preserved when mixing with gray colors
-        let self_hue = if self.s < 0.0001 { other.h } else { self.h };
-        let other_hue = if other.s < 0.0001 { self.h } else { other.h };
-
-        Self {
-            h: interpolate_angle(self_hue, other_hue, fraction),
-            s: interpolate(self.s, other.s, fraction),
-            l: interpolate(self.l, other.l, fraction),
-            alpha: interpolate(self.alpha, other.alpha, fraction),
-        }
-    }
-}
-
-impl From<&Color> for HSLA {
-    fn from(color: &Color) -> Self {
-        HSLA {
-            h: color.hue.value(),
-            s: color.saturation,
-            l: color.lightness,
-            alpha: color.alpha,
-        }
-    }
-}
-
-impl fmt::Display for HSLA {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "hsl({h}, {s}, {l})", h = self.h, s = self.s, l = self.l,)
     }
 }
 
@@ -1798,12 +1711,6 @@ mod tests {
         let c1 = Color::from_rgb(50, 100, 200);
         let c2 = Color::from_rgb(200, 10, 0);
         assert_eq!(123.0, c1.distance_delta_e_cie76(&c2).round());
-    }
-
-    #[test]
-    fn to_hsl_string() {
-        let c = Color::from_hsl(91.3, 0.541, 0.983);
-        assert_eq!("hsl(91, 54.1%, 98.3%)", c.to_hsl_string(Format::Spaces));
     }
 
     #[test]
