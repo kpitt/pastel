@@ -10,6 +10,7 @@ pub mod hsv;
 pub mod hwb;
 pub mod lab;
 pub mod lch;
+pub mod lms;
 pub mod matrix;
 pub mod named;
 pub mod parser;
@@ -30,14 +31,14 @@ pub use hsv::HSVA;
 pub use hwb::HWBA;
 pub use lab::Lab;
 pub use lch::LCh;
+pub use lms::LMS;
 pub use rgb::RGBA;
 pub use xyz::XYZ;
 
 use colorspace::ColorSpace;
 pub use helper::Fraction;
 use helper::MaxPrecision;
-use matrix::mat3_dot;
-use types::{Hue, Mat3, Scalar};
+use types::{Hue, Scalar};
 
 /// The representation of a color.
 ///
@@ -171,7 +172,7 @@ impl Color {
     /// Create a `Color` from LMS coordinates. This is the matrix inverse of the matrix that
     /// appears in `to_lms`.
     pub fn from_lms(l: Scalar, m: Scalar, s: Scalar, alpha: Scalar) -> Color {
-        Self::from(&LMS { l, m, s, alpha })
+        Self::from(&LMS::with_alpha(l, m, s, alpha))
     }
 
     /// Create a `Color` from L, a and b coordinates coordinates in the Lab color
@@ -660,58 +661,6 @@ impl FromStr for Color {
     }
 }
 
-impl From<&LMS> for Color {
-    fn from(color: &LMS) -> Self {
-        #[rustfmt::skip]
-        const M: Mat3 = [
-            1.91020, -1.112_120, 0.201_908,
-            0.37095,  0.629_054, 0.000_000,
-            0.00000,  0.000_000, 1.000_000
-        ];
-
-        let [x, y, z] = mat3_dot(M, [color.l, color.m, color.s]);
-        Self::from(&XYZ {
-            x,
-            y,
-            z,
-            alpha: color.alpha,
-        })
-    }
-}
-
-/// A color space whose axes correspond to the responsivity spectra of the long-, medium-, and
-/// short-wavelength cone cells in the human eye. More info
-/// [here](https://en.wikipedia.org/wiki/LMS_color_space).
-#[derive(Debug, Clone, PartialEq)]
-pub struct LMS {
-    pub l: Scalar,
-    pub m: Scalar,
-    pub s: Scalar,
-    pub alpha: Scalar,
-}
-
-impl From<&Color> for LMS {
-    fn from(color: &Color) -> Self {
-        #[rustfmt::skip]
-        const M: Mat3 = [
-             0.38971, 0.68898, -0.07868,
-            -0.22981, 1.18340,  0.04641,
-             0.00000, 0.00000,  1.00000,
-        ];
-
-        let XYZ { x, y, z, alpha } = XYZ::from(color);
-        let [l, m, s] = mat3_dot(M, [x, y, z]);
-
-        LMS { l, m, s, alpha }
-    }
-}
-
-impl fmt::Display for LMS {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "LMS({l}, {m}, {s})", l = self.l, m = self.m, s = self.s,)
-    }
-}
-
 /// A representation of the different kinds of colorblindness. More info
 /// [here](https://en.wikipedia.org/wiki/Color_blindness).
 pub enum ColorblindnessType {
@@ -822,7 +771,6 @@ impl ColorScale {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_helper::assert_almost_equal;
     use approx::assert_relative_eq;
 
     #[test]
@@ -899,20 +847,6 @@ mod tests {
         assert_eq!(0xff0000, Color::red().to_u32());
         assert_eq!(0xffffff, Color::white().to_u32());
         assert_eq!(0xf4230f, Color::from_rgb(0xf4, 0x23, 0x0f).to_u32());
-    }
-
-    #[test]
-    fn lms_conversion() {
-        let roundtrip = |h, s, l| {
-            let color1 = Color::from_hsl(h, s, l);
-            let lms1 = color1.to_lms();
-            let color2 = Color::from_lms(lms1.l, lms1.m, lms1.s, 1.0);
-            assert_almost_equal(&color1, &color2);
-        };
-
-        for hue in 0..360 {
-            roundtrip(Scalar::from(hue), 0.2, 0.8);
-        }
     }
 
     #[test]
