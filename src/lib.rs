@@ -6,20 +6,25 @@ pub mod distinct;
 mod helper;
 pub mod hsl;
 pub mod hsv;
+pub mod lab;
+pub mod lch;
 pub mod matrix;
 pub mod named;
 pub mod parser;
 pub mod random;
 mod types;
+pub mod xyz;
 
 use std::{fmt, str::FromStr};
 
 // Re-export color space types
 pub use hsl::HSLA;
 pub use hsv::HSVA;
+pub use lab::Lab;
+pub use lch::LCh;
+pub use xyz::XYZ;
 
 use colorspace::ColorSpace;
-use convert::{gam_srgb, lin_srgb};
 pub use helper::Fraction;
 use helper::{clamp, interpolate, interpolate_angle, mod_positive, MaxPrecision};
 use matrix::mat3_dot;
@@ -151,7 +156,7 @@ impl Color {
     /// - <https://en.wikipedia.org/wiki/CIE_1931_color_space>
     /// - <https://en.wikipedia.org/wiki/SRGB>
     pub fn from_xyz(x: Scalar, y: Scalar, z: Scalar, alpha: Scalar) -> Color {
-        Self::from(&XYZ { x, y, z, alpha })
+        Self::from(&XYZ::with_alpha(x, y, z, alpha))
     }
 
     /// Create a `Color` from LMS coordinates. This is the matrix inverse of the matrix that
@@ -165,7 +170,7 @@ impl Color {
     ///
     /// See: <https://en.wikipedia.org/wiki/Lab_color_space>
     pub fn from_lab(l: Scalar, a: Scalar, b: Scalar, alpha: Scalar) -> Color {
-        Self::from(&Lab { l, a, b, alpha })
+        Self::from(&Lab::with_alpha(l, a, b, alpha))
     }
 
     /// Create a `Color` from lightness, chroma and hue coordinates in the CIE LCh color space.
@@ -174,7 +179,7 @@ impl Color {
     ///
     /// See: <https://en.wikipedia.org/wiki/Lab_color_space>
     pub fn from_lch(l: Scalar, c: Scalar, h: Scalar, alpha: Scalar) -> Color {
-        Self::from(&LCh { l, c, h, alpha })
+        Self::from(&LCh::with_alpha(l, c, h, alpha))
     }
 
     /// Create a `Color` from  the four colours of the CMYK model: Cyan, Magenta, Yellow and Black.
@@ -369,23 +374,7 @@ impl Color {
     /// is `1.0`, it won't be included in the output.
     pub fn to_lab_string(&self, format: Format) -> String {
         let lab = Lab::from(self);
-        let space = if format == Format::Spaces { " " } else { "" };
-        format!(
-            "Lab({l:.0},{space}{a:.0},{space}{b:.0}{alpha})",
-            l = lab.l,
-            a = lab.a,
-            b = lab.b,
-            space = space,
-            alpha = if self.alpha == 1.0 {
-                "".to_string()
-            } else {
-                format!(
-                    ",{space}{alpha}",
-                    alpha = MaxPrecision::wrap(3, self.alpha),
-                    space = space
-                )
-            }
-        )
+        lab.to_color_string(format)
     }
 
     /// Get L, C and h coordinates according to the CIE LCh color space.
@@ -399,23 +388,7 @@ impl Color {
     /// is `1.0`, it won't be included in the output.
     pub fn to_lch_string(&self, format: Format) -> String {
         let lch = LCh::from(self);
-        let space = if format == Format::Spaces { " " } else { "" };
-        format!(
-            "LCh({l:.0},{space}{c:.0},{space}{h:.0}{alpha})",
-            l = lch.l,
-            c = lch.c,
-            h = lch.h,
-            space = space,
-            alpha = if self.alpha == 1.0 {
-                "".to_string()
-            } else {
-                format!(
-                    ",{space}{alpha}",
-                    alpha = MaxPrecision::wrap(3, self.alpha),
-                    space = space
-                )
-            }
-        )
+        lch.to_color_string(format)
     }
 
     /// Pure black.
@@ -816,26 +789,6 @@ impl From<&RGBA<f64>> for Color {
     }
 }
 
-impl From<&XYZ> for Color {
-    fn from(color: &XYZ) -> Self {
-        #[rustfmt::skip]
-        const M_: Mat3 = [
-              3.2406, -1.5372, -0.4986,
-             -0.9689,  1.8758,  0.0415,
-              0.0557, -0.2040,  1.0570,
-        ];
-
-        let r_g_b_ = mat3_dot(M_, [color.x, color.y, color.z]);
-        let [r, g, b] = gam_srgb(r_g_b_);
-        Self::from(&RGBA::<f64> {
-            r,
-            g,
-            b,
-            alpha: color.alpha,
-        })
-    }
-}
-
 impl From<&LMS> for Color {
     fn from(color: &LMS) -> Self {
         #[rustfmt::skip]
@@ -850,50 +803,6 @@ impl From<&LMS> for Color {
             x,
             y,
             z,
-            alpha: color.alpha,
-        })
-    }
-}
-
-impl From<&Lab> for Color {
-    fn from(color: &Lab) -> Self {
-        #![allow(clippy::many_single_char_names)]
-        const DELTA: Scalar = 6.0 / 29.0;
-
-        let finv = |t| {
-            if t > DELTA {
-                Scalar::powf(t, 3.0)
-            } else {
-                3.0 * DELTA * DELTA * (t - 4.0 / 29.0)
-            }
-        };
-
-        let l_ = (color.l + 16.0) / 116.0;
-        let x = D65_XN * finv(l_ + color.a / 500.0);
-        let y = D65_YN * finv(l_);
-        let z = D65_ZN * finv(l_ - color.b / 200.0);
-
-        Self::from(&XYZ {
-            x,
-            y,
-            z,
-            alpha: color.alpha,
-        })
-    }
-}
-
-impl From<&LCh> for Color {
-    fn from(color: &LCh) -> Self {
-        #![allow(clippy::many_single_char_names)]
-        const DEG2RAD: Scalar = std::f64::consts::PI / 180.0;
-
-        let a = color.c * Scalar::cos(color.h * DEG2RAD);
-        let b = color.c * Scalar::sin(color.h * DEG2RAD);
-
-        Self::from(&Lab {
-            l: color.l,
-            a,
-            b,
             alpha: color.alpha,
         })
     }
@@ -1063,42 +972,6 @@ impl From<&Color> for HWBA {
 //     }
 // }
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct XYZ {
-    pub x: Scalar,
-    pub y: Scalar,
-    pub z: Scalar,
-    pub alpha: Scalar,
-}
-
-impl From<&Color> for XYZ {
-    fn from(color: &Color) -> Self {
-        #[rustfmt::skip]
-        const M: Mat3 = [
-            0.4124, 0.3576, 0.1805,
-            0.2126, 0.7152, 0.0722,
-            0.0193, 0.1192, 0.9505,
-        ];
-
-        let rec = RGBA::from(color);
-        let r_g_b_ = lin_srgb([rec.r, rec.g, rec.b]);
-        let [x, y, z] = mat3_dot(M, r_g_b_);
-
-        XYZ {
-            x,
-            y,
-            z,
-            alpha: color.alpha,
-        }
-    }
-}
-
-impl fmt::Display for XYZ {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "XYZ({x}, {y}, {z})", x = self.x, y = self.y, z = self.z,)
-    }
-}
-
 /// A color space whose axes correspond to the responsivity spectra of the long-, medium-, and
 /// short-wavelength cone cells in the human eye. More info
 /// [here](https://en.wikipedia.org/wiki/LMS_color_space).
@@ -1129,117 +1002,6 @@ impl From<&Color> for LMS {
 impl fmt::Display for LMS {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "LMS({l}, {m}, {s})", l = self.l, m = self.m, s = self.s,)
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct Lab {
-    pub l: Scalar,
-    pub a: Scalar,
-    pub b: Scalar,
-    pub alpha: Scalar,
-}
-
-impl ColorSpace for Lab {
-    fn from_color(c: &Color) -> Self {
-        c.to_lab()
-    }
-
-    fn into_color(self) -> Color {
-        Color::from_lab(self.l, self.a, self.b, self.alpha)
-    }
-
-    fn mix(&self, other: &Self, fraction: Fraction) -> Self {
-        Self {
-            l: interpolate(self.l, other.l, fraction),
-            a: interpolate(self.a, other.a, fraction),
-            b: interpolate(self.b, other.b, fraction),
-            alpha: interpolate(self.alpha, other.alpha, fraction),
-        }
-    }
-}
-
-impl From<&Color> for Lab {
-    fn from(color: &Color) -> Self {
-        let rec = XYZ::from(color);
-
-        let cut = Scalar::powf(6.0 / 29.0, 3.0);
-        let f = |t| {
-            if t > cut {
-                Scalar::powf(t, 1.0 / 3.0)
-            } else {
-                (1.0 / 3.0) * Scalar::powf(29.0 / 6.0, 2.0) * t + 4.0 / 29.0
-            }
-        };
-
-        let fy = f(rec.y / D65_YN);
-
-        let l = 116.0 * fy - 16.0;
-        let a = 500.0 * (f(rec.x / D65_XN) - fy);
-        let b = 200.0 * (fy - f(rec.z / D65_ZN));
-
-        Lab {
-            l,
-            a,
-            b,
-            alpha: color.alpha,
-        }
-    }
-}
-
-impl fmt::Display for Lab {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Lab({l}, {a}, {b})", l = self.l, a = self.a, b = self.b,)
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct LCh {
-    pub l: Scalar,
-    pub c: Scalar,
-    pub h: Scalar,
-    pub alpha: Scalar,
-}
-
-impl ColorSpace for LCh {
-    fn from_color(c: &Color) -> Self {
-        c.to_lch()
-    }
-
-    fn into_color(self) -> Color {
-        Color::from_lch(self.l, self.c, self.h, self.alpha)
-    }
-
-    fn mix(&self, other: &Self, fraction: Fraction) -> Self {
-        // make sure that the hue is preserved when mixing with gray colors
-        let self_hue = if self.c < 0.1 { other.h } else { self.h };
-        let other_hue = if other.c < 0.1 { self.h } else { other.h };
-
-        Self {
-            l: interpolate(self.l, other.l, fraction),
-            c: interpolate(self.c, other.c, fraction),
-            h: interpolate_angle(self_hue, other_hue, fraction),
-            alpha: interpolate(self.alpha, other.alpha, fraction),
-        }
-    }
-}
-
-impl From<&Color> for LCh {
-    fn from(color: &Color) -> Self {
-        let Lab { l, a, b, alpha } = Lab::from(color);
-
-        const RAD2DEG: Scalar = 180.0 / std::f64::consts::PI;
-
-        let c = Scalar::sqrt(a * a + b * b);
-        let h = mod_positive(Scalar::atan2(b, a) * RAD2DEG, 360.0);
-
-        LCh { l, c, h, alpha }
-    }
-}
-
-impl fmt::Display for LCh {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "LCh({l}, {c}, {h})", l = self.l, c = self.c, h = self.h,)
     }
 }
 
@@ -1561,26 +1323,6 @@ mod tests {
             roundtrip(Scalar::from(hue), 0.2, 0.8);
         }
     }
-    #[test]
-    fn xyz_conversion() {
-        assert_eq!(Color::white(), Color::from_xyz(0.9505, 1.0, 1.0890, 1.0));
-        assert_eq!(Color::red(), Color::from_xyz(0.4123, 0.2126, 0.01933, 1.0));
-        assert_eq!(
-            Color::from_hsl(109.999, 0.08654, 0.407843),
-            Color::from_xyz(0.13123, 0.15372, 0.13174, 1.0)
-        );
-
-        let roundtrip = |h, s, l| {
-            let color1 = Color::from_hsl(h, s, l);
-            let xyz1 = color1.to_xyz();
-            let color2 = Color::from_xyz(xyz1.x, xyz1.y, xyz1.z, 1.0);
-            assert_almost_equal(&color1, &color2);
-        };
-
-        for hue in 0..360 {
-            roundtrip(Scalar::from(hue), 0.2, 0.8);
-        }
-    }
 
     #[test]
     fn lms_conversion() {
@@ -1588,41 +1330,6 @@ mod tests {
             let color1 = Color::from_hsl(h, s, l);
             let lms1 = color1.to_lms();
             let color2 = Color::from_lms(lms1.l, lms1.m, lms1.s, 1.0);
-            assert_almost_equal(&color1, &color2);
-        };
-
-        for hue in 0..360 {
-            roundtrip(Scalar::from(hue), 0.2, 0.8);
-        }
-    }
-
-    #[test]
-    fn lab_conversion() {
-        assert_eq!(Color::red(), Color::from_lab(53.233, 80.109, 67.22, 1.0));
-
-        let roundtrip = |h, s, l| {
-            let color1 = Color::from_hsl(h, s, l);
-            let lab1 = color1.to_lab();
-            let color2 = Color::from_lab(lab1.l, lab1.a, lab1.b, 1.0);
-            assert_almost_equal(&color1, &color2);
-        };
-
-        for hue in 0..360 {
-            roundtrip(Scalar::from(hue), 0.2, 0.8);
-        }
-    }
-
-    #[test]
-    fn lch_conversion() {
-        assert_eq!(
-            Color::from_hsl(0.0, 1.0, 0.245),
-            Color::from_lch(24.829, 60.093, 38.18, 1.0)
-        );
-
-        let roundtrip = |h, s, l| {
-            let color1 = Color::from_hsl(h, s, l);
-            let lch1 = color1.to_lch();
-            let color2 = Color::from_lch(lch1.l, lch1.c, lch1.h, 1.0);
             assert_almost_equal(&color1, &color2);
         };
 
@@ -1786,18 +1493,6 @@ mod tests {
         let c = Color::from_rgb(255, 127, 4);
         assert_eq!("ff7f04", c.to_rgb_hex_string(false));
         assert_eq!("#ff7f04", c.to_rgb_hex_string(true));
-    }
-
-    #[test]
-    fn to_lab_string() {
-        let c = Color::from_lab(41.0, 83.0, -93.0, 1.0);
-        assert_eq!("Lab(41, 83, -93)", c.to_lab_string(Format::Spaces));
-    }
-
-    #[test]
-    fn to_lch_string() {
-        let c = Color::from_lch(52.0, 44.0, 271.0, 1.0);
-        assert_eq!("LCh(52, 44, 271)", c.to_lch_string(Format::Spaces));
     }
 
     #[test]
