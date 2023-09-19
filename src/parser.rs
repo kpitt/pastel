@@ -23,27 +23,23 @@ fn rgba(r: u8, g: u8, b: u8, a: f64) -> Color {
     Color::from_rgba(r, g, b, a)
 }
 
-fn comma_separated(input: &str) -> IResult<&str, &str> {
+fn comma_separator(input: &str) -> IResult<&str, &str> {
     let (input, _) = space0(input)?;
     let (input, _) = char(',')(input)?;
     space0(input)
 }
 
-fn parse_separator(input: &str) -> IResult<&str, &str> {
-    alt((comma_separated, space1))(input)
+pub(crate) fn legacy_separator(input: &str) -> IResult<&str, &str> {
+    alt((comma_separator, space1))(input)
 }
 
-fn opt_hash_char(s: &str) -> IResult<&str, Option<char>> {
-    opt(char('#'))(s)
-}
-
-fn parse_percentage(input: &str) -> IResult<&str, f64> {
+pub(crate) fn percentage(input: &str) -> IResult<&str, f64> {
     let (input, percent) = double(input)?;
     let (input, _) = char('%')(input)?;
     Ok((input, percent / 100.))
 }
 
-fn parse_number_or_percentage(input: &str, scale: f64) -> IResult<&str, f64> {
+pub(crate) fn number_or_percentage(input: &str, scale: f64) -> IResult<&str, f64> {
     let (input, num) = double(input)?;
     let (input, percent_sign) = opt(char('%'))(input)?;
     let is_percentage = percent_sign.is_some();
@@ -56,54 +52,59 @@ fn parse_number_or_percentage(input: &str, scale: f64) -> IResult<&str, f64> {
     Ok((input, value))
 }
 
-fn parse_degrees(input: &str) -> IResult<&str, f64> {
+fn angle_in_degrees(input: &str) -> IResult<&str, f64> {
     let (input, d) = double(input)?;
     let (input, _) = alt((tag("°"), tag("deg"), tag("")))(input)?;
     Ok((input, d))
 }
 
-fn parse_rads(input: &str) -> IResult<&str, f64> {
+fn angle_in_rads(input: &str) -> IResult<&str, f64> {
     let (input, rads) = double(input)?;
     let (input, _) = tag("rad")(input)?;
     Ok((input, rads * 180. / std::f64::consts::PI))
 }
 
-fn parse_grads(input: &str) -> IResult<&str, f64> {
+fn angle_in_grads(input: &str) -> IResult<&str, f64> {
     let (input, grads) = double(input)?;
     let (input, _) = tag("grad")(input)?;
     Ok((input, grads * 360. / 400.))
 }
 
-fn parse_turns(input: &str) -> IResult<&str, f64> {
+fn angle_in_turns(input: &str) -> IResult<&str, f64> {
     let (input, turns) = double(input)?;
     let (input, _) = tag("turn")(input)?;
     Ok((input, turns * 360.))
 }
 
-fn parse_angle(input: &str) -> IResult<&str, f64> {
-    alt((parse_turns, parse_grads, parse_rads, parse_degrees))(input)
+pub(crate) fn hue_angle(input: &str) -> IResult<&str, f64> {
+    alt((
+        angle_in_turns,
+        angle_in_grads,
+        angle_in_rads,
+        angle_in_degrees,
+    ))(input)
 }
 
-fn parse_alpha<'a>(input: &'a str) -> IResult<&'a str, f64> {
+pub(crate) fn legacy_alpha<'a>(input: &'a str) -> IResult<&'a str, f64> {
     let (input, alpha) = opt(|input: &'a str| {
-        let (input, _) = parse_separator(input)?;
-        alt((parse_percentage, double))(input)
+        let (input, _) = legacy_separator(input)?;
+        alt((percentage, double))(input)
     })(input)?;
     Ok((input, alpha.unwrap_or(1.0)))
 }
 
-fn parse_css_alpha<'a>(input: &'a str) -> IResult<&'a str, f64> {
+pub(crate) fn modern_alpha<'a>(input: &'a str) -> IResult<&'a str, f64> {
     let (input, alpha) = opt(|input: &'a str| {
         let (input, _) = space0(input)?;
         let (input, _) = char('/')(input)?;
         let (input, _) = space0(input)?;
-        alt((parse_percentage, double))(input)
+        alt((percentage, double))(input)
     })(input)?;
     Ok((input, alpha.unwrap_or(1.0)))
 }
 
 fn parse_hex(input: &str) -> IResult<&str, Color> {
-    let (input, _) = opt_hash_char(input)?;
+    let (input, _) = opt(char('#'))(input)?;
     let (input, hex_chars) = hex_digit1(input)?;
     match hex_chars.len() {
         // RRGGBB
@@ -155,11 +156,11 @@ fn parse_numeric_rgb(input: &str) -> IResult<&str, Color> {
     let is_prefixed = prefixed.is_some();
     let (input, _) = space0(input)?;
     let (input, r) = double(input)?;
-    let (input, _) = parse_separator(input)?;
+    let (input, _) = legacy_separator(input)?;
     let (input, g) = double(input)?;
-    let (input, _) = parse_separator(input)?;
+    let (input, _) = legacy_separator(input)?;
     let (input, b) = double(input)?;
-    let (input, alpha) = parse_alpha(input)?;
+    let (input, alpha) = legacy_alpha(input)?;
     let (input, _) = space0(input)?;
     let (input, _) = cond(is_prefixed, char(')'))(input)?;
 
@@ -179,7 +180,7 @@ fn parse_css_numeric_rgb(input: &str) -> IResult<&str, Color> {
     let (input, g) = double(input)?;
     let (input, _) = space1(input)?;
     let (input, b) = double(input)?;
-    let (input, alpha) = parse_css_alpha(input)?;
+    let (input, alpha) = modern_alpha(input)?;
     let (input, _) = space0(input)?;
     let (input, _) = char(')')(input)?;
 
@@ -195,12 +196,12 @@ fn parse_percentage_rgb(input: &str) -> IResult<&str, Color> {
     let (input, prefixed) = opt(alt((tag("rgb("), tag("rgba("))))(input)?;
     let is_prefixed = prefixed.is_some();
     let (input, _) = space0(input)?;
-    let (input, r) = parse_percentage(input)?;
-    let (input, _) = parse_separator(input)?;
-    let (input, g) = parse_percentage(input)?;
-    let (input, _) = parse_separator(input)?;
-    let (input, b) = parse_percentage(input)?;
-    let (input, alpha) = parse_alpha(input)?;
+    let (input, r) = percentage(input)?;
+    let (input, _) = legacy_separator(input)?;
+    let (input, g) = percentage(input)?;
+    let (input, _) = legacy_separator(input)?;
+    let (input, b) = percentage(input)?;
+    let (input, alpha) = legacy_alpha(input)?;
     let (input, _) = space0(input)?;
     let (input, _) = cond(is_prefixed, char(')'))(input)?;
 
@@ -212,12 +213,12 @@ fn parse_percentage_rgb(input: &str) -> IResult<&str, Color> {
 fn parse_css_percentage_rgb(input: &str) -> IResult<&str, Color> {
     let (input, _) = alt((tag_no_case("rgb("), tag_no_case("rgba(")))(input)?;
     let (input, _) = space0(input)?;
-    let (input, r) = parse_percentage(input)?;
+    let (input, r) = percentage(input)?;
     let (input, _) = space1(input)?;
-    let (input, g) = parse_percentage(input)?;
+    let (input, g) = percentage(input)?;
     let (input, _) = space1(input)?;
-    let (input, b) = parse_percentage(input)?;
-    let (input, alpha) = parse_css_alpha(input)?;
+    let (input, b) = percentage(input)?;
+    let (input, alpha) = modern_alpha(input)?;
     let (input, _) = space0(input)?;
     let (input, _) = char(')')(input)?;
 
@@ -229,12 +230,12 @@ fn parse_css_percentage_rgb(input: &str) -> IResult<&str, Color> {
 fn parse_hsl(input: &str) -> IResult<&str, Color> {
     let (input, _) = alt((tag("hsl("), tag("hsla(")))(input)?;
     let (input, _) = space0(input)?;
-    let (input, h) = parse_angle(input)?;
-    let (input, _) = parse_separator(input)?;
-    let (input, s) = parse_percentage(input)?;
-    let (input, _) = parse_separator(input)?;
-    let (input, l) = parse_percentage(input)?;
-    let (input, alpha) = parse_alpha(input)?;
+    let (input, h) = hue_angle(input)?;
+    let (input, _) = legacy_separator(input)?;
+    let (input, s) = percentage(input)?;
+    let (input, _) = legacy_separator(input)?;
+    let (input, l) = percentage(input)?;
+    let (input, alpha) = legacy_alpha(input)?;
     let (input, _) = space0(input)?;
     let (input, _) = char(')')(input)?;
 
@@ -246,12 +247,12 @@ fn parse_hsl(input: &str) -> IResult<&str, Color> {
 fn parse_css_hsl(input: &str) -> IResult<&str, Color> {
     let (input, _) = alt((tag_no_case("hsl("), tag_no_case("hsla(")))(input)?;
     let (input, _) = space0(input)?;
-    let (input, h) = parse_angle(input)?;
+    let (input, h) = hue_angle(input)?;
     let (input, _) = space1(input)?;
-    let (input, s) = parse_percentage(input)?;
+    let (input, s) = percentage(input)?;
     let (input, _) = space1(input)?;
-    let (input, l) = parse_percentage(input)?;
-    let (input, alpha) = parse_css_alpha(input)?;
+    let (input, l) = percentage(input)?;
+    let (input, alpha) = modern_alpha(input)?;
     let (input, _) = space0(input)?;
     let (input, _) = char(')')(input)?;
 
@@ -263,12 +264,12 @@ fn parse_css_hsl(input: &str) -> IResult<&str, Color> {
 fn parse_hsv(input: &str) -> IResult<&str, Color> {
     let (input, _) = alt((tag("hsv("), tag("hsva(")))(input)?;
     let (input, _) = space0(input)?;
-    let (input, h) = parse_angle(input)?;
-    let (input, _) = parse_separator(input)?;
-    let (input, s) = parse_percentage(input)?;
-    let (input, _) = parse_separator(input)?;
-    let (input, v) = parse_percentage(input)?;
-    let (input, alpha) = parse_alpha(input)?;
+    let (input, h) = hue_angle(input)?;
+    let (input, _) = legacy_separator(input)?;
+    let (input, s) = percentage(input)?;
+    let (input, _) = legacy_separator(input)?;
+    let (input, v) = percentage(input)?;
+    let (input, alpha) = legacy_alpha(input)?;
     let (input, _) = space0(input)?;
     let (input, _) = char(')')(input)?;
 
@@ -280,12 +281,12 @@ fn parse_hsv(input: &str) -> IResult<&str, Color> {
 fn parse_hwb(input: &str) -> IResult<&str, Color> {
     let (input, _) = tag_no_case("hwb(")(input)?;
     let (input, _) = space0(input)?;
-    let (input, h) = parse_angle(input)?;
+    let (input, h) = hue_angle(input)?;
     let (input, _) = space1(input)?;
-    let (input, w) = parse_percentage(input)?;
+    let (input, w) = percentage(input)?;
     let (input, _) = space1(input)?;
-    let (input, b) = parse_percentage(input)?;
-    let (input, alpha) = parse_css_alpha(input)?;
+    let (input, b) = percentage(input)?;
+    let (input, alpha) = modern_alpha(input)?;
     let (input, _) = space0(input)?;
     let (input, _) = char(')')(input)?;
 
@@ -297,7 +298,7 @@ fn parse_hwb(input: &str) -> IResult<&str, Color> {
 fn parse_gray(input: &str) -> IResult<&str, Color> {
     let (input, _) = tag("gray(")(input)?;
     let (input, _) = space0(input)?;
-    let (input, g) = verify(alt((parse_percentage, double)), |&d| d >= 0.)(input)?;
+    let (input, g) = verify(alt((percentage, double)), |&d| d >= 0.)(input)?;
     let (input, _) = space0(input)?;
     let (input, _) = char(')')(input)?;
 
@@ -311,11 +312,11 @@ fn parse_lab(input: &str) -> IResult<&str, Color> {
     let (input, _) = tag_no_case("lab(")(input)?;
     let (input, _) = space0(input)?;
     let (input, l) = double(input)?;
-    let (input, _) = parse_separator(input)?;
+    let (input, _) = legacy_separator(input)?;
     let (input, a) = double(input)?;
-    let (input, _) = parse_separator(input)?;
+    let (input, _) = legacy_separator(input)?;
     let (input, b) = double(input)?;
-    let (input, alpha) = parse_alpha(input)?;
+    let (input, alpha) = legacy_alpha(input)?;
     let (input, _) = space0(input)?;
     let (input, _) = char(')')(input)?;
 
@@ -329,11 +330,11 @@ fn parse_lch(input: &str) -> IResult<&str, Color> {
     let (input, _) = tag_no_case("lch(")(input)?;
     let (input, _) = space0(input)?;
     let (input, l) = double(input)?;
-    let (input, _) = parse_separator(input)?;
+    let (input, _) = legacy_separator(input)?;
     let (input, c) = double(input)?;
-    let (input, _) = parse_separator(input)?;
-    let (input, h) = parse_angle(input)?;
-    let (input, alpha) = parse_alpha(input)?;
+    let (input, _) = legacy_separator(input)?;
+    let (input, h) = hue_angle(input)?;
+    let (input, alpha) = legacy_alpha(input)?;
     let (input, _) = space0(input)?;
     let (input, _) = char(')')(input)?;
 
@@ -379,12 +380,12 @@ fn parse_css_color_fn(input: &str) -> IResult<&str, Color> {
 fn parse_srgb_color_space(input: &str) -> IResult<&str, Color> {
     let (input, _) = tag_no_case("srgb")(input)?;
     let (input, _) = space1(input)?;
-    let (input, r) = parse_number_or_percentage(input, 1.0)?;
+    let (input, r) = number_or_percentage(input, 1.0)?;
     let (input, _) = space1(input)?;
-    let (input, g) = parse_number_or_percentage(input, 1.0)?;
+    let (input, g) = number_or_percentage(input, 1.0)?;
     let (input, _) = space1(input)?;
-    let (input, b) = parse_number_or_percentage(input, 1.0)?;
-    let (input, alpha) = parse_css_alpha(input)?;
+    let (input, b) = number_or_percentage(input, 1.0)?;
+    let (input, alpha) = modern_alpha(input)?;
     let (input, _) = space0(input)?;
 
     let c = Color::from_rgba_float(r, g, b, alpha);
@@ -395,12 +396,12 @@ fn parse_srgb_color_space(input: &str) -> IResult<&str, Color> {
 fn parse_lin_srgb_color_space(input: &str) -> IResult<&str, Color> {
     let (input, _) = tag_no_case("srgb-linear")(input)?;
     let (input, _) = space1(input)?;
-    let (input, r_) = parse_number_or_percentage(input, 1.0)?;
+    let (input, r_) = number_or_percentage(input, 1.0)?;
     let (input, _) = space1(input)?;
-    let (input, g_) = parse_number_or_percentage(input, 1.0)?;
+    let (input, g_) = number_or_percentage(input, 1.0)?;
     let (input, _) = space1(input)?;
-    let (input, b_) = parse_number_or_percentage(input, 1.0)?;
-    let (input, alpha) = parse_css_alpha(input)?;
+    let (input, b_) = number_or_percentage(input, 1.0)?;
+    let (input, alpha) = modern_alpha(input)?;
     let (input, _) = space0(input)?;
 
     let [r, g, b] = gam_srgb([r_, g_, b_]);
@@ -415,12 +416,12 @@ fn parse_lin_srgb_color_space(input: &str) -> IResult<&str, Color> {
 fn parse_cie_xyz65_color_space(input: &str) -> IResult<&str, Color> {
     let (input, _) = alt((tag_no_case("xyz-d65"), tag_no_case("xyz")))(input)?;
     let (input, _) = space1(input)?;
-    let (input, x) = parse_number_or_percentage(input, 1.0)?;
+    let (input, x) = number_or_percentage(input, 1.0)?;
     let (input, _) = space1(input)?;
-    let (input, y) = parse_number_or_percentage(input, 1.0)?;
+    let (input, y) = number_or_percentage(input, 1.0)?;
     let (input, _) = space1(input)?;
-    let (input, z) = parse_number_or_percentage(input, 1.0)?;
-    let (input, alpha) = parse_css_alpha(input)?;
+    let (input, z) = number_or_percentage(input, 1.0)?;
+    let (input, alpha) = modern_alpha(input)?;
     let (input, _) = space0(input)?;
 
     let c = Color::from_xyz(x, y, z, alpha);
@@ -443,13 +444,13 @@ fn parse_css_lab65(input: &str) -> IResult<&str, Color> {
     let (input, _) = alt((tag_no_case("lab65("), tag_no_case("lab-d65(")))(input)?;
     let (input, _) = space0(input)?;
     // Percent reference range for L: 0% = 0, 100% = 100
-    let (input, l) = parse_number_or_percentage(input, 100.0)?;
+    let (input, l) = number_or_percentage(input, 100.0)?;
     let (input, _) = space1(input)?;
     // Percent reference range for a and b: -100% = -125, 100% = 125
-    let (input, a) = parse_number_or_percentage(input, 125.0)?;
+    let (input, a) = number_or_percentage(input, 125.0)?;
     let (input, _) = space1(input)?;
-    let (input, b) = parse_number_or_percentage(input, 125.0)?;
-    let (input, alpha) = parse_css_alpha(input)?;
+    let (input, b) = number_or_percentage(input, 125.0)?;
+    let (input, alpha) = modern_alpha(input)?;
     let (input, _) = space0(input)?;
     let (input, _) = char(')')(input)?;
 
@@ -462,13 +463,13 @@ fn parse_css_lch65(input: &str) -> IResult<&str, Color> {
     let (input, _) = alt((tag_no_case("lch65("), tag_no_case("lch-d65(")))(input)?;
     let (input, _) = space0(input)?;
     // Percent reference range for L: 0% = 0, 100% = 100
-    let (input, l) = parse_number_or_percentage(input, 100.0)?;
+    let (input, l) = number_or_percentage(input, 100.0)?;
     let (input, _) = space1(input)?;
     // Percent reference range for C: 0% = 0, 100% = 150
-    let (input, c) = parse_number_or_percentage(input, 150.0)?;
+    let (input, c) = number_or_percentage(input, 150.0)?;
     let (input, _) = space1(input)?;
-    let (input, h) = parse_angle(input)?;
-    let (input, alpha) = parse_css_alpha(input)?;
+    let (input, h) = hue_angle(input)?;
+    let (input, alpha) = modern_alpha(input)?;
     let (input, _) = space0(input)?;
     let (input, _) = char(')')(input)?;
 
@@ -494,7 +495,7 @@ fn parse_cie_lab65_color_space(input: &str) -> IResult<&str, Color> {
     let (input, a) = double(input)?;
     let (input, _) = space1(input)?;
     let (input, b) = double(input)?;
-    let (input, alpha) = parse_css_alpha(input)?;
+    let (input, alpha) = modern_alpha(input)?;
     let (input, _) = space0(input)?;
 
     let c = Color::from_lab(l, a, b, alpha);
@@ -513,8 +514,8 @@ fn parse_cie_lch65_color_space(input: &str) -> IResult<&str, Color> {
     let (input, c) = double(input)?;
     let (input, _) = space1(input)?;
     // Optional angle units are allowed because they are not ambiguous.
-    let (input, h) = parse_angle(input)?;
-    let (input, alpha) = parse_css_alpha(input)?;
+    let (input, h) = hue_angle(input)?;
+    let (input, alpha) = modern_alpha(input)?;
     let (input, _) = space0(input)?;
 
     let c = Color::from_lch(l, c, h, alpha);
@@ -528,13 +529,13 @@ fn parse_cie_lch65_color_space(input: &str) -> IResult<&str, Color> {
 fn parse_css_hsv(input: &str) -> IResult<&str, Color> {
     let (input, _) = tag_no_case("hsv(")(input)?;
     let (input, _) = space0(input)?;
-    let (input, h) = parse_angle(input)?;
+    let (input, h) = hue_angle(input)?;
     let (input, _) = space1(input)?;
     // Percent reference range for S and V: 0% = 0, 100% = 1
-    let (input, s) = parse_number_or_percentage(input, 1.0)?;
+    let (input, s) = number_or_percentage(input, 1.0)?;
     let (input, _) = space1(input)?;
-    let (input, v) = parse_number_or_percentage(input, 1.0)?;
-    let (input, alpha) = parse_css_alpha(input)?;
+    let (input, v) = number_or_percentage(input, 1.0)?;
+    let (input, alpha) = modern_alpha(input)?;
     let (input, _) = space0(input)?;
     let (input, _) = char(')')(input)?;
 
@@ -553,13 +554,13 @@ fn parse_css_hsv_color_space(input: &str) -> IResult<&str, Color> {
     let (input, _) = tag_no_case("hsv")(input)?;
     let (input, _) = space1(input)?;
     // Optional angle units are allowed because they are not ambiguous.
-    let (input, h) = parse_angle(input)?;
+    let (input, h) = hue_angle(input)?;
     let (input, _) = space1(input)?;
     // Percentages can be used with 0 to 1 values.
-    let (input, s) = parse_number_or_percentage(input, 1.0)?;
+    let (input, s) = number_or_percentage(input, 1.0)?;
     let (input, _) = space1(input)?;
-    let (input, v) = parse_number_or_percentage(input, 1.0)?;
-    let (input, alpha) = parse_css_alpha(input)?;
+    let (input, v) = number_or_percentage(input, 1.0)?;
+    let (input, alpha) = modern_alpha(input)?;
     let (input, _) = space0(input)?;
 
     let c = Color::from_hsva(h, s, v, alpha);
@@ -574,15 +575,15 @@ fn parse_css_device_cmyk(input: &str) -> IResult<&str, Color> {
     let (input, _) = opt(tag_no_case("device-"))(input)?;
     let (input, _) = tag_no_case("cmyk(")(input)?;
     let (input, _) = space0(input)?;
-    let (input, c) = parse_number_or_percentage(input, 1.0)?;
+    let (input, c) = number_or_percentage(input, 1.0)?;
     let (input, _) = space1(input)?;
-    let (input, m) = parse_number_or_percentage(input, 1.0)?;
+    let (input, m) = number_or_percentage(input, 1.0)?;
     let (input, _) = space1(input)?;
-    let (input, y) = parse_number_or_percentage(input, 1.0)?;
+    let (input, y) = number_or_percentage(input, 1.0)?;
     let (input, _) = space1(input)?;
-    let (input, k) = parse_number_or_percentage(input, 1.0)?;
+    let (input, k) = number_or_percentage(input, 1.0)?;
     // accept alpha component for compatibility, but not currently supported for CMYK
-    let (input, _alpha) = parse_css_alpha(input)?;
+    let (input, _alpha) = modern_alpha(input)?;
     let (input, _) = space0(input)?;
     let (input, _) = char(')')(input)?;
 
