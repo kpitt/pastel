@@ -7,7 +7,9 @@ use nom::number::complete::double;
 use nom::Err;
 use nom::IResult;
 
-use crate::{convert::gam_srgb, hsl::HSLA, named::NAMED_COLORS, rgb::parse_rgb_color, Color};
+use crate::{
+    convert::gam_srgb, hsl::parse_hsl_color, named::NAMED_COLORS, rgb::parse_rgb_color, Color,
+};
 
 fn comma_separator(input: &str) -> IResult<&str, &str> {
     let (input, _) = space0(input)?;
@@ -423,7 +425,7 @@ fn parse_css_device_cmyk(input: &str) -> IResult<&str, Color> {
 pub fn parse_color(input: &str) -> Option<Color> {
     alt((
         parse_rgb_color,
-        all_consuming(HSLA::parse),
+        parse_hsl_color,
         all_consuming(parse_css_color_fn),
         all_consuming(parse_css_hsv),
         all_consuming(parse_hsv),

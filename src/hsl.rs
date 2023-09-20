@@ -4,6 +4,7 @@ use nom::{
     branch::alt,
     bytes::complete::{tag, tag_no_case},
     character::complete::{char, space0, space1},
+    combinator::all_consuming,
     IResult,
 };
 
@@ -111,13 +112,16 @@ impl HSLA {
             a = a,
         )
     }
-
-    pub fn parse(input: &str) -> IResult<&str, Color> {
-        alt((parse_css_hsl, parse_hsl))(input)
-    }
 }
 
-fn parse_hsl(input: &str) -> IResult<&str, Color> {
+pub(crate) fn parse_hsl_color(input: &str) -> IResult<&str, Color> {
+    alt((
+        all_consuming(parse_css_hsl),
+        all_consuming(parse_legacy_hsl),
+    ))(input.trim())
+}
+
+fn parse_legacy_hsl(input: &str) -> IResult<&str, Color> {
     let (input, _) = alt((tag("hsl("), tag("hsla(")))(input)?;
     let (input, _) = space0(input)?;
     let (input, h) = hue_angle(input)?;
@@ -179,10 +183,7 @@ mod tests {
     }
 
     fn parse_color(input: &str) -> Option<Color> {
-        use nom::combinator::all_consuming;
-        all_consuming(HSLA::parse)(input.trim())
-            .ok()
-            .map(|(_, c)| c)
+        parse_hsl_color(input).ok().map(|(_, c)| c)
     }
 
     #[test]
