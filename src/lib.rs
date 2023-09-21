@@ -419,6 +419,11 @@ impl Color {
         Color::from_hsl(0.0, 0.0, lightness)
     }
 
+    /// Change the alpha value of a Color.
+    pub fn with_alpha(&self, alpha: Scalar) -> Color {
+        Self::from_hsla(self.hue.value(), self.saturation, self.lightness, alpha)
+    }
+
     /// Rotate along the "hue" axis.
     pub fn rotate_hue(&self, delta: Scalar) -> Color {
         Self::from_hsla(

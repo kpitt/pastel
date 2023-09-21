@@ -3,7 +3,12 @@ use nom::bytes::complete::*;
 use nom::character::complete::*;
 use nom::combinator::*;
 use nom::number::complete::double;
-use nom::{error::ErrorKind, Err, IResult};
+use nom::sequence::{delimited, preceded};
+use nom::Parser;
+use nom::{
+    error::{Error, ErrorKind},
+    Err, IResult,
+};
 
 use crate::{
     cmyk::parse_cmyk_color, convert::gam_srgb, hsl::parse_hsl_color, hsv::parse_hsv_color,
@@ -81,13 +86,11 @@ pub(crate) fn legacy_alpha<'a>(input: &'a str) -> IResult<&'a str, f64> {
     Ok((input, alpha.unwrap_or(1.0)))
 }
 
-pub(crate) fn modern_alpha<'a>(input: &'a str) -> IResult<&'a str, f64> {
-    let (input, alpha) = opt(|input: &'a str| {
-        let (input, _) = space0(input)?;
-        let (input, _) = char('/')(input)?;
-        let (input, _) = space0(input)?;
-        alt((percentage, double))(input)
-    })(input)?;
+pub(crate) fn modern_alpha(input: &str) -> IResult<&str, f64> {
+    let (input, alpha) = opt(preceded(
+        delimited(space0, char('/'), space0),
+        alt((percentage, double)),
+    ))(input)?;
     Ok((input, alpha.unwrap_or(1.0)))
 }
 
@@ -118,75 +121,90 @@ fn parse_named(input: &str) -> IResult<&str, Color> {
     }
 }
 
+pub(crate) fn css_color_function<'a, O1, F, G>(
+    mut color_name: F,
+    mut color: G,
+) -> impl FnMut(&'a str) -> IResult<&'a str, Color>
+where
+    F: Parser<&'a str, O1, Error<&'a str>>,
+    G: Parser<&'a str, Color, Error<&'a str>>,
+{
+    move |input: &'a str| {
+        let (input, _) = tag_no_case("color(")(input)?;
+        let (input, _) = space0(input)?;
+        let (input, _) = color_name.parse(input)?;
+        let (input, _) = space1(input)?;
+
+        let (input, c) = color.parse(input)?;
+        let (input, alpha) = modern_alpha(input)?;
+
+        let (input, _) = space0(input)?;
+        let (input, _) = char(')')(input)?;
+
+        let c = if alpha == 1.0 { c } else { c.with_alpha(alpha) };
+        Ok((input, c))
+    }
+}
+
 fn parse_css_color_fn(input: &str) -> IResult<&str, Color> {
-    let (input, _) = tag_no_case("color(")(input)?;
-    let (input, _) = space0(input)?;
-
-    let (input, color) = alt((
-        parse_srgb_color_space,
-        parse_lin_srgb_color_space,
-        parse_cie_xyz65_color_space,
-        parse_cie_lab65_color_space,
-        parse_cie_lch65_color_space,
-        parse_css_hsv_color_space,
-    ))(input)?;
-
-    let (input, _) = space0(input)?;
-    let (input, _) = char(')')(input)?;
-
-    Ok((input, color))
+    alt((
+        all_consuming(parse_srgb_color_space),
+        all_consuming(parse_lin_srgb_color_space),
+        all_consuming(parse_cie_xyz65_color_space),
+        all_consuming(parse_cie_lab65_color_space),
+        all_consuming(parse_cie_lch65_color_space),
+        all_consuming(parse_css_hsv_color_space),
+    ))(input.trim())
 }
 
 fn parse_srgb_color_space(input: &str) -> IResult<&str, Color> {
-    let (input, _) = tag_no_case("srgb")(input)?;
-    let (input, _) = space1(input)?;
-    let (input, r) = number_or_percentage(input, 1.0)?;
-    let (input, _) = space1(input)?;
-    let (input, g) = number_or_percentage(input, 1.0)?;
-    let (input, _) = space1(input)?;
-    let (input, b) = number_or_percentage(input, 1.0)?;
-    let (input, alpha) = modern_alpha(input)?;
-    let (input, _) = space0(input)?;
+    fn srgb_components(input: &str) -> IResult<&str, Color> {
+        let (input, r) = number_or_percentage(input, 1.0)?;
+        let (input, _) = space1(input)?;
+        let (input, g) = number_or_percentage(input, 1.0)?;
+        let (input, _) = space1(input)?;
+        let (input, b) = number_or_percentage(input, 1.0)?;
 
-    let c = Color::from_rgba_float(r, g, b, alpha);
+        let c = Color::from_rgb_float(r, g, b);
+        Ok((input, c))
+    }
 
-    Ok((input, c))
+    css_color_function(tag_no_case("srgb"), srgb_components)(input)
 }
 
 fn parse_lin_srgb_color_space(input: &str) -> IResult<&str, Color> {
-    let (input, _) = tag_no_case("srgb-linear")(input)?;
-    let (input, _) = space1(input)?;
-    let (input, r_) = number_or_percentage(input, 1.0)?;
-    let (input, _) = space1(input)?;
-    let (input, g_) = number_or_percentage(input, 1.0)?;
-    let (input, _) = space1(input)?;
-    let (input, b_) = number_or_percentage(input, 1.0)?;
-    let (input, alpha) = modern_alpha(input)?;
-    let (input, _) = space0(input)?;
+    fn lin_srgb_components(input: &str) -> IResult<&str, Color> {
+        let (input, r_) = number_or_percentage(input, 1.0)?;
+        let (input, _) = space1(input)?;
+        let (input, g_) = number_or_percentage(input, 1.0)?;
+        let (input, _) = space1(input)?;
+        let (input, b_) = number_or_percentage(input, 1.0)?;
 
-    let [r, g, b] = gam_srgb([r_, g_, b_]);
-    let c = Color::from_rgba_float(r, g, b, alpha);
+        let [r, g, b] = gam_srgb([r_, g_, b_]);
+        let c = Color::from_rgb_float(r, g, b);
+        Ok((input, c))
+    }
 
-    Ok((input, c))
+    css_color_function(tag_no_case("srgb-linear"), lin_srgb_components)(input)
 }
 
 // CSS Color 4 defines separate D65-adapted (`xyz-d65`, or just `xyz`) and D5-adapted (`xyz-d50`)
 // color spaces.  Currently, `pastel` does not support chromatic adaptation, and only uses the D65
 // illuminant, so we only support the `xyz-d65` color space here.
 fn parse_cie_xyz65_color_space(input: &str) -> IResult<&str, Color> {
-    let (input, _) = alt((tag_no_case("xyz-d65"), tag_no_case("xyz")))(input)?;
-    let (input, _) = space1(input)?;
-    let (input, x) = number_or_percentage(input, 1.0)?;
-    let (input, _) = space1(input)?;
-    let (input, y) = number_or_percentage(input, 1.0)?;
-    let (input, _) = space1(input)?;
-    let (input, z) = number_or_percentage(input, 1.0)?;
-    let (input, alpha) = modern_alpha(input)?;
-    let (input, _) = space0(input)?;
+    fn xyz_components(input: &str) -> IResult<&str, Color> {
+        let (input, x) = number_or_percentage(input, 1.0)?;
+        let (input, _) = space1(input)?;
+        let (input, y) = number_or_percentage(input, 1.0)?;
+        let (input, _) = space1(input)?;
+        let (input, z) = number_or_percentage(input, 1.0)?;
 
-    let c = Color::from_xyz(x, y, z, alpha);
+        let c = Color::from_xyz(x, y, z, 1.0);
+        Ok((input, c))
+    }
 
-    Ok((input, c))
+    let xyz_name = alt((tag_no_case("xyz-d65"), tag_no_case("xyz")));
+    css_color_function(xyz_name, xyz_components)(input)
 }
 
 // The "culori" library uses custom `--lab-d65` and `--lch-d65` color space names, consistent with
@@ -196,42 +214,40 @@ fn parse_cie_xyz65_color_space(input: &str) -> IResult<&str, Color> {
 // for broader compatibility.
 
 fn parse_cie_lab65_color_space(input: &str) -> IResult<&str, Color> {
+    fn lab_components(input: &str) -> IResult<&str, Color> {
+        // Don't allow percentages because 100% = 1.0 for color space components.
+        let (input, l) = double(input)?;
+        let (input, _) = space1(input)?;
+        let (input, a) = double(input)?;
+        let (input, _) = space1(input)?;
+        let (input, b) = double(input)?;
+
+        let c = Color::from_lab(l, a, b, 1.0);
+        Ok((input, c))
+    }
+
     // Custom color space "<dashed-ident>" prefix is optional.
-    let (input, _) = opt(tag("--"))(input)?;
-    let (input, _) = tag_no_case("lab-d65")(input)?;
-    let (input, _) = space1(input)?;
-    // Don't allow percentages because 100% = 1.0 for color space components.
-    let (input, l) = double(input)?;
-    let (input, _) = space1(input)?;
-    let (input, a) = double(input)?;
-    let (input, _) = space1(input)?;
-    let (input, b) = double(input)?;
-    let (input, alpha) = modern_alpha(input)?;
-    let (input, _) = space0(input)?;
-
-    let c = Color::from_lab(l, a, b, alpha);
-
-    Ok((input, c))
+    let lab_name = preceded(opt(tag("--")), tag_no_case("lab-d65"));
+    css_color_function(lab_name, lab_components)(input)
 }
 
 fn parse_cie_lch65_color_space(input: &str) -> IResult<&str, Color> {
+    fn lch_components(input: &str) -> IResult<&str, Color> {
+        // Don't allow percentages because 100% = 1.0 for color space components.
+        let (input, l) = double(input)?;
+        let (input, _) = space1(input)?;
+        let (input, c) = double(input)?;
+        let (input, _) = space1(input)?;
+        // Optional angle units are allowed because they are not ambiguous.
+        let (input, h) = hue_angle(input)?;
+
+        let c = Color::from_lch(l, c, h, 1.0);
+        Ok((input, c))
+    }
+
     // Custom color space "<dashed-ident>" prefix is optional.
-    let (input, _) = opt(tag("--"))(input)?;
-    let (input, _) = tag_no_case("lch-d65")(input)?;
-    let (input, _) = space1(input)?;
-    // Don't allow percentages because 100% = 1.0 for color space components.
-    let (input, l) = double(input)?;
-    let (input, _) = space1(input)?;
-    let (input, c) = double(input)?;
-    let (input, _) = space1(input)?;
-    // Optional angle units are allowed because they are not ambiguous.
-    let (input, h) = hue_angle(input)?;
-    let (input, alpha) = modern_alpha(input)?;
-    let (input, _) = space0(input)?;
-
-    let c = Color::from_lch(l, c, h, alpha);
-
-    Ok((input, c))
+    let lch_name = preceded(opt(tag("--")), tag_no_case("lch-d65"));
+    css_color_function(lch_name, lch_components)(input)
 }
 
 // The "culori" library uses the CSS `color()` function with a custom `--hsv` color space name.
@@ -240,29 +256,29 @@ fn parse_cie_lch65_color_space(input: &str) -> IResult<&str, Color> {
 // of the 0 to 1 values used by `pastel` and "culori".
 
 fn parse_css_hsv_color_space(input: &str) -> IResult<&str, Color> {
-    let (input, _) = opt(tag("--"))(input)?;
-    let (input, _) = tag_no_case("hsv")(input)?;
-    let (input, _) = space1(input)?;
-    // Optional angle units are allowed because they are not ambiguous.
-    let (input, h) = hue_angle(input)?;
-    let (input, _) = space1(input)?;
-    // Percentages can be used with 0 to 1 values.
-    let (input, s) = number_or_percentage(input, 1.0)?;
-    let (input, _) = space1(input)?;
-    let (input, v) = number_or_percentage(input, 1.0)?;
-    let (input, alpha) = modern_alpha(input)?;
-    let (input, _) = space0(input)?;
+    fn hsv_components(input: &str) -> IResult<&str, Color> {
+        // Optional angle units are allowed because they are not ambiguous.
+        let (input, h) = hue_angle(input)?;
+        let (input, _) = space1(input)?;
+        // Percentages can be used with 0 to 1 values.
+        let (input, s) = number_or_percentage(input, 1.0)?;
+        let (input, _) = space1(input)?;
+        let (input, v) = number_or_percentage(input, 1.0)?;
 
-    let c = Color::from_hsva(h, s, v, alpha);
+        let c = Color::from_hsv(h, s, v);
+        Ok((input, c))
+    }
 
-    Ok((input, c))
+    // Custom color space "<dashed-ident>" prefix is optional.
+    let hsv_name = preceded(opt(tag("--")), tag_no_case("hsv"));
+    css_color_function(hsv_name, hsv_components)(input)
 }
 
 pub fn parse_color(input: &str) -> Option<Color> {
     alt((
         parse_rgb_color,
         parse_hsl_color,
-        all_consuming(parse_css_color_fn),
+        parse_css_color_fn,
         parse_hsv_color,
         parse_hwb_color,
         all_consuming(parse_gray),
