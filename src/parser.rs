@@ -1,7 +1,7 @@
 use nom::branch::alt;
-use nom::bytes::complete::*;
-use nom::character::complete::*;
-use nom::combinator::*;
+use nom::bytes::complete::{tag, tag_no_case};
+use nom::character::complete::{alpha1, char, space0, space1};
+use nom::combinator::{all_consuming, opt, verify};
 use nom::number::complete::double;
 use nom::sequence::{delimited, preceded};
 use nom::Parser;
