@@ -12,9 +12,13 @@ use nom::{
 
 use crate::{
     colorspace::ColorSpace,
+    convert::gam_srgb,
     helper::{clamp, interpolate, mod_positive, MaxPrecision},
     hsl::HSLA,
-    parser::{legacy_alpha, legacy_separator, modern_alpha, percentage},
+    parser::{
+        css_color_function, legacy_alpha, legacy_separator, modern_alpha, number_or_percentage,
+        percentage,
+    },
     types::Scalar,
     Color, Format, Fraction,
 };
@@ -247,6 +251,8 @@ pub(crate) fn parse_rgb_color(input: &str) -> IResult<&str, Color> {
         all_consuming(parse_css_percentage_rgb),
         all_consuming(parse_numeric_rgb),
         all_consuming(parse_percentage_rgb),
+        all_consuming(parse_srgb_color_space),
+        all_consuming(parse_srgb_linear_color_space),
     ))(input.trim())
 }
 
@@ -374,6 +380,37 @@ fn parse_css_percentage_rgb(input: &str) -> IResult<&str, Color> {
 
     let c = Color::from_rgba_float(r, g, b, alpha);
     Ok((input, c))
+}
+
+fn parse_srgb_color_space(input: &str) -> IResult<&str, Color> {
+    fn srgb_components(input: &str) -> IResult<&str, Color> {
+        let (input, r) = number_or_percentage(input, 1.0)?;
+        let (input, _) = space1(input)?;
+        let (input, g) = number_or_percentage(input, 1.0)?;
+        let (input, _) = space1(input)?;
+        let (input, b) = number_or_percentage(input, 1.0)?;
+
+        let c = Color::from_rgb_float(r, g, b);
+        Ok((input, c))
+    }
+
+    css_color_function(tag_no_case("srgb"), srgb_components)(input)
+}
+
+fn parse_srgb_linear_color_space(input: &str) -> IResult<&str, Color> {
+    fn lin_srgb_components(input: &str) -> IResult<&str, Color> {
+        let (input, r_) = number_or_percentage(input, 1.0)?;
+        let (input, _) = space1(input)?;
+        let (input, g_) = number_or_percentage(input, 1.0)?;
+        let (input, _) = space1(input)?;
+        let (input, b_) = number_or_percentage(input, 1.0)?;
+
+        let [r, g, b] = gam_srgb([r_, g_, b_]);
+        let c = Color::from_rgb_float(r, g, b);
+        Ok((input, c))
+    }
+
+    css_color_function(tag_no_case("srgb-linear"), lin_srgb_components)(input)
 }
 
 #[cfg(test)]
@@ -693,5 +730,186 @@ mod tests {
         assert_eq!(Some(rgb(255, 0, 153)), parse_color("255 0 153.0"));
 
         assert_eq!(Some(rgb(1, 2, 3)), parse_color("1,2,3"));
+    }
+
+    #[test]
+    fn parse_srgb_color_space_syntax() {
+        assert_eq!(Some(rgb(255, 0, 153)), parse_color("color(srgb 1 0 0.6)"));
+        assert_eq!(Some(rgb(255, 0, 153)), parse_color("color(srgb 1.0 0 0.6)"));
+        assert_eq!(Some(rgb(255, 0, 119)), parse_color("color(srgb 1 0 0.467)"));
+
+        assert_eq!(
+            Some(rgb(255, 0, 127)),
+            parse_color("color(srgb 100% 0% 49.8%)")
+        );
+        assert_eq!(
+            Some(rgb(255, 0, 153)),
+            parse_color("color(srgb 100% 0% 60%)")
+        );
+        assert_eq!(
+            Some(rgb(255, 0, 119)),
+            parse_color("color(srgb 100% 0% 46.7%)")
+        );
+        assert_eq!(
+            Some(rgb(3, 54, 119)),
+            parse_color("color(srgb 1% 21.2% 46.7%)")
+        );
+        assert_eq!(
+            Some(rgb(140, 0, 153)),
+            parse_color("color(srgb 55% 0% 60%)")
+        );
+        assert_eq!(
+            Some(rgb(142, 0, 153)),
+            parse_color("color(srgb 55.5% 0% 60%)")
+        );
+
+        // numbers and percentages can be mixed
+        assert_eq!(Some(rgb(140, 0, 153)), parse_color("color(srgb 55% 0 0.6)"));
+
+        assert_eq!(
+            Some(rgb(255, 0, 153)),
+            parse_color("color(srgb  1  0  0.6 )")
+        );
+        assert_eq!(
+            Some(rgb(255, 0, 153)),
+            parse_color("color(srgb  100%   0%  60% )")
+        );
+        assert_eq!(
+            Some(rgb(255, 8, 119)),
+            parse_color("  color(srgb 1    0.031    0.467 )  ")
+        );
+        assert_eq!(
+            Some(rgb(255, 0, 153)),
+            parse_color("color(   srgb   1 0 0.6)")
+        );
+
+        assert_eq!(Some(rgb(255, 0, 0)), parse_color("color(srgb 1.1 0 0)"));
+        assert_eq!(
+            Some(rgb(255, 255, 0)),
+            parse_color("color(srgb 100% 100% -45%)")
+        );
+
+        // color space name is case-insensitive
+        assert_eq!(Some(rgb(255, 0, 153)), parse_color("color(SRGB 1 0 0.6)"));
+        assert_eq!(Some(rgb(255, 0, 153)), parse_color("color(sRgb 1 0 0.6)"));
+
+        // alpha is supported
+        assert_eq!(
+            Some(rgba(255, 0, 153, 0.9)),
+            parse_color("color(srgb 1 0 0.6 / 0.9)")
+        );
+        assert_eq!(
+            Some(rgba(255, 0, 153, 0.9)),
+            parse_color("color(srgb 1 0 0.6 / 90%)")
+        );
+
+        assert_eq!(None, parse_color("color(srgb 1 0)"));
+        assert_eq!(None, parse_color("color(srgb 1 0 0 1)"));
+        assert_eq!(None, parse_color("color(srgb 1 0 0"));
+        assert_eq!(None, parse_color("color (srgb 1.01 0 0)"));
+        assert_eq!(None, parse_color("color(srgb 2550119)"));
+        // comma separators not allowed
+        assert_eq!(None, parse_color("color(srgb 0.3, 0.5, 0.7)"));
+    }
+
+    #[test]
+    fn parse_lin_srgb_color_space_syntax() {
+        assert_eq!(
+            Some(rgb(255, 0, 153)),
+            parse_color("color(srgb-linear 1 0 0.31855)")
+        );
+        assert_eq!(
+            Some(rgb(255, 0, 153)),
+            parse_color("color(srgb-linear 1.0 0 0.31855)")
+        );
+        assert_eq!(
+            Some(rgb(255, 0, 119)),
+            parse_color("color(srgb-linear 1 0 0.18447)")
+        );
+
+        assert_eq!(
+            Some(rgb(255, 0, 127)),
+            parse_color("color(srgb-linear 100% 0% 21.223%)")
+        );
+        assert_eq!(
+            Some(rgb(255, 0, 153)),
+            parse_color("color(srgb-linear 100% 0% 31.855%)")
+        );
+        assert_eq!(
+            Some(rgb(255, 0, 119)),
+            parse_color("color(srgb-linear 100% 0% 18.447%)")
+        );
+        assert_eq!(
+            Some(rgb(3, 54, 119)),
+            parse_color("color(srgb-linear 0.09106% 3.6889% 18.447%)")
+        );
+        assert_eq!(
+            Some(rgb(140, 0, 153)),
+            parse_color("color(srgb-linear 26.225% 0% 31.855%)")
+        );
+        assert_eq!(
+            Some(rgb(142, 0, 153)),
+            parse_color("color(srgb-linear 27.05% 0% 31.855%)")
+        );
+
+        // numbers and percentages can be mixed
+        assert_eq!(
+            Some(rgb(140, 0, 153)),
+            parse_color("color(srgb-linear 26.225% 0 0.31855)")
+        );
+
+        assert_eq!(
+            Some(rgb(255, 0, 153)),
+            parse_color("color(srgb-linear  1  0  0.31855 )")
+        );
+        assert_eq!(
+            Some(rgb(255, 0, 153)),
+            parse_color("color(srgb-linear  100%   0%  31.855% )")
+        );
+        assert_eq!(
+            Some(rgb(255, 8, 119)),
+            parse_color("  color(srgb-linear 1    0.0024282    0.18447 )  ")
+        );
+        assert_eq!(
+            Some(rgb(255, 0, 153)),
+            parse_color("color(   srgb-linear   1 0 0.31855)")
+        );
+
+        assert_eq!(
+            Some(rgb(255, 0, 0)),
+            parse_color("color(srgb-linear 1.1 0 0)")
+        );
+        assert_eq!(
+            Some(rgb(255, 255, 0)),
+            parse_color("color(srgb-linear 100% 100% -45%)")
+        );
+
+        // color space name is case-insensitive
+        assert_eq!(
+            Some(rgb(255, 0, 153)),
+            parse_color("color(SRGB-linear 1 0 0.31855)")
+        );
+        assert_eq!(
+            Some(rgb(255, 0, 153)),
+            parse_color("color(sRgb-Linear 1 0 0.31855)")
+        );
+
+        // alpha is supported
+        assert_eq!(
+            Some(rgba(255, 0, 153, 0.9)),
+            parse_color("color(srgb-linear 1 0 0.31855 / 0.9)")
+        );
+        assert_eq!(
+            Some(rgba(255, 0, 153, 0.9)),
+            parse_color("color(srgb-linear 1 0 0.31855 / 90%)")
+        );
+
+        assert_eq!(None, parse_color("color(srgb-linear 1 0)"));
+        assert_eq!(None, parse_color("color(srgb-linear 1 0 0 1)"));
+        assert_eq!(None, parse_color("color(srgb-linear 1 0 0"));
+        assert_eq!(None, parse_color("color (srgb 1.01 0 0)"));
+        assert_eq!(None, parse_color("color(srgb-linear 2550119)"));
+        // comma separators not allowed
+        assert_eq!(None, parse_color("color(srgb-linear 0.3, 0.5, 0.7)"));
     }
 }

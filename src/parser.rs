@@ -11,10 +11,10 @@ use nom::{
 };
 
 use crate::{
-    cmyk::parse_cmyk_color, convert::gam_srgb, hsl::parse_hsl_color, hsv::parse_hsv_color,
-    hwb::parse_hwb_color, lab::parse_lab_color, lch::parse_lch_color, named::NAMED_COLORS,
-    rgb::parse_rgb_color, Color,
+    cmyk::parse_cmyk_color, hsl::parse_hsl_color, hsv::parse_hsv_color, hwb::parse_hwb_color,
+    lab::parse_lab_color, lch::parse_lch_color, rgb::parse_rgb_color,
 };
+use crate::{named::NAMED_COLORS, Color};
 
 fn comma_separator(input: &str) -> IResult<&str, &str> {
     let (input, _) = space0(input)?;
@@ -148,44 +148,10 @@ where
 
 fn parse_css_color_fn(input: &str) -> IResult<&str, Color> {
     alt((
-        all_consuming(parse_srgb_color_space),
-        all_consuming(parse_lin_srgb_color_space),
         all_consuming(parse_cie_xyz65_color_space),
         all_consuming(parse_cie_lab65_color_space),
         all_consuming(parse_cie_lch65_color_space),
-        all_consuming(parse_css_hsv_color_space),
     ))(input.trim())
-}
-
-fn parse_srgb_color_space(input: &str) -> IResult<&str, Color> {
-    fn srgb_components(input: &str) -> IResult<&str, Color> {
-        let (input, r) = number_or_percentage(input, 1.0)?;
-        let (input, _) = space1(input)?;
-        let (input, g) = number_or_percentage(input, 1.0)?;
-        let (input, _) = space1(input)?;
-        let (input, b) = number_or_percentage(input, 1.0)?;
-
-        let c = Color::from_rgb_float(r, g, b);
-        Ok((input, c))
-    }
-
-    css_color_function(tag_no_case("srgb"), srgb_components)(input)
-}
-
-fn parse_lin_srgb_color_space(input: &str) -> IResult<&str, Color> {
-    fn lin_srgb_components(input: &str) -> IResult<&str, Color> {
-        let (input, r_) = number_or_percentage(input, 1.0)?;
-        let (input, _) = space1(input)?;
-        let (input, g_) = number_or_percentage(input, 1.0)?;
-        let (input, _) = space1(input)?;
-        let (input, b_) = number_or_percentage(input, 1.0)?;
-
-        let [r, g, b] = gam_srgb([r_, g_, b_]);
-        let c = Color::from_rgb_float(r, g, b);
-        Ok((input, c))
-    }
-
-    css_color_function(tag_no_case("srgb-linear"), lin_srgb_components)(input)
 }
 
 // CSS Color 4 defines separate D65-adapted (`xyz-d65`, or just `xyz`) and D5-adapted (`xyz-d50`)
@@ -248,30 +214,6 @@ fn parse_cie_lch65_color_space(input: &str) -> IResult<&str, Color> {
     // Custom color space "<dashed-ident>" prefix is optional.
     let lch_name = preceded(opt(tag("--")), tag_no_case("lch-d65"));
     css_color_function(lch_name, lch_components)(input)
-}
-
-// The "culori" library uses the CSS `color()` function with a custom `--hsv` color space name.
-// The "color.js" library also uses a custom color space, but unfortunately it is incompatible
-// (at least as of v0.4.5) because it uses S and V component values in the 0 to 100 range instead
-// of the 0 to 1 values used by `pastel` and "culori".
-
-fn parse_css_hsv_color_space(input: &str) -> IResult<&str, Color> {
-    fn hsv_components(input: &str) -> IResult<&str, Color> {
-        // Optional angle units are allowed because they are not ambiguous.
-        let (input, h) = hue_angle(input)?;
-        let (input, _) = space1(input)?;
-        // Percentages can be used with 0 to 1 values.
-        let (input, s) = number_or_percentage(input, 1.0)?;
-        let (input, _) = space1(input)?;
-        let (input, v) = number_or_percentage(input, 1.0)?;
-
-        let c = Color::from_hsv(h, s, v);
-        Ok((input, c))
-    }
-
-    // Custom color space "<dashed-ident>" prefix is optional.
-    let hsv_name = preceded(opt(tag("--")), tag_no_case("hsv"));
-    css_color_function(hsv_name, hsv_components)(input)
 }
 
 pub fn parse_color(input: &str) -> Option<Color> {
@@ -457,184 +399,21 @@ fn parse_named_syntax() {
 }
 
 #[test]
-fn parse_srgb_color_space_syntax() {
+fn parse_color_srgb_string() {
     assert_eq!(Some(rgb(255, 0, 153)), parse_color("color(srgb 1 0 0.6)"));
-    assert_eq!(Some(rgb(255, 0, 153)), parse_color("color(srgb 1.0 0 0.6)"));
-    assert_eq!(Some(rgb(255, 0, 119)), parse_color("color(srgb 1 0 0.467)"));
-
-    assert_eq!(
-        Some(rgb(255, 0, 127)),
-        parse_color("color(srgb 100% 0% 49.8%)")
-    );
-    assert_eq!(
-        Some(rgb(255, 0, 153)),
-        parse_color("color(srgb 100% 0% 60%)")
-    );
-    assert_eq!(
-        Some(rgb(255, 0, 119)),
-        parse_color("color(srgb 100% 0% 46.7%)")
-    );
-    assert_eq!(
-        Some(rgb(3, 54, 119)),
-        parse_color("color(srgb 1% 21.2% 46.7%)")
-    );
-    assert_eq!(
-        Some(rgb(140, 0, 153)),
-        parse_color("color(srgb 55% 0% 60%)")
-    );
-    assert_eq!(
-        Some(rgb(142, 0, 153)),
-        parse_color("color(srgb 55.5% 0% 60%)")
-    );
-
-    // numbers and percentages can be mixed
-    assert_eq!(Some(rgb(140, 0, 153)), parse_color("color(srgb 55% 0 0.6)"));
-
-    assert_eq!(
-        Some(rgb(255, 0, 153)),
-        parse_color("color(srgb  1  0  0.6 )")
-    );
-    assert_eq!(
-        Some(rgb(255, 0, 153)),
-        parse_color("color(srgb  100%   0%  60% )")
-    );
-    assert_eq!(
-        Some(rgb(255, 8, 119)),
-        parse_color("  color(srgb 1    0.031    0.467 )  ")
-    );
-    assert_eq!(
-        Some(rgb(255, 0, 153)),
-        parse_color("color(   srgb   1 0 0.6)")
-    );
-
-    assert_eq!(Some(rgb(255, 0, 0)), parse_color("color(srgb 1.1 0 0)"));
-    assert_eq!(
-        Some(rgb(255, 255, 0)),
-        parse_color("color(srgb 100% 100% -45%)")
-    );
-
-    // color space name is case-insensitive
-    assert_eq!(Some(rgb(255, 0, 153)), parse_color("color(SRGB 1 0 0.6)"));
-    assert_eq!(Some(rgb(255, 0, 153)), parse_color("color(sRgb 1 0 0.6)"));
-
-    // alpha is supported
     assert_eq!(
         Some(rgba(255, 0, 153, 0.9)),
         parse_color("color(srgb 1 0 0.6 / 0.9)")
     );
-    assert_eq!(
-        Some(rgba(255, 0, 153, 0.9)),
-        parse_color("color(srgb 1 0 0.6 / 90%)")
-    );
 
-    assert_eq!(None, parse_color("color(srgb 1 0)"));
-    assert_eq!(None, parse_color("color(srgb 1 0 0 1)"));
-    assert_eq!(None, parse_color("color(srgb 1 0 0"));
-    assert_eq!(None, parse_color("color (srgb 1.01 0 0)"));
-    assert_eq!(None, parse_color("color(srgb 2550119)"));
-    // comma separators not allowed
-    assert_eq!(None, parse_color("color(srgb 0.3, 0.5, 0.7)"));
-}
-
-#[test]
-fn parse_lin_srgb_color_space_syntax() {
     assert_eq!(
         Some(rgb(255, 0, 153)),
         parse_color("color(srgb-linear 1 0 0.31855)")
     );
     assert_eq!(
-        Some(rgb(255, 0, 153)),
-        parse_color("color(srgb-linear 1.0 0 0.31855)")
-    );
-    assert_eq!(
-        Some(rgb(255, 0, 119)),
-        parse_color("color(srgb-linear 1 0 0.18447)")
-    );
-
-    assert_eq!(
-        Some(rgb(255, 0, 127)),
-        parse_color("color(srgb-linear 100% 0% 21.223%)")
-    );
-    assert_eq!(
-        Some(rgb(255, 0, 153)),
-        parse_color("color(srgb-linear 100% 0% 31.855%)")
-    );
-    assert_eq!(
-        Some(rgb(255, 0, 119)),
-        parse_color("color(srgb-linear 100% 0% 18.447%)")
-    );
-    assert_eq!(
-        Some(rgb(3, 54, 119)),
-        parse_color("color(srgb-linear 0.09106% 3.6889% 18.447%)")
-    );
-    assert_eq!(
-        Some(rgb(140, 0, 153)),
-        parse_color("color(srgb-linear 26.225% 0% 31.855%)")
-    );
-    assert_eq!(
-        Some(rgb(142, 0, 153)),
-        parse_color("color(srgb-linear 27.05% 0% 31.855%)")
-    );
-
-    // numbers and percentages can be mixed
-    assert_eq!(
-        Some(rgb(140, 0, 153)),
-        parse_color("color(srgb-linear 26.225% 0 0.31855)")
-    );
-
-    assert_eq!(
-        Some(rgb(255, 0, 153)),
-        parse_color("color(srgb-linear  1  0  0.31855 )")
-    );
-    assert_eq!(
-        Some(rgb(255, 0, 153)),
-        parse_color("color(srgb-linear  100%   0%  31.855% )")
-    );
-    assert_eq!(
-        Some(rgb(255, 8, 119)),
-        parse_color("  color(srgb-linear 1    0.0024282    0.18447 )  ")
-    );
-    assert_eq!(
-        Some(rgb(255, 0, 153)),
-        parse_color("color(   srgb-linear   1 0 0.31855)")
-    );
-
-    assert_eq!(
-        Some(rgb(255, 0, 0)),
-        parse_color("color(srgb-linear 1.1 0 0)")
-    );
-    assert_eq!(
-        Some(rgb(255, 255, 0)),
-        parse_color("color(srgb-linear 100% 100% -45%)")
-    );
-
-    // color space name is case-insensitive
-    assert_eq!(
-        Some(rgb(255, 0, 153)),
-        parse_color("color(SRGB-linear 1 0 0.31855)")
-    );
-    assert_eq!(
-        Some(rgb(255, 0, 153)),
-        parse_color("color(sRgb-Linear 1 0 0.31855)")
-    );
-
-    // alpha is supported
-    assert_eq!(
         Some(rgba(255, 0, 153, 0.9)),
         parse_color("color(srgb-linear 1 0 0.31855 / 0.9)")
     );
-    assert_eq!(
-        Some(rgba(255, 0, 153, 0.9)),
-        parse_color("color(srgb-linear 1 0 0.31855 / 90%)")
-    );
-
-    assert_eq!(None, parse_color("color(srgb-linear 1 0)"));
-    assert_eq!(None, parse_color("color(srgb-linear 1 0 0 1)"));
-    assert_eq!(None, parse_color("color(srgb-linear 1 0 0"));
-    assert_eq!(None, parse_color("color (srgb 1.01 0 0)"));
-    assert_eq!(None, parse_color("color(srgb-linear 2550119)"));
-    // comma separators not allowed
-    assert_eq!(None, parse_color("color(srgb-linear 0.3, 0.5, 0.7)"));
 }
 
 #[test]
@@ -864,113 +643,15 @@ fn parse_lch65_color_space_syntax() {
 }
 
 #[test]
-fn parse_css_hsv_color_space_syntax() {
+fn parse_color_hsv_string() {
     assert_eq!(
         Some(Color::from_hsv(280.0, 0.2, 0.5)),
         parse_color("color(hsv 280 20% 50%)")
     );
     assert_eq!(
-        Some(Color::from_hsv(280.33, 0.123, 0.456)),
-        parse_color("color(hsv 280.33 12.3% 45.6%)")
-    );
-    assert_eq!(
-        Some(Color::from_hsv(270.0, 0.6, 0.7)),
-        parse_color("color(hsv 270 60% 70%)")
-    );
-    assert_eq!(
-        Some(Color::from_hsv(-140.0, 0.2, 0.5)),
-        parse_color("color(hsv -140 20% 50%)")
-    );
-    assert_eq!(
-        Some(Color::from_hsv(220.0, 0.2, 0.5)),
-        parse_color("color(hsv -140 20% 50%)")
-    );
-
-    // S and V can be numbers in the range 0 to 1
-    assert_eq!(
-        Some(Color::from_hsv(280.0, 0.2, 0.5)),
-        parse_color("color(hsv 280 0.2 0.5)")
-    );
-    // numbers and percentages can be mixed
-    assert_eq!(
-        Some(Color::from_hsv(280.0, 0.2, 0.5)),
-        parse_color("color(hsv 280 20% 0.5)")
-    );
-
-    // hue angle unit identifiers are supported
-    assert_eq!(
-        Some(Color::from_hsv(280.0, 0.2, 0.5)),
-        parse_color("color(hsv 280deg 20% 50%)")
-    );
-    assert_eq!(
-        Some(Color::from_hsv(90.0, 0.2, 0.5)),
-        parse_color("color(hsv 100grad 20% 50%)")
-    );
-    assert_eq!(
-        Some(Color::from_hsv(90.05, 0.2, 0.5)),
-        parse_color("color(hsv 1.5708rad 20% 50%)")
-    );
-    assert_eq!(
-        Some(Color::from_hsv(90.0, 0.2, 0.5)),
-        parse_color("color(hsv 0.25turn 20% 50%)")
-    );
-    assert_eq!(
-        Some(Color::from_hsv(45.0, 0.2, 0.5)),
-        parse_color("color(hsv 50grad 20% 50%)")
-    );
-    assert_eq!(
-        Some(Color::from_hsv(45.0, 0.2, 0.5)),
-        parse_color("color(hsv 0.7854rad 20% 50%)")
-    );
-    assert_eq!(
-        Some(Color::from_hsv(45.0, 0.2, 0.5)),
-        parse_color("color(hsv 0.125turn 20% 50%)")
-    );
-
-    // `--hsv` is equivalent to `hsv`
-    assert_eq!(
-        Some(Color::from_hsv(280.0, 0.2, 0.5)),
-        parse_color("color(--hsv 280 20% 50%)")
-    );
-
-    // color space name is case-insensitive
-    assert_eq!(
-        Some(Color::from_hsv(280.0, 0.2, 0.5)),
-        parse_color("color(HSV 280 20% 50%)")
-    );
-
-    // alpha value is supported as a number or percentage
-    assert_eq!(
         Some(Color::from_hsva(280.0, 0.2, 0.5, 0.5)),
         parse_color("color(hsv 280 20% 50% / 0.5)")
     );
-    assert_eq!(
-        Some(Color::from_hsva(280.0, 0.2, 0.5, 0.75)),
-        parse_color("color(hsv 280 20% 50% / 75%)")
-    );
-
-    // extra spaces are allowed
-    assert_eq!(
-        Some(Color::from_hsv(280.0, 0.2, 0.5)),
-        parse_color("color(hsv   280   20%   50%)")
-    );
-    assert_eq!(
-        Some(Color::from_hsva(280.0, 0.2, 0.5, 0.6)),
-        parse_color("color(hsv     280   20%    50%      /0.6  )")
-    );
-    assert_eq!(
-        Some(Color::from_hsva(280.0, 0.2, 0.5, 0.7)),
-        parse_color("color(   hsv 280 20% 50%/    70%)")
-    );
-
-    // hue angle cannot be a percentage
-    assert_eq!(None, parse_color("color(hsv 280% 20% 50%)"));
-    // not enough parameters
-    assert_eq!(None, parse_color("color(hsv 280 20%)"));
-    // too many parameters
-    assert_eq!(None, parse_color("color(hsv 280 20% 50% 0.75)"));
-    // comma separators not allowed
-    assert_eq!(None, parse_color("color(hsv 280, 20%, 50%)"));
 }
 
 #[test]

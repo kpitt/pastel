@@ -4,7 +4,8 @@ use nom::{
     branch::alt,
     bytes::complete::{tag, tag_no_case},
     character::complete::{char, space0, space1},
-    combinator::all_consuming,
+    combinator::{all_consuming, opt},
+    sequence::preceded,
     IResult,
 };
 
@@ -12,7 +13,8 @@ use crate::{
     colorspace::ColorSpace,
     helper::{clamp, interpolate, interpolate_angle, MaxPrecision},
     parser::{
-        hue_angle, legacy_alpha, legacy_separator, modern_alpha, number_or_percentage, percentage,
+        css_color_function, hue_angle, legacy_alpha, legacy_separator, modern_alpha,
+        number_or_percentage, percentage,
     },
     types::{Hue, Scalar},
     Color, Format, Fraction,
@@ -136,6 +138,7 @@ pub(crate) fn parse_hsv_color(input: &str) -> IResult<&str, Color> {
     alt((
         all_consuming(parse_css_hsv),
         all_consuming(parse_legacy_hsv),
+        all_consuming(parse_hsv_color_space),
     ))(input.trim())
 }
 
@@ -173,6 +176,30 @@ fn parse_css_hsv(input: &str) -> IResult<&str, Color> {
 
     let c = Color::from_hsva(h, s, v, alpha);
     Ok((input, c))
+}
+
+// The "culori" library uses the CSS `color()` function with a custom `--hsv` color space name.
+// The "color.js" library also uses a custom color space, but unfortunately it is incompatible
+// (at least as of v0.4.5) because it uses S and V component values in the 0 to 100 range instead
+// of the 0 to 1 values used by `pastel` and "culori".
+
+fn parse_hsv_color_space(input: &str) -> IResult<&str, Color> {
+    fn hsv_components(input: &str) -> IResult<&str, Color> {
+        // Optional angle units are allowed because they are not ambiguous.
+        let (input, h) = hue_angle(input)?;
+        let (input, _) = space1(input)?;
+        // Percentages can be used with 0 to 1 values.
+        let (input, s) = number_or_percentage(input, 1.0)?;
+        let (input, _) = space1(input)?;
+        let (input, v) = number_or_percentage(input, 1.0)?;
+
+        let c = Color::from_hsv(h, s, v);
+        Ok((input, c))
+    }
+
+    // Custom color space "<dashed-ident>" prefix is optional.
+    let hsv_name = preceded(opt(tag("--")), tag_no_case("hsv"));
+    css_color_function(hsv_name, hsv_components)(input)
 }
 
 #[cfg(test)]
@@ -367,5 +394,115 @@ mod tests {
         // comma separators not allowed
         // (the following produces a valid color due to legacy syntax)
         // assert_eq!(None, parse_color("hsv(280, 20%, 50%)"));
+    }
+
+    #[test]
+    fn parse_css_hsv_color_space_syntax() {
+        assert_eq!(
+            Some(Color::from_hsv(280.0, 0.2, 0.5)),
+            parse_color("color(hsv 280 20% 50%)")
+        );
+        assert_eq!(
+            Some(Color::from_hsv(280.33, 0.123, 0.456)),
+            parse_color("color(hsv 280.33 12.3% 45.6%)")
+        );
+        assert_eq!(
+            Some(Color::from_hsv(270.0, 0.6, 0.7)),
+            parse_color("color(hsv 270 60% 70%)")
+        );
+        assert_eq!(
+            Some(Color::from_hsv(-140.0, 0.2, 0.5)),
+            parse_color("color(hsv -140 20% 50%)")
+        );
+        assert_eq!(
+            Some(Color::from_hsv(220.0, 0.2, 0.5)),
+            parse_color("color(hsv -140 20% 50%)")
+        );
+
+        // S and V can be numbers in the range 0 to 1
+        assert_eq!(
+            Some(Color::from_hsv(280.0, 0.2, 0.5)),
+            parse_color("color(hsv 280 0.2 0.5)")
+        );
+        // numbers and percentages can be mixed
+        assert_eq!(
+            Some(Color::from_hsv(280.0, 0.2, 0.5)),
+            parse_color("color(hsv 280 20% 0.5)")
+        );
+
+        // hue angle unit identifiers are supported
+        assert_eq!(
+            Some(Color::from_hsv(280.0, 0.2, 0.5)),
+            parse_color("color(hsv 280deg 20% 50%)")
+        );
+        assert_eq!(
+            Some(Color::from_hsv(90.0, 0.2, 0.5)),
+            parse_color("color(hsv 100grad 20% 50%)")
+        );
+        assert_eq!(
+            Some(Color::from_hsv(90.05, 0.2, 0.5)),
+            parse_color("color(hsv 1.5708rad 20% 50%)")
+        );
+        assert_eq!(
+            Some(Color::from_hsv(90.0, 0.2, 0.5)),
+            parse_color("color(hsv 0.25turn 20% 50%)")
+        );
+        assert_eq!(
+            Some(Color::from_hsv(45.0, 0.2, 0.5)),
+            parse_color("color(hsv 50grad 20% 50%)")
+        );
+        assert_eq!(
+            Some(Color::from_hsv(45.0, 0.2, 0.5)),
+            parse_color("color(hsv 0.7854rad 20% 50%)")
+        );
+        assert_eq!(
+            Some(Color::from_hsv(45.0, 0.2, 0.5)),
+            parse_color("color(hsv 0.125turn 20% 50%)")
+        );
+
+        // `--hsv` is equivalent to `hsv`
+        assert_eq!(
+            Some(Color::from_hsv(280.0, 0.2, 0.5)),
+            parse_color("color(--hsv 280 20% 50%)")
+        );
+
+        // color space name is case-insensitive
+        assert_eq!(
+            Some(Color::from_hsv(280.0, 0.2, 0.5)),
+            parse_color("color(HSV 280 20% 50%)")
+        );
+
+        // alpha value is supported as a number or percentage
+        assert_eq!(
+            Some(Color::from_hsva(280.0, 0.2, 0.5, 0.5)),
+            parse_color("color(hsv 280 20% 50% / 0.5)")
+        );
+        assert_eq!(
+            Some(Color::from_hsva(280.0, 0.2, 0.5, 0.75)),
+            parse_color("color(hsv 280 20% 50% / 75%)")
+        );
+
+        // extra spaces are allowed
+        assert_eq!(
+            Some(Color::from_hsv(280.0, 0.2, 0.5)),
+            parse_color("color(hsv   280   20%   50%)")
+        );
+        assert_eq!(
+            Some(Color::from_hsva(280.0, 0.2, 0.5, 0.6)),
+            parse_color("color(hsv     280   20%    50%      /0.6  )")
+        );
+        assert_eq!(
+            Some(Color::from_hsva(280.0, 0.2, 0.5, 0.7)),
+            parse_color("color(   hsv 280 20% 50%/    70%)")
+        );
+
+        // hue angle cannot be a percentage
+        assert_eq!(None, parse_color("color(hsv 280% 20% 50%)"));
+        // not enough parameters
+        assert_eq!(None, parse_color("color(hsv 280 20%)"));
+        // too many parameters
+        assert_eq!(None, parse_color("color(hsv 280 20% 50% 0.75)"));
+        // comma separators not allowed
+        assert_eq!(None, parse_color("color(hsv 280, 20%, 50%)"));
     }
 }
