@@ -170,6 +170,12 @@ impl<T> RGBA<T> {
 }
 
 impl RGBA<u8> {
+    /// Return the color as an integer in RGB representation (`0xRRGGBB`)
+    #[inline]
+    pub fn to_u32(&self) -> u32 {
+        u32::from(self.r).wrapping_shl(16) + u32::from(self.g).wrapping_shl(8) + u32::from(self.b)
+    }
+
     /// Format the color as a RGB-representation string (`rgba(255, 127, 0, 0.5)`). If the alpha
     /// channel is `1.0`, the simplified `rgb()` format will be used instead.
     pub fn to_color_string(&self, format: Format) -> String {
@@ -463,6 +469,17 @@ mod tests {
         for degree in 0..360 {
             roundtrip(Scalar::from(degree), 0.5, 0.8);
         }
+    }
+
+    #[test]
+    fn rgb_to_u32_conversion() {
+        assert_eq!(0, rgb(0, 0, 0).to_u32());
+        assert_eq!(0xff0000, rgb(255, 0, 0).to_u32());
+        assert_eq!(0xffff00, Color::yellow().to_u32());
+        assert_eq!(0xff00ff, Color::fuchsia().to_u32());
+        assert_eq!(0x00ffff, Color::aqua().to_u32());
+        assert_eq!(0xffffff, rgb(255, 255, 255).to_u32());
+        assert_eq!(0xf4230f, rgb(0xf4, 0x23, 0x0f).to_u32());
     }
 
     #[test]

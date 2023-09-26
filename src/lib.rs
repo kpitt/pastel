@@ -280,9 +280,9 @@ impl Color {
     }
 
     /// Return the color as an integer in RGB representation (`0xRRGGBB`)
+    #[inline]
     pub fn to_u32(&self) -> u32 {
-        let rgba = self.to_rgba();
-        u32::from(rgba.r).wrapping_shl(16) + u32::from(rgba.g).wrapping_shl(8) + u32::from(rgba.b)
+        self.to_rgba().to_u32()
     }
 
     /// Get XYZ coordinates according to the CIE 1931 color space.
@@ -822,10 +822,7 @@ mod tests {
 
     #[test]
     fn to_u32() {
-        assert_eq!(0, Color::black().to_u32());
-        assert_eq!(0xff0000, Color::red().to_u32());
-        assert_eq!(0xffffff, Color::white().to_u32());
-        assert_eq!(0xf4230f, Color::from_rgb(0xf4, 0x23, 0x0f).to_u32());
+        assert_eq!(0xff00ff, Color::fuchsia().to_u32());
     }
 
     #[test]
