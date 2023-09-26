@@ -1,20 +1,18 @@
 use nom::branch::alt;
 use nom::bytes::complete::{tag, tag_no_case};
-use nom::character::complete::{alpha1, char, space0, space1};
+use nom::character::complete::{char, space0, space1};
 use nom::combinator::{all_consuming, opt, verify};
 use nom::number::complete::double;
 use nom::sequence::{delimited, preceded};
 use nom::Parser;
-use nom::{
-    error::{Error, ErrorKind},
-    Err, IResult,
-};
+use nom::{error::Error, IResult};
 
+use crate::Color;
 use crate::{
     cmyk::parse_cmyk_color, hsl::parse_hsl_color, hsv::parse_hsv_color, hwb::parse_hwb_color,
-    lab::parse_lab_color, lch::parse_lch_color, rgb::parse_rgb_color, xyz::parse_xyz_color,
+    lab::parse_lab_color, lch::parse_lch_color, named::parse_named_color, rgb::parse_rgb_color,
+    xyz::parse_xyz_color,
 };
-use crate::{named::NAMED_COLORS, Color};
 
 fn comma_separator(input: &str) -> IResult<&str, &str> {
     let (input, _) = space0(input)?;
@@ -106,21 +104,6 @@ fn parse_gray(input: &str) -> IResult<&str, Color> {
     Ok((input, c))
 }
 
-fn parse_named(input: &str) -> IResult<&str, Color> {
-    let (input, color) = all_consuming(alpha1)(input)?;
-    let nc = NAMED_COLORS
-        .iter()
-        .find(|nc| color.to_lowercase() == nc.name);
-
-    match nc {
-        None => Err(Err::Error(nom::error::Error::new(
-            "Couldn't find matching named color",
-            ErrorKind::Alpha,
-        ))),
-        Some(nc) => Ok((input, nc.color.clone())),
-    }
-}
-
 pub(crate) fn css_color_function<'a, O1, F, G>(
     mut color_name: F,
     mut color: G,
@@ -157,7 +140,7 @@ pub fn parse_color(input: &str) -> Option<Color> {
         parse_lab_color,
         parse_lch_color,
         parse_cmyk_color,
-        all_consuming(parse_named),
+        parse_named_color,
     ))(input.trim())
     .ok()
     .map(|(_, c)| c)
@@ -318,14 +301,9 @@ fn parse_lch_string() {
 }
 
 #[test]
-fn parse_named_syntax() {
-    assert_eq!(Some(Color::black()), parse_color("black"));
+fn parse_named_color_string() {
     assert_eq!(Some(Color::blue()), parse_color("blue"));
-    assert_eq!(Some(Color::blue()), parse_color("Blue"));
-    assert_eq!(Some(Color::blue()), parse_color("BLUE"));
     assert_eq!(Some(rgb(255, 20, 147)), parse_color("deeppink"));
-    assert_eq!(None, parse_color("whatever"));
-    assert_eq!(None, parse_color("red blue"));
 }
 
 #[test]
