@@ -1,8 +1,19 @@
 use std::fmt;
 
+use nom::{
+    branch::alt,
+    bytes::complete::{tag, tag_no_case},
+    character::complete::{char, space0, space1},
+    combinator::all_consuming,
+    IResult,
+};
+
 use crate::{
     colorspace::ColorSpace,
     helper::{clamp, interpolate, interpolate_angle, MaxPrecision},
+    parser::{
+        hue_angle, legacy_alpha, legacy_separator, modern_alpha, number_or_percentage, percentage,
+    },
     types::{Hue, Scalar},
     Color, Format, Fraction,
 };
@@ -121,6 +132,49 @@ impl HSVA {
     }
 }
 
+pub(crate) fn parse_hsv_color(input: &str) -> IResult<&str, Color> {
+    alt((
+        all_consuming(parse_css_hsv),
+        all_consuming(parse_legacy_hsv),
+    ))(input.trim())
+}
+
+fn parse_legacy_hsv(input: &str) -> IResult<&str, Color> {
+    let (input, _) = alt((tag("hsv("), tag("hsva(")))(input)?;
+    let (input, _) = space0(input)?;
+    let (input, h) = hue_angle(input)?;
+    let (input, _) = legacy_separator(input)?;
+    let (input, s) = percentage(input)?;
+    let (input, _) = legacy_separator(input)?;
+    let (input, v) = percentage(input)?;
+    let (input, alpha) = legacy_alpha(input)?;
+    let (input, _) = space0(input)?;
+    let (input, _) = char(')')(input)?;
+
+    let c = Color::from_hsva(h, s, v, alpha);
+    Ok((input, c))
+}
+
+// For HSV colors, the `hsv()` function mirrors the modern syntax of the CSS `hsl()` function.  The
+// legacy syntax is still handled by the original `pastel` HSV parser.
+
+fn parse_css_hsv(input: &str) -> IResult<&str, Color> {
+    let (input, _) = tag_no_case("hsv(")(input)?;
+    let (input, _) = space0(input)?;
+    let (input, h) = hue_angle(input)?;
+    let (input, _) = space1(input)?;
+    // Percent reference range for S and V: 0% = 0, 100% = 1
+    let (input, s) = number_or_percentage(input, 1.0)?;
+    let (input, _) = space1(input)?;
+    let (input, v) = number_or_percentage(input, 1.0)?;
+    let (input, alpha) = modern_alpha(input)?;
+    let (input, _) = space0(input)?;
+    let (input, _) = char(')')(input)?;
+
+    let c = Color::from_hsva(h, s, v, alpha);
+    Ok((input, c))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -143,5 +197,175 @@ mod tests {
         for hue in 0..360 {
             roundtrip(Scalar::from(hue), 0.2, 0.8);
         }
+    }
+
+    fn parse_color(input: &str) -> Option<Color> {
+        parse_hsv_color(input).ok().map(|(_, c)| c)
+    }
+
+    #[test]
+    fn parse_legacy_hsv_syntax() {
+        assert_eq!(
+            Some(Color::from_hsv(280.0, 0.2, 0.5)),
+            parse_color("hsv(280,20%,50%)")
+        );
+        assert_eq!(
+            Some(Color::from_hsv(280.0, 0.2, 0.5)),
+            parse_color("hsv(280deg,20%,50%)")
+        );
+        assert_eq!(
+            Some(Color::from_hsv(280.0, 0.2, 0.5)),
+            parse_color("hsv(280°,20%,50%)")
+        );
+        assert_eq!(
+            Some(Color::from_hsv(280.33, 0.123, 0.456)),
+            parse_color("hsv(280.33001,12.3%,45.6%)")
+        );
+        assert_eq!(
+            Some(Color::from_hsv(280.0, 0.2, 0.5)),
+            parse_color("hsv(  280 , 20% , 50%)")
+        );
+        assert_eq!(
+            Some(Color::from_hsv(270.0, 0.6, 0.7)),
+            parse_color("hsv(270 60% 70%)")
+        );
+
+        assert_eq!(
+            Some(Color::from_hsv(-140.0, 0.2, 0.5)),
+            parse_color("hsv(-140°,20%,50%)")
+        );
+
+        assert_eq!(
+            Some(Color::from_hsv(90.0, 0.2, 0.5)),
+            parse_color("hsv(100grad,20%,50%)")
+        );
+        assert_eq!(
+            Some(Color::from_hsv(90.05, 0.2, 0.5)),
+            parse_color("hsv(1.5708rad,20%,50%)")
+        );
+        assert_eq!(
+            Some(Color::from_hsv(90.0, 0.2, 0.5)),
+            parse_color("hsv(0.25turn,20%,50%)")
+        );
+        assert_eq!(
+            Some(Color::from_hsv(45.0, 0.2, 0.5)),
+            parse_color("hsv(50grad,20%,50%)")
+        );
+        assert_eq!(
+            Some(Color::from_hsv(45.0, 0.2, 0.5)),
+            parse_color("hsv(0.7854rad,20%,50%)")
+        );
+        assert_eq!(
+            Some(Color::from_hsv(45.0, 0.2, 0.5)),
+            parse_color("hsv(0.125turn,20%,50%)")
+        );
+
+        assert_eq!(None, parse_color("hsv(280,20%,50)"));
+        assert_eq!(None, parse_color("hsv(280,20,50%)"));
+        assert_eq!(None, parse_color("hsv(280%,20%,50%)"));
+        assert_eq!(None, parse_color("hsv(280,20%)"));
+    }
+
+    #[test]
+    fn parse_css_hsv_syntax() {
+        assert_eq!(
+            Some(Color::from_hsv(280.0, 0.2, 0.5)),
+            parse_color("hsv(280 20% 50%)")
+        );
+        assert_eq!(
+            Some(Color::from_hsv(280.33, 0.123, 0.456)),
+            parse_color("hsv(280.33 12.3% 45.6%)")
+        );
+        assert_eq!(
+            Some(Color::from_hsv(270.0, 0.6, 0.7)),
+            parse_color("hsv(270 60% 70%)")
+        );
+        assert_eq!(
+            Some(Color::from_hsv(-140.0, 0.2, 0.5)),
+            parse_color("hsv(-140 20% 50%)")
+        );
+        assert_eq!(
+            Some(Color::from_hsv(220.0, 0.2, 0.5)),
+            parse_color("hsv(-140 20% 50%)")
+        );
+
+        // S and V can be numbers in the range 0 to 1
+        assert_eq!(
+            Some(Color::from_hsv(280.0, 0.2, 0.5)),
+            parse_color("hsv(280 0.2 0.5)")
+        );
+        // numbers and percentages can be mixed
+        assert_eq!(
+            Some(Color::from_hsv(280.0, 0.2, 0.5)),
+            parse_color("hsv(280 20% 0.5)")
+        );
+
+        // hue angle unit identifiers are supported
+        assert_eq!(
+            Some(Color::from_hsv(280.0, 0.2, 0.5)),
+            parse_color("hsv(280deg 20% 50%)")
+        );
+        assert_eq!(
+            Some(Color::from_hsv(90.0, 0.2, 0.5)),
+            parse_color("hsv(100grad 20% 50%)")
+        );
+        assert_eq!(
+            Some(Color::from_hsv(90.05, 0.2, 0.5)),
+            parse_color("hsv(1.5708rad 20% 50%)")
+        );
+        assert_eq!(
+            Some(Color::from_hsv(90.0, 0.2, 0.5)),
+            parse_color("hsv(0.25turn 20% 50%)")
+        );
+        assert_eq!(
+            Some(Color::from_hsv(45.0, 0.2, 0.5)),
+            parse_color("hsv(50grad 20% 50%)")
+        );
+        assert_eq!(
+            Some(Color::from_hsv(45.0, 0.2, 0.5)),
+            parse_color("hsv(0.7854rad 20% 50%)")
+        );
+        assert_eq!(
+            Some(Color::from_hsv(45.0, 0.2, 0.5)),
+            parse_color("hsv(0.125turn 20% 50%)")
+        );
+
+        // function names are case-insensitive
+        assert_eq!(
+            Some(Color::from_hsv(280.0, 0.2, 0.5)),
+            parse_color("HSV(280 20% 50%)")
+        );
+
+        // alpha value is supported as a number or percentage
+        assert_eq!(
+            Some(Color::from_hsva(280.0, 0.2, 0.5, 0.5)),
+            parse_color("hsv(280 20% 50% / 0.5)")
+        );
+        assert_eq!(
+            Some(Color::from_hsva(280.0, 0.2, 0.5, 0.75)),
+            parse_color("hsv(280 20% 50% / 75%)")
+        );
+
+        // extra spaces are allowed
+        assert_eq!(
+            Some(Color::from_hsv(280.0, 0.2, 0.5)),
+            parse_color("hsv(  280   20%   50%)")
+        );
+        assert_eq!(
+            Some(Color::from_hsva(280.0, 0.2, 0.5, 0.6)),
+            parse_color("hsv(    280   20%    50%      /0.6  )")
+        );
+
+        // hue angle cannot be a percentage
+        assert_eq!(None, parse_color("hsv(280% 20% 50%)"));
+        // not enough parameters
+        assert_eq!(None, parse_color("hsv(280 20%)"));
+        // too many parameters
+        // (the following produces a valid color due to legacy syntax)
+        // assert_eq!(None, parse_color("hsv(280 20% 50% 0.75)"));
+        assert_eq!(None, parse_color("hsv(280 20% 50% 0.75 0.5)"));
+        // comma separators not allowed
+        // (the following produces a valid color due to legacy syntax)
+        // assert_eq!(None, parse_color("hsv(280, 20%, 50%)"));
     }
 }

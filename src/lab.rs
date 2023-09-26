@@ -1,8 +1,18 @@
 use std::fmt;
 
+use nom::{
+    branch::alt,
+    bytes::complete::tag_no_case,
+    character::complete::{char, space0, space1},
+    combinator::{all_consuming, opt},
+    number::complete::double,
+    IResult,
+};
+
 use crate::{
     colorspace::ColorSpace,
     helper::{interpolate, MaxPrecision},
+    parser::{legacy_alpha, legacy_separator, modern_alpha, number_or_percentage},
     types::Scalar,
     xyz::XYZ,
     Color, Format, Fraction, D65_XN, D65_YN, D65_ZN,
@@ -120,6 +130,61 @@ impl Lab {
     }
 }
 
+pub(crate) fn parse_lab_color(input: &str) -> IResult<&str, Color> {
+    alt((
+        all_consuming(parse_css_lab65),
+        all_consuming(parse_legacy_lab),
+    ))(input.trim())
+}
+
+fn parse_legacy_lab(input: &str) -> IResult<&str, Color> {
+    let (input, _) = opt(tag_no_case("cie"))(input)?;
+    let (input, _) = tag_no_case("lab(")(input)?;
+    let (input, _) = space0(input)?;
+    let (input, l) = double(input)?;
+    let (input, _) = legacy_separator(input)?;
+    let (input, a) = double(input)?;
+    let (input, _) = legacy_separator(input)?;
+    let (input, b) = double(input)?;
+    let (input, alpha) = legacy_alpha(input)?;
+    let (input, _) = space0(input)?;
+    let (input, _) = char(')')(input)?;
+
+    let c = Color::from_lab(l, a, b, alpha);
+
+    Ok((input, c))
+}
+
+// CSS Color 4 only defines `lab()` and `lch()` color functions for the D50 illuminant.  We support
+// alternate functions for the D65 illuminent used by `pastel` that are consistent with the
+// CSS-defined functions, and that provide compatibility with the serialization formats of two
+// popular and extensive JavaScript color libraries:
+//
+//   - color.js (https://colorjs.io) by CSS Color 4/5 co-editors Lea Verou and Chris Lilley
+//   - culori (https://culorijs.org)
+
+// The `lab-d65()` and `lch-d65()` function names are used by the "color.js" library.  The `lab65()`
+// and `lch65()` provide simpler alternatives.
+
+fn parse_css_lab65(input: &str) -> IResult<&str, Color> {
+    let (input, _) = alt((tag_no_case("lab65("), tag_no_case("lab-d65(")))(input)?;
+    let (input, _) = space0(input)?;
+    // Percent reference range for L: 0% = 0, 100% = 100
+    let (input, l) = number_or_percentage(input, 100.0)?;
+    let (input, _) = space1(input)?;
+    // Percent reference range for a and b: -100% = -125, 100% = 125
+    let (input, a) = number_or_percentage(input, 125.0)?;
+    let (input, _) = space1(input)?;
+    let (input, b) = number_or_percentage(input, 125.0)?;
+    let (input, alpha) = modern_alpha(input)?;
+    let (input, _) = space0(input)?;
+    let (input, _) = char(')')(input)?;
+
+    let c = Color::from_lab(l, a, b, alpha);
+
+    Ok((input, c))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -146,5 +211,130 @@ mod tests {
         let c = Lab::new(41.0, 83.0, -93.0);
         assert_eq!("Lab(41, 83, -93)", c.to_color_string(Format::Spaces));
         assert_eq!("Lab(41,83,-93)", c.to_color_string(Format::NoSpaces));
+    }
+
+    fn parse_color(input: &str) -> Option<Color> {
+        parse_lab_color(input).ok().map(|(_, c)| c)
+    }
+
+    #[test]
+    fn parse_lab_syntax() {
+        assert_eq!(
+            Some(Color::from_lab(12.43, -35.5, 43.4, 1.0)),
+            parse_color("Lab(12.43,-35.5,43.4)")
+        );
+        assert_eq!(
+            Some(Color::from_lab(15.0, -23.0, 43.0, 0.5)),
+            parse_color("lab(15,-23,43,0.5)")
+        );
+        assert_eq!(
+            Some(Color::from_lab(15.0, 23.0, -43.0, 1.0)),
+            parse_color("CIELab(15,23,-43)")
+        );
+        assert_eq!(
+            Some(Color::from_lab(15.0, 35.5, -43.4, 1.0)),
+            parse_color("CIELab(15,35.5,-43.4)")
+        );
+        assert_eq!(
+            Some(Color::from_lab(15.0, -35.5, -43.4, 0.4)),
+            parse_color("cieLab(15,-35.5,-43.4,0.4)")
+        );
+        assert_eq!(
+            Some(Color::from_lab(15.0, 23.0, -43.0, 1.0)),
+            parse_color("Lab(        15,  23,-43   )")
+        );
+        assert_eq!(
+            Some(Color::from_lab(15.0, -35.5, -43.4, 0.4)),
+            parse_color("CieLab(15,-35.5,-43.4,0.4)")
+        );
+        assert_eq!(
+            Some(Color::from_lab(15.0, 23.0, -43.0, 1.0)),
+            parse_color("CIELab(        15,  23,-43   )")
+        );
+
+        assert_eq!(
+            Some(Color::from_lab(10.0, 30.0, 50.0, 1.0)),
+            parse_color("lab(10,30,50,1)")
+        );
+        assert_eq!(
+            Some(Color::from_lab(10.0, 30.0, 50.0, 1.0)),
+            parse_color("lab(10,30,50,1.0)")
+        );
+    }
+
+    #[test]
+    fn parse_css_lab65_syntax() {
+        assert_eq!(
+            Some(Color::from_lab(12.43, -35.5, 43.4, 1.0)),
+            parse_color("lab65(12.43 -35.5 43.4)")
+        );
+        assert_eq!(
+            Some(Color::from_lab(15.0, 23.0, -43.0, 1.0)),
+            parse_color("lab65(15 23 -43)")
+        );
+
+        // lightness can be a percentage
+        assert_eq!(
+            Some(Color::from_lab(15.0, 25.0, 90.0, 1.0)),
+            parse_color("lab65(15% 25 90)")
+        );
+
+        // a and b can be percentages, but 100% represents a value of 125
+        assert_eq!(
+            Some(Color::from_lab(15.0, 125.0, 0.0, 1.0)),
+            parse_color("lab65(15% 100% 0%)")
+        );
+        assert_eq!(
+            Some(Color::from_lab(15.0, 0.0, -125.0, 1.0)),
+            parse_color("lab65(15% 0% -100%)")
+        );
+        // numbers and percentages can be mixed
+        assert_eq!(
+            Some(Color::from_lab(15.0, 100.0, 80.0, 1.0)),
+            parse_color("lab65(15% 80% 80.0)")
+        );
+
+        // `lab-d65` is equivalent to `lab65`
+        assert_eq!(
+            Some(Color::from_lab(15.0, 25.0, 90.0, 1.0)),
+            parse_color("lab-d65(15% 25 90)")
+        );
+
+        // function names are case-insensitive
+        assert_eq!(
+            Some(Color::from_lab(15.0, 25.0, 90.0, 1.0)),
+            parse_color("LAB65(15% 25 90)")
+        );
+        assert_eq!(
+            Some(Color::from_lab(15.0, 25.0, 90.0, 1.0)),
+            parse_color("Lab-D65(15% 25 90)")
+        );
+
+        // alpha value is supported as a number or percentage
+        assert_eq!(
+            Some(Color::from_lab(15.0, -23.0, 43.0, 0.5)),
+            parse_color("lab65(15% -23 43 / 0.5)")
+        );
+        assert_eq!(
+            Some(Color::from_lab(15.0, -35.5, -43.4, 0.4)),
+            parse_color("lab65(15% -35.5 -43.4 / 40%)")
+        );
+
+        // extra spaces are allowed
+        assert_eq!(
+            Some(Color::from_lab(15.0, 23.0, -43.0, 1.0)),
+            parse_color("lab65(    15%    23      -43)")
+        );
+        assert_eq!(
+            Some(Color::from_lab(15.0, 23.0, -43.0, 0.6)),
+            parse_color("lab65(15%     23    -43/     60%   )")
+        );
+
+        // not enough parameters
+        assert_eq!(None, parse_color("lab65(15 25)"));
+        // too many parameters
+        assert_eq!(None, parse_color("lab65(15% 25 90 120)"));
+        // comma separators not allowed
+        assert_eq!(None, parse_color("lab65(15%, 25, 90)"));
     }
 }

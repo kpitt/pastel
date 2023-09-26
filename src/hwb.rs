@@ -1,10 +1,18 @@
 use std::fmt;
 
+use nom::{
+    bytes::complete::tag_no_case,
+    character::complete::{char, space0, space1},
+    combinator::all_consuming,
+    IResult,
+};
+
 use crate::{
     colorspace::ColorSpace,
     format_css_alpha,
     helper::{clamp, interpolate, interpolate_angle, MaxPrecision},
     hsv::HSVA,
+    parser::{hue_angle, modern_alpha, percentage},
     types::Scalar,
     Color, Format, Fraction,
 };
@@ -102,6 +110,26 @@ impl HWBA {
     }
 }
 
+pub(crate) fn parse_hwb_color(input: &str) -> IResult<&str, Color> {
+    all_consuming(parse_css_hwb)(input.trim())
+}
+
+fn parse_css_hwb(input: &str) -> IResult<&str, Color> {
+    let (input, _) = tag_no_case("hwb(")(input)?;
+    let (input, _) = space0(input)?;
+    let (input, h) = hue_angle(input)?;
+    let (input, _) = space1(input)?;
+    let (input, w) = percentage(input)?;
+    let (input, _) = space1(input)?;
+    let (input, b) = percentage(input)?;
+    let (input, alpha) = modern_alpha(input)?;
+    let (input, _) = space0(input)?;
+    let (input, _) = char(')')(input)?;
+
+    let c = Color::from_hwba(h, w, b, alpha);
+    Ok((input, c))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -191,5 +219,93 @@ mod tests {
         assert_eq!(hue, hue_after_mixing(Color::graytone(0.2)));
         assert_eq!(hue, hue_after_mixing(Color::graytone(0.7)));
         assert_eq!(hue, hue_after_mixing(Color::white()));
+    }
+
+    fn parse_color(input: &str) -> Option<Color> {
+        parse_hwb_color(input).ok().map(|(_, c)| c)
+    }
+
+    #[test]
+    fn parse_hwb_syntax() {
+        assert_eq!(
+            Some(Color::from_hwb(280.0, 0.2, 0.5)),
+            parse_color("hwb(280 20% 50%)")
+        );
+        assert_eq!(
+            Some(Color::from_hwb(280.0, 0.2, 0.5)),
+            parse_color("hwb(280deg 20% 50%)")
+        );
+        assert_eq!(
+            Some(Color::from_hwb(280.33, 0.123, 0.456)),
+            parse_color("hwb(280.33001 12.3% 45.6%)")
+        );
+        assert_eq!(
+            Some(Color::from_hwb(280.0, 0.2, 0.5)),
+            parse_color("hwb(  280   20%   50%)")
+        );
+        assert_eq!(
+            Some(Color::from_hwb(270.0, 0.6, 0.7)),
+            parse_color("hwb(270 60% 70%)")
+        );
+
+        assert_eq!(
+            Some(Color::from_hwb(-140.0, 0.2, 0.5)),
+            parse_color("hwb(-140 20% 50%)")
+        );
+        assert_eq!(
+            Some(Color::from_hwb(220.0, 0.2, 0.5)),
+            parse_color("hwb(-140 20% 50%)")
+        );
+
+        assert_eq!(
+            Some(Color::from_hwb(90.0, 0.2, 0.5)),
+            parse_color("hwb(100grad 20% 50%)")
+        );
+        assert_eq!(
+            Some(Color::from_hwb(90.0, 0.2, 0.5)),
+            parse_color("hwb(1.5708rad 20% 50%)")
+        );
+        assert_eq!(
+            Some(Color::from_hwb(90.0, 0.2, 0.5)),
+            parse_color("hwb(0.25turn 20% 50%)")
+        );
+        assert_eq!(
+            Some(Color::from_hwb(45.0, 0.2, 0.5)),
+            parse_color("hwb(50grad 20% 50%)")
+        );
+        assert_eq!(
+            Some(Color::from_hwb(45.0, 0.2, 0.5)),
+            parse_color("hwb(0.7854rad 20% 50%)")
+        );
+        assert_eq!(
+            Some(Color::from_hwb(45.0, 0.2, 0.5)),
+            parse_color("hwb(0.125turn 20% 50%)")
+        );
+
+        // function name is case-insensitive
+        assert_eq!(
+            Some(Color::from_hwb(90.0, 0.5, 0.3)),
+            parse_color("HWB(90 50% 30%)")
+        );
+
+        // alpha is supported as a number or percentage
+        assert_eq!(
+            Some(Color::from_hwba(220.0, 0.25, 0.5, 0.2)),
+            parse_color("hwb(220 25% 50% / 0.2)")
+        );
+        assert_eq!(
+            Some(Color::from_hwba(220.0, 0.25, 0.5, 0.75)),
+            parse_color("hwb(220 25% 50% / 75%)")
+        );
+
+        // w and b must be percentages
+        assert_eq!(None, parse_color("hwb(280 20% 50)"));
+        assert_eq!(None, parse_color("hwb(280 20 50%)"));
+        // hue angle cannot be a percentage
+        assert_eq!(None, parse_color("hwb(280% 20% 50%)"));
+        // not enough arguments
+        assert_eq!(None, parse_color("hwb(280 20%)"));
+        // too many arguments
+        assert_eq!(None, parse_color("hwb(280 20% 30% 0.5)"));
     }
 }

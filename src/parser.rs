@@ -2,13 +2,13 @@ use nom::branch::alt;
 use nom::bytes::complete::*;
 use nom::character::complete::*;
 use nom::combinator::*;
-use nom::error::ErrorKind;
 use nom::number::complete::double;
-use nom::Err;
-use nom::IResult;
+use nom::{error::ErrorKind, Err, IResult};
 
 use crate::{
-    convert::gam_srgb, hsl::parse_hsl_color, named::NAMED_COLORS, rgb::parse_rgb_color, Color,
+    cmyk::parse_cmyk_color, convert::gam_srgb, hsl::parse_hsl_color, hsv::parse_hsv_color,
+    hwb::parse_hwb_color, lab::parse_lab_color, lch::parse_lch_color, named::NAMED_COLORS,
+    rgb::parse_rgb_color, Color,
 };
 
 fn comma_separator(input: &str) -> IResult<&str, &str> {
@@ -91,40 +91,6 @@ pub(crate) fn modern_alpha<'a>(input: &'a str) -> IResult<&'a str, f64> {
     Ok((input, alpha.unwrap_or(1.0)))
 }
 
-fn parse_hsv(input: &str) -> IResult<&str, Color> {
-    let (input, _) = alt((tag("hsv("), tag("hsva(")))(input)?;
-    let (input, _) = space0(input)?;
-    let (input, h) = hue_angle(input)?;
-    let (input, _) = legacy_separator(input)?;
-    let (input, s) = percentage(input)?;
-    let (input, _) = legacy_separator(input)?;
-    let (input, v) = percentage(input)?;
-    let (input, alpha) = legacy_alpha(input)?;
-    let (input, _) = space0(input)?;
-    let (input, _) = char(')')(input)?;
-
-    let c = Color::from_hsva(h, s, v, alpha);
-
-    Ok((input, c))
-}
-
-fn parse_hwb(input: &str) -> IResult<&str, Color> {
-    let (input, _) = tag_no_case("hwb(")(input)?;
-    let (input, _) = space0(input)?;
-    let (input, h) = hue_angle(input)?;
-    let (input, _) = space1(input)?;
-    let (input, w) = percentage(input)?;
-    let (input, _) = space1(input)?;
-    let (input, b) = percentage(input)?;
-    let (input, alpha) = modern_alpha(input)?;
-    let (input, _) = space0(input)?;
-    let (input, _) = char(')')(input)?;
-
-    let c = Color::from_hwba(h, w, b, alpha);
-
-    Ok((input, c))
-}
-
 fn parse_gray(input: &str) -> IResult<&str, Color> {
     let (input, _) = tag("gray(")(input)?;
     let (input, _) = space0(input)?;
@@ -133,42 +99,6 @@ fn parse_gray(input: &str) -> IResult<&str, Color> {
     let (input, _) = char(')')(input)?;
 
     let c = Color::from_rgb_float(g, g, g);
-
-    Ok((input, c))
-}
-
-fn parse_lab(input: &str) -> IResult<&str, Color> {
-    let (input, _) = opt(tag_no_case("cie"))(input)?;
-    let (input, _) = tag_no_case("lab(")(input)?;
-    let (input, _) = space0(input)?;
-    let (input, l) = double(input)?;
-    let (input, _) = legacy_separator(input)?;
-    let (input, a) = double(input)?;
-    let (input, _) = legacy_separator(input)?;
-    let (input, b) = double(input)?;
-    let (input, alpha) = legacy_alpha(input)?;
-    let (input, _) = space0(input)?;
-    let (input, _) = char(')')(input)?;
-
-    let c = Color::from_lab(l, a, b, alpha);
-
-    Ok((input, c))
-}
-
-fn parse_lch(input: &str) -> IResult<&str, Color> {
-    let (input, _) = opt(tag_no_case("cie"))(input)?;
-    let (input, _) = tag_no_case("lch(")(input)?;
-    let (input, _) = space0(input)?;
-    let (input, l) = double(input)?;
-    let (input, _) = legacy_separator(input)?;
-    let (input, c) = double(input)?;
-    let (input, _) = legacy_separator(input)?;
-    let (input, h) = hue_angle(input)?;
-    let (input, alpha) = legacy_alpha(input)?;
-    let (input, _) = space0(input)?;
-    let (input, _) = char(')')(input)?;
-
-    let c = Color::from_lch(l, c, h, alpha);
 
     Ok((input, c))
 }
@@ -259,55 +189,6 @@ fn parse_cie_xyz65_color_space(input: &str) -> IResult<&str, Color> {
     Ok((input, c))
 }
 
-// CSS Color 4 only defines `lab()` and `lch()` color functions for the D50 illuminant.  We support
-// alternate functions for the D65 illuminent used by `pastel` that are consistent with the
-// CSS-defined functions, and that provide compatibility with the serialization formats of two
-// popular and extensive JavaScript color libraries:
-//
-//   - color.js (https://colorjs.io) by CSS Color 4/5 co-editors Lea Verou and Chris Lilley
-//   - culori (https://culorijs.org)
-
-// The `lab-d65()` and `lch-d65()` function names are used by the "color.js" library.  The `lab65()`
-// and `lch65()` provide simpler alternatives.
-
-fn parse_css_lab65(input: &str) -> IResult<&str, Color> {
-    let (input, _) = alt((tag_no_case("lab65("), tag_no_case("lab-d65(")))(input)?;
-    let (input, _) = space0(input)?;
-    // Percent reference range for L: 0% = 0, 100% = 100
-    let (input, l) = number_or_percentage(input, 100.0)?;
-    let (input, _) = space1(input)?;
-    // Percent reference range for a and b: -100% = -125, 100% = 125
-    let (input, a) = number_or_percentage(input, 125.0)?;
-    let (input, _) = space1(input)?;
-    let (input, b) = number_or_percentage(input, 125.0)?;
-    let (input, alpha) = modern_alpha(input)?;
-    let (input, _) = space0(input)?;
-    let (input, _) = char(')')(input)?;
-
-    let c = Color::from_lab(l, a, b, alpha);
-
-    Ok((input, c))
-}
-
-fn parse_css_lch65(input: &str) -> IResult<&str, Color> {
-    let (input, _) = alt((tag_no_case("lch65("), tag_no_case("lch-d65(")))(input)?;
-    let (input, _) = space0(input)?;
-    // Percent reference range for L: 0% = 0, 100% = 100
-    let (input, l) = number_or_percentage(input, 100.0)?;
-    let (input, _) = space1(input)?;
-    // Percent reference range for C: 0% = 0, 100% = 150
-    let (input, c) = number_or_percentage(input, 150.0)?;
-    let (input, _) = space1(input)?;
-    let (input, h) = hue_angle(input)?;
-    let (input, alpha) = modern_alpha(input)?;
-    let (input, _) = space0(input)?;
-    let (input, _) = char(')')(input)?;
-
-    let c = Color::from_lch(l, c, h, alpha);
-
-    Ok((input, c))
-}
-
 // The "culori" library uses custom `--lab-d65` and `--lch-d65` color space names, consistent with
 // the CSS Color 5 draft.  Percentage values are not supported here because the CSS `color()`
 // function defines that 100% = 1.0 for all component values, so percentages would produce
@@ -353,27 +234,6 @@ fn parse_cie_lch65_color_space(input: &str) -> IResult<&str, Color> {
     Ok((input, c))
 }
 
-// For HSV colors, the `hsv()` function mirrors the modern syntax of the CSS `hsl()` function.  The
-// legacy syntax is still handled by the original `pastel` HSV parser.
-
-fn parse_css_hsv(input: &str) -> IResult<&str, Color> {
-    let (input, _) = tag_no_case("hsv(")(input)?;
-    let (input, _) = space0(input)?;
-    let (input, h) = hue_angle(input)?;
-    let (input, _) = space1(input)?;
-    // Percent reference range for S and V: 0% = 0, 100% = 1
-    let (input, s) = number_or_percentage(input, 1.0)?;
-    let (input, _) = space1(input)?;
-    let (input, v) = number_or_percentage(input, 1.0)?;
-    let (input, alpha) = modern_alpha(input)?;
-    let (input, _) = space0(input)?;
-    let (input, _) = char(')')(input)?;
-
-    let c = Color::from_hsva(h, s, v, alpha);
-
-    Ok((input, c))
-}
-
 // The "culori" library uses the CSS `color()` function with a custom `--hsv` color space name.
 // The "color.js" library also uses a custom color space, but unfortunately it is incompatible
 // (at least as of v0.4.5) because it uses S and V component values in the 0 to 100 range instead
@@ -398,44 +258,17 @@ fn parse_css_hsv_color_space(input: &str) -> IResult<&str, Color> {
     Ok((input, c))
 }
 
-// Parse CMYK colors as the `device-cmyk()` function defined in CSS Color 5.  The simpler `cmyk()`
-// is also accepted.  We have no color profile info here, so all CMYK colors are represented as
-// uncalibrated colors using the naive RGB conversion.
-fn parse_css_device_cmyk(input: &str) -> IResult<&str, Color> {
-    let (input, _) = opt(tag_no_case("device-"))(input)?;
-    let (input, _) = tag_no_case("cmyk(")(input)?;
-    let (input, _) = space0(input)?;
-    let (input, c) = number_or_percentage(input, 1.0)?;
-    let (input, _) = space1(input)?;
-    let (input, m) = number_or_percentage(input, 1.0)?;
-    let (input, _) = space1(input)?;
-    let (input, y) = number_or_percentage(input, 1.0)?;
-    let (input, _) = space1(input)?;
-    let (input, k) = number_or_percentage(input, 1.0)?;
-    // accept alpha component for compatibility, but not currently supported for CMYK
-    let (input, _alpha) = modern_alpha(input)?;
-    let (input, _) = space0(input)?;
-    let (input, _) = char(')')(input)?;
-
-    let c = Color::from_cmyk(c, m, y, k);
-
-    Ok((input, c))
-}
-
 pub fn parse_color(input: &str) -> Option<Color> {
     alt((
         parse_rgb_color,
         parse_hsl_color,
         all_consuming(parse_css_color_fn),
-        all_consuming(parse_css_hsv),
-        all_consuming(parse_hsv),
-        all_consuming(parse_hwb),
+        parse_hsv_color,
+        parse_hwb_color,
         all_consuming(parse_gray),
-        all_consuming(parse_css_lab65),
-        all_consuming(parse_lab),
-        all_consuming(parse_css_lch65),
-        all_consuming(parse_lch),
-        all_consuming(parse_css_device_cmyk),
+        parse_lab_color,
+        parse_lch_color,
+        parse_cmyk_color,
         all_consuming(parse_named),
     ))(input.trim())
     .ok()
@@ -453,7 +286,7 @@ fn rgba(r: u8, g: u8, b: u8, a: f64) -> Color {
 }
 
 #[test]
-fn parse_hsl_color_string() {
+fn parse_hsl_string() {
     assert_eq!(
         Some(Color::from_hsl(280.0, 0.2, 0.5)),
         parse_color("hsl(280, 20%, 50%)")
@@ -474,7 +307,7 @@ fn parse_hsl_color_string() {
 }
 
 #[test]
-fn parse_rgb_color_string() {
+fn parse_rgb_string() {
     assert_eq!(Some(rgb(255, 0, 153)), parse_color("rgb(255, 0, 153)"));
     assert_eq!(
         Some(rgba(10, 0, 0, 0.5)),
@@ -498,150 +331,33 @@ fn parse_rgb_color_string() {
 }
 
 #[test]
-fn parse_hsv_syntax() {
+fn parse_hsv_string() {
     assert_eq!(
         Some(Color::from_hsv(280.0, 0.2, 0.5)),
-        parse_color("hsv(280,20%,50%)")
-    );
-    assert_eq!(
-        Some(Color::from_hsv(280.0, 0.2, 0.5)),
-        parse_color("hsv(280deg,20%,50%)")
-    );
-    assert_eq!(
-        Some(Color::from_hsv(280.0, 0.2, 0.5)),
-        parse_color("hsv(280°,20%,50%)")
-    );
-    assert_eq!(
-        Some(Color::from_hsv(280.33, 0.123, 0.456)),
-        parse_color("hsv(280.33001,12.3%,45.6%)")
-    );
-    assert_eq!(
-        Some(Color::from_hsv(280.0, 0.2, 0.5)),
-        parse_color("hsv(  280 , 20% , 50%)")
-    );
-    assert_eq!(
-        Some(Color::from_hsv(270.0, 0.6, 0.7)),
-        parse_color("hsv(270 60% 70%)")
+        parse_color("hsv(280, 20%, 50%)")
     );
 
     assert_eq!(
-        Some(Color::from_hsv(-140.0, 0.2, 0.5)),
-        parse_color("hsv(-140°,20%,50%)")
-    );
-
-    assert_eq!(
-        Some(Color::from_hsv(90.0, 0.2, 0.5)),
-        parse_color("hsv(100grad,20%,50%)")
+        Some(Color::from_hsv(280.0, 0.2, 0.5)),
+        parse_color("hsv(280 20% 50%)")
     );
     assert_eq!(
-        Some(Color::from_hsv(90.05, 0.2, 0.5)),
-        parse_color("hsv(1.5708rad,20%,50%)")
+        Some(Color::from_hsva(280.0, 0.2, 0.5, 0.5)),
+        parse_color("hsv(280 20% 50% / 0.5)")
     );
-    assert_eq!(
-        Some(Color::from_hsv(90.0, 0.2, 0.5)),
-        parse_color("hsv(0.25turn,20%,50%)")
-    );
-    assert_eq!(
-        Some(Color::from_hsv(45.0, 0.2, 0.5)),
-        parse_color("hsv(50grad,20%,50%)")
-    );
-    assert_eq!(
-        Some(Color::from_hsv(45.0, 0.2, 0.5)),
-        parse_color("hsv(0.7854rad,20%,50%)")
-    );
-    assert_eq!(
-        Some(Color::from_hsv(45.0, 0.2, 0.5)),
-        parse_color("hsv(0.125turn,20%,50%)")
-    );
-
-    assert_eq!(None, parse_color("hsv(280,20%,50)"));
-    assert_eq!(None, parse_color("hsv(280,20,50%)"));
-    assert_eq!(None, parse_color("hsv(280%,20%,50%)"));
-    assert_eq!(None, parse_color("hsv(280,20%)"));
 }
 
 #[test]
-fn parse_hwb_syntax() {
+fn parse_hwb_string() {
     assert_eq!(
         Some(Color::from_hwb(280.0, 0.2, 0.5)),
         parse_color("hwb(280 20% 50%)")
     );
-    assert_eq!(
-        Some(Color::from_hwb(280.0, 0.2, 0.5)),
-        parse_color("hwb(280deg 20% 50%)")
-    );
-    assert_eq!(
-        Some(Color::from_hwb(280.33, 0.123, 0.456)),
-        parse_color("hwb(280.33001 12.3% 45.6%)")
-    );
-    assert_eq!(
-        Some(Color::from_hwb(280.0, 0.2, 0.5)),
-        parse_color("hwb(  280   20%   50%)")
-    );
-    assert_eq!(
-        Some(Color::from_hwb(270.0, 0.6, 0.7)),
-        parse_color("hwb(270 60% 70%)")
-    );
 
-    assert_eq!(
-        Some(Color::from_hwb(-140.0, 0.2, 0.5)),
-        parse_color("hwb(-140 20% 50%)")
-    );
-    assert_eq!(
-        Some(Color::from_hwb(220.0, 0.2, 0.5)),
-        parse_color("hwb(-140 20% 50%)")
-    );
-
-    assert_eq!(
-        Some(Color::from_hwb(90.0, 0.2, 0.5)),
-        parse_color("hwb(100grad 20% 50%)")
-    );
-    assert_eq!(
-        Some(Color::from_hwb(90.0, 0.2, 0.5)),
-        parse_color("hwb(1.5708rad 20% 50%)")
-    );
-    assert_eq!(
-        Some(Color::from_hwb(90.0, 0.2, 0.5)),
-        parse_color("hwb(0.25turn 20% 50%)")
-    );
-    assert_eq!(
-        Some(Color::from_hwb(45.0, 0.2, 0.5)),
-        parse_color("hwb(50grad 20% 50%)")
-    );
-    assert_eq!(
-        Some(Color::from_hwb(45.0, 0.2, 0.5)),
-        parse_color("hwb(0.7854rad 20% 50%)")
-    );
-    assert_eq!(
-        Some(Color::from_hwb(45.0, 0.2, 0.5)),
-        parse_color("hwb(0.125turn 20% 50%)")
-    );
-
-    // function name is case-insensitive
-    assert_eq!(
-        Some(Color::from_hwb(90.0, 0.5, 0.3)),
-        parse_color("HWB(90 50% 30%)")
-    );
-
-    // alpha is supported as a number or percentage
     assert_eq!(
         Some(Color::from_hwba(220.0, 0.25, 0.5, 0.2)),
         parse_color("hwb(220 25% 50% / 0.2)")
     );
-    assert_eq!(
-        Some(Color::from_hwba(220.0, 0.25, 0.5, 0.75)),
-        parse_color("hwb(220 25% 50% / 75%)")
-    );
-
-    // w and b must be percentages
-    assert_eq!(None, parse_color("hwb(280 20% 50)"));
-    assert_eq!(None, parse_color("hwb(280 20 50%)"));
-    // hue angle cannot be a percentage
-    assert_eq!(None, parse_color("hwb(280% 20% 50%)"));
-    // not enough arguments
-    assert_eq!(None, parse_color("hwb(280 20%)"));
-    // too many arguments
-    assert_eq!(None, parse_color("hwb(280 20% 30% 0.5)"));
 }
 
 #[test]
@@ -672,90 +388,45 @@ fn parse_gray_syntax() {
 }
 
 #[test]
-fn parse_lab_syntax() {
+fn parse_lab_string() {
     assert_eq!(
-        Some(Color::from_lab(12.43, -35.5, 43.4, 1.0)),
-        parse_color("Lab(12.43,-35.5,43.4)")
+        Some(Color::from_lab(15.0, -23.0, 43.0, 1.0)),
+        parse_color("lab(15, -23, 43)")
     );
     assert_eq!(
         Some(Color::from_lab(15.0, -23.0, 43.0, 0.5)),
-        parse_color("lab(15,-23,43,0.5)")
+        parse_color("lab(15, -23, 43, 0.5)")
     );
+
     assert_eq!(
         Some(Color::from_lab(15.0, 23.0, -43.0, 1.0)),
-        parse_color("CIELab(15,23,-43)")
+        parse_color("lab65(15 23 -43)")
     );
     assert_eq!(
-        Some(Color::from_lab(15.0, 35.5, -43.4, 1.0)),
-        parse_color("CIELab(15,35.5,-43.4)")
-    );
-    assert_eq!(
-        Some(Color::from_lab(15.0, -35.5, -43.4, 0.4)),
-        parse_color("cieLab(15,-35.5,-43.4,0.4)")
-    );
-    assert_eq!(
-        Some(Color::from_lab(15.0, 23.0, -43.0, 1.0)),
-        parse_color("Lab(        15,  23,-43   )")
-    );
-    assert_eq!(
-        Some(Color::from_lab(15.0, -35.5, -43.4, 0.4)),
-        parse_color("CieLab(15,-35.5,-43.4,0.4)")
-    );
-    assert_eq!(
-        Some(Color::from_lab(15.0, 23.0, -43.0, 1.0)),
-        parse_color("CIELab(        15,  23,-43   )")
+        Some(Color::from_lab(15.0, -23.0, 43.0, 0.5)),
+        parse_color("lab65(15 -23 43 / 0.5)")
     );
 }
 
 #[test]
-fn parse_lch_syntax() {
+fn parse_lch_string() {
     assert_eq!(
-        Some(Color::from_lch(12.43, -35.5, 43.4, 1.0)),
-        parse_color("Lch(12.43,-35.5,43.4)")
+        Some(Color::from_lch(15.0, 23.0, 45.0, 1.0)),
+        parse_color("lch(15, 23, 45)")
     );
     assert_eq!(
-        Some(Color::from_lch(15.0, -23.0, 43.0, 0.5)),
-        parse_color("lch(15,-23,43,0.5)")
-    );
-    assert_eq!(
-        Some(Color::from_lch(15.0, 23.0, -43.0, 1.0)),
-        parse_color("CIELch(15,23,-43)")
-    );
-    assert_eq!(
-        Some(Color::from_lch(15.0, 35.5, -43.4, 1.0)),
-        parse_color("CIELch(15,35.5,-43.4)")
-    );
-    assert_eq!(
-        Some(Color::from_lch(15.0, -35.5, -43.4, 0.4)),
-        parse_color("cieLch(15,-35.5,-43.4,0.4)")
-    );
-    assert_eq!(
-        Some(Color::from_lch(15.0, 23.0, -43.0, 1.0)),
-        parse_color("Lch(        15,  23,-43   )")
-    );
-    assert_eq!(
-        Some(Color::from_lch(15.0, -35.5, -43.4, 0.4)),
-        parse_color("CieLch(15,-35.5,-43.4,0.4)")
-    );
-    assert_eq!(
-        Some(Color::from_lch(15.0, 23.0, -43.0, 1.0)),
-        parse_color("CIELch(        15,  23,-43   )")
+        Some(Color::from_lch(75.0, 40.0, 220.0, 0.5)),
+        parse_color("lch(75, 40, 220, 0.5)")
     );
 
     assert_eq!(
-        Some(Color::from_lch(15.0, -23.0, 43.0, 1.0)),
-        parse_color("lch(15,-23,43)")
+        Some(Color::from_lch(15.0, 25.0, 90.0, 1.0)),
+        parse_color("lch65(15 25 90)")
     );
     assert_eq!(
-        Some(Color::from_lch(15.0, -23.0, 43.0, 1.0)),
-        parse_color("lch(15,-23,43°)")
+        Some(Color::from_lch(15.0, 23.0, 43.0, 0.5)),
+        parse_color("lch65(15 23 43 / 0.5)")
     );
-    assert_eq!(
-        Some(Color::from_lch(15.0, -23.0, 43.0, 1.0)),
-        parse_color("lch(15,-23,43deg)")
-    );
-
-    assert_eq!(None, parse_color("lch(15%,-23,43)"));
 }
 
 #[test]
@@ -767,19 +438,6 @@ fn parse_named_syntax() {
     assert_eq!(Some(rgb(255, 20, 147)), parse_color("deeppink"));
     assert_eq!(None, parse_color("whatever"));
     assert_eq!(None, parse_color("red blue"));
-}
-
-#[test]
-fn parse_alpha_syntax() {
-    // lab
-    assert_eq!(
-        Some(Color::from_lab(10.0, 30.0, 50.0, 1.0)),
-        parse_color("lab(10,30,50,1)")
-    );
-    assert_eq!(
-        Some(Color::from_lab(10.0, 30.0, 50.0, 1.0)),
-        parse_color("lab(10,30,50,1.0)")
-    );
 }
 
 #[test]
@@ -1107,82 +765,6 @@ fn parse_lab65_color_space_syntax() {
 }
 
 #[test]
-fn parse_css_lab65_syntax() {
-    assert_eq!(
-        Some(Color::from_lab(12.43, -35.5, 43.4, 1.0)),
-        parse_color("lab65(12.43 -35.5 43.4)")
-    );
-    assert_eq!(
-        Some(Color::from_lab(15.0, 23.0, -43.0, 1.0)),
-        parse_color("lab65(15 23 -43)")
-    );
-
-    // lightness can be a percentage
-    assert_eq!(
-        Some(Color::from_lab(15.0, 25.0, 90.0, 1.0)),
-        parse_color("lab65(15% 25 90)")
-    );
-
-    // a and b can be percentages, but 100% represents a value of 125
-    assert_eq!(
-        Some(Color::from_lab(15.0, 125.0, 0.0, 1.0)),
-        parse_color("lab65(15% 100% 0%)")
-    );
-    assert_eq!(
-        Some(Color::from_lab(15.0, 0.0, -125.0, 1.0)),
-        parse_color("lab65(15% 0% -100%)")
-    );
-    // numbers and percentages can be mixed
-    assert_eq!(
-        Some(Color::from_lab(15.0, 100.0, 80.0, 1.0)),
-        parse_color("lab65(15% 80% 80.0)")
-    );
-
-    // `lab-d65` is equivalent to `lab65`
-    assert_eq!(
-        Some(Color::from_lab(15.0, 25.0, 90.0, 1.0)),
-        parse_color("lab-d65(15% 25 90)")
-    );
-
-    // function names are case-insensitive
-    assert_eq!(
-        Some(Color::from_lab(15.0, 25.0, 90.0, 1.0)),
-        parse_color("LAB65(15% 25 90)")
-    );
-    assert_eq!(
-        Some(Color::from_lab(15.0, 25.0, 90.0, 1.0)),
-        parse_color("Lab-D65(15% 25 90)")
-    );
-
-    // alpha value is supported as a number or percentage
-    assert_eq!(
-        Some(Color::from_lab(15.0, -23.0, 43.0, 0.5)),
-        parse_color("lab65(15% -23 43 / 0.5)")
-    );
-    assert_eq!(
-        Some(Color::from_lab(15.0, -35.5, -43.4, 0.4)),
-        parse_color("lab65(15% -35.5 -43.4 / 40%)")
-    );
-
-    // extra spaces are allowed
-    assert_eq!(
-        Some(Color::from_lab(15.0, 23.0, -43.0, 1.0)),
-        parse_color("lab65(    15%    23      -43)")
-    );
-    assert_eq!(
-        Some(Color::from_lab(15.0, 23.0, -43.0, 0.6)),
-        parse_color("lab65(15%     23    -43/     60%   )")
-    );
-
-    // not enough parameters
-    assert_eq!(None, parse_color("lab65(15 25)"));
-    // too many parameters
-    assert_eq!(None, parse_color("lab65(15% 25 90 120)"));
-    // comma separators not allowed
-    assert_eq!(None, parse_color("lab65(15%, 25, 90)"));
-}
-
-#[test]
 fn parse_lch65_color_space_syntax() {
     assert_eq!(
         Some(Color::from_lch(12.43, 35.5, 43.4, 1.0)),
@@ -1263,200 +845,6 @@ fn parse_lch65_color_space_syntax() {
     assert_eq!(None, parse_color("color(lch-d65 15 25 90 120)"));
     // comma separators not allowed
     assert_eq!(None, parse_color("color(lch-d65 15, 25, 90)"));
-}
-
-#[test]
-fn parse_css_lch65_syntax() {
-    assert_eq!(
-        Some(Color::from_lch(12.43, 35.5, 43.4, 1.0)),
-        parse_color("lch65(12.43 35.5 43.4)")
-    );
-    assert_eq!(
-        Some(Color::from_lch(15.0, 25.0, 90.0, 1.0)),
-        parse_color("lch65(15 25 90)")
-    );
-
-    // lightness can be a percentage
-    assert_eq!(
-        Some(Color::from_lch(15.0, 25.0, 90.0, 1.0)),
-        parse_color("lch65(15% 25 90)")
-    );
-
-    // chroma can be a percentage, but 100% represents a value of 150
-    assert_eq!(
-        Some(Color::from_lch(15.0, 150.0, 90.0, 1.0)),
-        parse_color("lch65(15% 100% 90)")
-    );
-
-    // hue angle can be negative
-    assert_eq!(
-        Some(Color::from_lch(15.0, 25.0, -45.0, 1.0)),
-        parse_color("lch65(15% 25 -45)")
-    );
-    assert_eq!(
-        Some(Color::from_lch(15.0, 25.0, 315.0, 1.0)),
-        parse_color("lch65(15% 25 -45)")
-    );
-
-    // hue angle can include a unit identifier
-    assert_eq!(
-        Some(Color::from_lch(15.0, 25.0, 90.0, 1.0)),
-        parse_color("lch65(15% 25 90deg)")
-    );
-    assert_eq!(
-        Some(Color::from_lch(15.0, 25.0, 90.0, 1.0)),
-        parse_color("lch65(15% 25 100grad)")
-    );
-    assert_eq!(
-        Some(Color::from_lch(15.0, 25.0, 90.0, 1.0)),
-        parse_color("lch65(15% 25 0.25turn)")
-    );
-
-    // `lch-d65` is equivalent to `lch65`
-    assert_eq!(
-        Some(Color::from_lch(15.0, 25.0, 90.0, 1.0)),
-        parse_color("lch-d65(15% 25 90)")
-    );
-
-    // function names are case-insensitive
-    assert_eq!(
-        Some(Color::from_lch(15.0, 25.0, 90.0, 1.0)),
-        parse_color("LCh65(15% 25 90)")
-    );
-    assert_eq!(
-        Some(Color::from_lch(15.0, 25.0, 90.0, 1.0)),
-        parse_color("Lch-D65(15% 25 90)")
-    );
-
-    // alpha value is supported as a number or percentage
-    assert_eq!(
-        Some(Color::from_lch(15.0, 23.0, 43.0, 0.5)),
-        parse_color("lch65(15 23 43 / 0.5)")
-    );
-    assert_eq!(
-        Some(Color::from_lch(15.0, 23.0, 43.0, 0.75)),
-        parse_color("lch65(15 23 43 / 75%)")
-    );
-
-    // extra spaces are allowed
-    assert_eq!(
-        Some(Color::from_lch(15.0, 25.0, 90.0, 1.0)),
-        parse_color("lch65(    15%    25      90)")
-    );
-    assert_eq!(
-        Some(Color::from_lch(15.0, 25.0, 90.0, 0.6)),
-        parse_color("lch65(15%     25    90      /0.6   )")
-    );
-
-    // not enough parameters
-    assert_eq!(None, parse_color("lch65(15 25)"));
-    // too many parameters
-    assert_eq!(None, parse_color("lch65(15% 25 90 120)"));
-    // comma separators not allowed
-    assert_eq!(None, parse_color("lch65(15%, 25, 90)"));
-}
-
-#[test]
-fn parse_css_hsv_syntax() {
-    assert_eq!(
-        Some(Color::from_hsv(280.0, 0.2, 0.5)),
-        parse_color("hsv(280 20% 50%)")
-    );
-    assert_eq!(
-        Some(Color::from_hsv(280.33, 0.123, 0.456)),
-        parse_color("hsv(280.33 12.3% 45.6%)")
-    );
-    assert_eq!(
-        Some(Color::from_hsv(270.0, 0.6, 0.7)),
-        parse_color("hsv(270 60% 70%)")
-    );
-    assert_eq!(
-        Some(Color::from_hsv(-140.0, 0.2, 0.5)),
-        parse_color("hsv(-140 20% 50%)")
-    );
-    assert_eq!(
-        Some(Color::from_hsv(220.0, 0.2, 0.5)),
-        parse_color("hsv(-140 20% 50%)")
-    );
-
-    // S and V can be numbers in the range 0 to 1
-    assert_eq!(
-        Some(Color::from_hsv(280.0, 0.2, 0.5)),
-        parse_color("hsv(280 0.2 0.5)")
-    );
-    // numbers and percentages can be mixed
-    assert_eq!(
-        Some(Color::from_hsv(280.0, 0.2, 0.5)),
-        parse_color("hsv(280 20% 0.5)")
-    );
-
-    // hue angle unit identifiers are supported
-    assert_eq!(
-        Some(Color::from_hsv(280.0, 0.2, 0.5)),
-        parse_color("hsv(280deg 20% 50%)")
-    );
-    assert_eq!(
-        Some(Color::from_hsv(90.0, 0.2, 0.5)),
-        parse_color("hsv(100grad 20% 50%)")
-    );
-    assert_eq!(
-        Some(Color::from_hsv(90.05, 0.2, 0.5)),
-        parse_color("hsv(1.5708rad 20% 50%)")
-    );
-    assert_eq!(
-        Some(Color::from_hsv(90.0, 0.2, 0.5)),
-        parse_color("hsv(0.25turn 20% 50%)")
-    );
-    assert_eq!(
-        Some(Color::from_hsv(45.0, 0.2, 0.5)),
-        parse_color("hsv(50grad 20% 50%)")
-    );
-    assert_eq!(
-        Some(Color::from_hsv(45.0, 0.2, 0.5)),
-        parse_color("hsv(0.7854rad 20% 50%)")
-    );
-    assert_eq!(
-        Some(Color::from_hsv(45.0, 0.2, 0.5)),
-        parse_color("hsv(0.125turn 20% 50%)")
-    );
-
-    // function names are case-insensitive
-    assert_eq!(
-        Some(Color::from_hsv(280.0, 0.2, 0.5)),
-        parse_color("HSV(280 20% 50%)")
-    );
-
-    // alpha value is supported as a number or percentage
-    assert_eq!(
-        Some(Color::from_hsva(280.0, 0.2, 0.5, 0.5)),
-        parse_color("hsv(280 20% 50% / 0.5)")
-    );
-    assert_eq!(
-        Some(Color::from_hsva(280.0, 0.2, 0.5, 0.75)),
-        parse_color("hsv(280 20% 50% / 75%)")
-    );
-
-    // extra spaces are allowed
-    assert_eq!(
-        Some(Color::from_hsv(280.0, 0.2, 0.5)),
-        parse_color("hsv(  280   20%   50%)")
-    );
-    assert_eq!(
-        Some(Color::from_hsva(280.0, 0.2, 0.5, 0.6)),
-        parse_color("hsv(    280   20%    50%      /0.6  )")
-    );
-
-    // hue angle cannot be a percentage
-    assert_eq!(None, parse_color("hsv(280% 20% 50%)"));
-    // not enough parameters
-    assert_eq!(None, parse_color("hsv(280 20%)"));
-    // too many parameters
-    // (the following produces a valid color due to legacy syntax)
-    // assert_eq!(None, parse_color("hsv(280 20% 50% 0.75)"));
-    assert_eq!(None, parse_color("hsv(280 20% 50% 0.75 0.5)"));
-    // comma separators not allowed
-    // (the following produces a valid color due to legacy syntax)
-    // assert_eq!(None, parse_color("hsv(280, 20%, 50%)"));
 }
 
 #[test]
@@ -1598,7 +986,7 @@ fn parse_undefined_colorspace() {
 }
 
 #[test]
-fn parse_css_device_cmyk_syntax() {
+fn parse_device_cmyk_string() {
     assert_eq!(
         Some(Color::from_cmyk(0.8, 0.2, 0.6, 0.4)),
         parse_color("device-cmyk(80% 20% 60% 40%)")
@@ -1607,61 +995,4 @@ fn parse_css_device_cmyk_syntax() {
         Some(Color::from_cmyk(0.8, 0.2, 0.6, 0.4)),
         parse_color("device-cmyk(0.8 0.2 0.6 0.4)")
     );
-    assert_eq!(
-        Some(Color::from_cmyk(0.8, 0.2, 0.6, 0.4)),
-        parse_color("device-cmyk(80% 0.2 0.6 40%)")
-    );
-
-    assert_eq!(
-        Some(Color::from_cmyk(0.8, 0.2, 0.6, 0.4)),
-        parse_color("device-cmyk(80.0% 20.000% 60% 40.%)")
-    );
-    assert_eq!(
-        Some(Color::from_cmyk(0.8, 0.2, 0.6, 0.4)),
-        parse_color("device-cmyk(0.800 0.2 .6 0.40)")
-    );
-
-    assert_eq!(
-        Some(Color::red()),
-        parse_color("device-cmyk(0% 100% 100% 0%)")
-    );
-    assert_eq!(
-        Some(Color::green()),
-        parse_color("device-cmyk(100% 0% 100% 50%)")
-    );
-    assert_eq!(
-        Some(Color::blue()),
-        parse_color("device-cmyk(100% 100% 0% 0%)")
-    );
-    assert_eq!(Some(Color::yellow()), parse_color("device-cmyk(0 0 1 0)"));
-    assert_eq!(
-        Some(rgb(255, 165, 0)), // orange
-        parse_color("device-cmyk(0 0.353 1 0)")
-    );
-    assert_eq!(Some(Color::purple()), parse_color("device-cmyk(0 1 0 0.5)"));
-
-    // `cmyk` is equivalent to `device-cmyk`
-    assert_eq!(
-        Some(Color::from_cmyk(0.8, 0.2, 0.6, 0.4)),
-        parse_color("cmyk(0.8 0.2 0.6 0.4)")
-    );
-
-    // function names are case-insensitive
-    assert_eq!(
-        Some(Color::from_cmyk(0.8, 0.2, 0.6, 0.4)),
-        parse_color("Device-CMYK(80% 20% 60% 40%)")
-    );
-
-    // alpha value is allowed for compatibility, but is ignored because it
-    // isn't currently supported by the color library
-    assert_eq!(
-        Some(Color::from_cmyk(0.8, 0.2, 0.6, 0.4)),
-        parse_color("device-cmyk(80% 20% 60% 40% / 0.5)")
-    );
-
-    assert_eq!(None, parse_color("device-cmyk(0,1,1,0)"));
-    assert_eq!(None, parse_color("device-cmyk(0 1 1)"));
-    assert_eq!(None, parse_color("device-cmyk(0 1)"));
-    assert_eq!(None, parse_color("device-cmyk(50%)"));
-    assert_eq!(None, parse_color("device-cmyk(0 1 0.5 1 0)"));
 }
