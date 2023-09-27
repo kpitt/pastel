@@ -1,24 +1,24 @@
 pub mod ansi;
-pub mod cmyk;
-pub mod color_scale;
+mod cmyk;
+mod color_scale;
 pub mod colorspace;
 pub mod convert;
 pub mod delta_e;
 pub mod distinct;
 mod helper;
-pub mod hsl;
-pub mod hsv;
-pub mod hwb;
-pub mod lab;
-pub mod lch;
-pub mod lms;
+mod hsl;
+mod hsv;
+mod hwb;
+mod lab;
+mod lch;
+mod lms;
 pub mod matrix;
 pub mod named;
 pub mod parser;
 pub mod random;
-pub mod rgb;
+mod rgb;
 mod types;
-pub mod xyz;
+mod xyz;
 
 #[cfg(test)]
 mod test_helper;
