@@ -28,9 +28,9 @@ pub mod strategies {
         }
     }
 
-    pub struct UniformRGB;
+    pub struct UniformRgb;
 
-    impl RandomizationStrategy for UniformRGB {
+    impl RandomizationStrategy for UniformRgb {
         fn generate_with(&mut self, rng: &mut dyn RngCore) -> Color {
             Color::from_rgb(rng.gen::<u8>(), rng.gen::<u8>(), rng.gen::<u8>())
         }
@@ -44,9 +44,9 @@ pub mod strategies {
         }
     }
 
-    pub struct UniformHueLCh;
+    pub struct UniformHueLch;
 
-    impl RandomizationStrategy for UniformHueLCh {
+    impl RandomizationStrategy for UniformHueLch {
         fn generate_with(&mut self, rng: &mut dyn RngCore) -> Color {
             Color::from_lch(70.0, 35.0, 360.0 * rng.gen::<f64>(), 1.0)
         }

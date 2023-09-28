@@ -16,9 +16,9 @@ impl GenericCommand for RandomCommand {
 
         let mut strategy: Box<dyn RandomizationStrategy> = match strategy_arg {
             "vivid" => Box::new(strategies::Vivid),
-            "rgb" => Box::new(strategies::UniformRGB),
+            "rgb" => Box::new(strategies::UniformRgb),
             "gray" => Box::new(strategies::UniformGray),
-            "lch_hue" => Box::new(strategies::UniformHueLCh),
+            "lch_hue" => Box::new(strategies::UniformHueLch),
             _ => unreachable!("Unknown randomization strategy"),
         };
 

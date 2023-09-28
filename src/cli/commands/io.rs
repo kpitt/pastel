@@ -52,7 +52,7 @@ impl<'a> ColorArgIterator<'a> {
         let mut line = String::new();
         let size = lock
             .read_line(&mut line)
-            .map_err(|_| PastelError::ColorInvalidUTF8)?;
+            .map_err(|_| PastelError::ColorInvalidUtf8)?;
 
         if size == 0 {
             return Err(PastelError::CouldNotReadFromStdin);

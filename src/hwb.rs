@@ -11,21 +11,21 @@ use crate::{
     colorspace::ColorSpace,
     format_css_alpha,
     helper::{clamp, interpolate, interpolate_angle, MaxPrecision},
-    hsv::HSVA,
+    hsv::Hsva,
     parser::{hue_angle, modern_alpha, percentage},
     types::Scalar,
     Color, Format, Fraction,
 };
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct HWBA {
+pub struct Hwba {
     pub h: Scalar,
     pub w: Scalar,
     pub b: Scalar,
     pub alpha: Scalar,
 }
 
-impl ColorSpace for HWBA {
+impl ColorSpace for Hwba {
     fn from_color(c: &Color) -> Self {
         c.to_hwba()
     }
@@ -56,18 +56,18 @@ impl ColorSpace for HWBA {
     }
 }
 
-impl From<&Color> for HWBA {
+impl From<&Color> for Hwba {
     fn from(color: &Color) -> Self {
-        let HSVA { h, s, v, alpha } = HSVA::from(color);
+        let Hsva { h, s, v, alpha } = Hsva::from(color);
 
         let w = (1.0 - s) * v;
         let b = 1.0 - v;
-        HWBA { h, w, b, alpha }
+        Hwba { h, w, b, alpha }
     }
 }
 
-impl From<&HWBA> for Color {
-    fn from(color: &HWBA) -> Self {
+impl From<&Hwba> for Color {
+    fn from(color: &Hwba) -> Self {
         if color.w + color.b >= 1.0 {
             let gray = color.w / (color.w + color.b);
             Self::from_rgba_float(gray, gray, gray, color.alpha)
@@ -76,18 +76,18 @@ impl From<&HWBA> for Color {
             let b = clamp(0.0, 1.0, color.b);
             let v = 1.0 - b;
             let s = 1.0 - (w / v);
-            Self::from(&HSVA::with_alpha(color.h, s, v, color.alpha))
+            Self::from(&Hsva::with_alpha(color.h, s, v, color.alpha))
         }
     }
 }
 
-impl fmt::Display for HWBA {
+impl fmt::Display for Hwba {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(&self.to_color_string(Format::Spaces))
     }
 }
 
-impl HWBA {
+impl Hwba {
     #[inline]
     pub fn new(h: Scalar, w: Scalar, b: Scalar) -> Self {
         Self::with_alpha(h, w, b, 1.0)
@@ -95,7 +95,7 @@ impl HWBA {
 
     #[inline]
     pub fn with_alpha(h: Scalar, w: Scalar, b: Scalar, alpha: Scalar) -> Self {
-        HWBA { h, w, b, alpha }
+        Hwba { h, w, b, alpha }
     }
 
     /// Format the color as a HWB-representation string (`hwb(123, 50.3%, 80.1%)`).
@@ -187,21 +187,21 @@ mod tests {
 
     #[test]
     fn to_hwb_string() {
-        let c = HWBA::new(91.0, 0.541, 0.383);
+        let c = Hwba::new(91.0, 0.541, 0.383);
         // modern CSS functional syntax
         assert_eq!("hwb(91 54.1% 38.3%)", c.to_color_string(Format::Spaces));
         // spaces are required, so NoSpaces has no effect without akpha
         assert_eq!("hwb(91 54.1% 38.3%)", c.to_color_string(Format::NoSpaces));
 
-        let c1 = HWBA::new(91.3, 0.541, 0.383172);
+        let c1 = Hwba::new(91.3, 0.541, 0.383172);
         // hue is rounded to integer, w and b are rounded to 1 decimal
         assert_eq!("hwb(91 54.1% 38.3%)", c1.to_color_string(Format::Spaces));
 
-        let c2 = HWBA::new(90.0, 0.5, 0.25);
+        let c2 = Hwba::new(90.0, 0.5, 0.25);
         // trailing decimal zeros are not included
         assert_eq!("hwb(90 50% 25%)", c2.to_color_string(Format::Spaces));
 
-        let c2a = HWBA::with_alpha(90.0, 0.5, 0.25, 0.8);
+        let c2a = Hwba::with_alpha(90.0, 0.5, 0.25, 0.8);
         // non-unit alpha is serialized as a number
         assert_eq!("hwb(90 50% 25% / 0.8)", c2a.to_color_string(Format::Spaces));
         // spaces are optional around alpha separator, so NoSpaces applies
@@ -211,9 +211,9 @@ mod tests {
     #[test]
     fn mixing_with_gray_preserves_hue() {
         let hue = 123.0;
-        let base = HWBA::new(hue, 0.25, 0.25);
+        let base = Hwba::new(hue, 0.25, 0.25);
 
-        let hue_after_mixing = |other| base.mix(&HWBA::from(&other), Fraction::from(0.5)).h;
+        let hue_after_mixing = |other| base.mix(&Hwba::from(&other), Fraction::from(0.5)).h;
 
         assert_eq!(hue, hue_after_mixing(Color::black()));
         assert_eq!(hue, hue_after_mixing(Color::graytone(0.2)));

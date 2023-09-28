@@ -10,18 +10,18 @@ use crate::{
     matrix::mat3_dot,
     parser::{css_color_function, number_or_percentage},
     types::{Mat3, Scalar},
-    Color, RGBA,
+    Color, Rgba,
 };
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct XYZ {
+pub struct Xyz {
     pub x: Scalar,
     pub y: Scalar,
     pub z: Scalar,
     pub alpha: Scalar,
 }
 
-impl From<&Color> for XYZ {
+impl From<&Color> for Xyz {
     fn from(color: &Color) -> Self {
         #[rustfmt::skip]
         const M: Mat3 = [
@@ -30,16 +30,16 @@ impl From<&Color> for XYZ {
             0.0193, 0.1192, 0.9505,
         ];
 
-        let rec = RGBA::from(color);
+        let rec = Rgba::from(color);
         let r_g_b_ = lin_srgb([rec.r, rec.g, rec.b]);
         let [x, y, z] = mat3_dot(M, r_g_b_);
 
-        XYZ::with_alpha(x, y, z, color.alpha)
+        Xyz::with_alpha(x, y, z, color.alpha)
     }
 }
 
-impl From<&XYZ> for Color {
-    fn from(color: &XYZ) -> Self {
+impl From<&Xyz> for Color {
+    fn from(color: &Xyz) -> Self {
         #[rustfmt::skip]
         const M_: Mat3 = [
               3.2406, -1.5372, -0.4986,
@@ -49,7 +49,7 @@ impl From<&XYZ> for Color {
 
         let r_g_b_ = mat3_dot(M_, [color.x, color.y, color.z]);
         let [r, g, b] = gam_srgb(r_g_b_);
-        Self::from(&RGBA::<f64> {
+        Self::from(&Rgba::<f64> {
             r,
             g,
             b,
@@ -58,13 +58,13 @@ impl From<&XYZ> for Color {
     }
 }
 
-impl fmt::Display for XYZ {
+impl fmt::Display for Xyz {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "XYZ({x}, {y}, {z})", x = self.x, y = self.y, z = self.z,)
     }
 }
 
-impl XYZ {
+impl Xyz {
     #[inline]
     pub fn new(x: Scalar, y: Scalar, z: Scalar) -> Self {
         Self::with_alpha(x, y, z, 1.0)
@@ -72,7 +72,7 @@ impl XYZ {
 
     #[inline]
     pub fn with_alpha(x: Scalar, y: Scalar, z: Scalar, alpha: Scalar) -> Self {
-        XYZ { x, y, z, alpha }
+        Xyz { x, y, z, alpha }
     }
 }
 

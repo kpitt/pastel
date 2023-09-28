@@ -3,7 +3,7 @@ use std::fmt;
 use crate::{
     matrix::mat3_dot,
     types::{Mat3, Scalar},
-    xyz::XYZ,
+    xyz::Xyz,
     Color,
 };
 
@@ -11,14 +11,14 @@ use crate::{
 /// short-wavelength cone cells in the human eye. More info
 /// [here](https://en.wikipedia.org/wiki/LMS_color_space).
 #[derive(Debug, Clone, PartialEq)]
-pub struct LMS {
+pub struct Lms {
     pub l: Scalar,
     pub m: Scalar,
     pub s: Scalar,
     pub alpha: Scalar,
 }
 
-impl From<&Color> for LMS {
+impl From<&Color> for Lms {
     fn from(color: &Color) -> Self {
         #[rustfmt::skip]
         const M: Mat3 = [
@@ -27,15 +27,15 @@ impl From<&Color> for LMS {
              0.00000, 0.00000,  1.00000,
         ];
 
-        let XYZ { x, y, z, alpha } = XYZ::from(color);
+        let Xyz { x, y, z, alpha } = Xyz::from(color);
         let [l, m, s] = mat3_dot(M, [x, y, z]);
 
-        LMS { l, m, s, alpha }
+        Lms { l, m, s, alpha }
     }
 }
 
-impl From<&LMS> for Color {
-    fn from(color: &LMS) -> Self {
+impl From<&Lms> for Color {
+    fn from(color: &Lms) -> Self {
         #[rustfmt::skip]
         const M: Mat3 = [
             1.91020, -1.112_120, 0.201_908,
@@ -44,7 +44,7 @@ impl From<&LMS> for Color {
         ];
 
         let [x, y, z] = mat3_dot(M, [color.l, color.m, color.s]);
-        Self::from(&XYZ {
+        Self::from(&Xyz {
             x,
             y,
             z,
@@ -53,13 +53,13 @@ impl From<&LMS> for Color {
     }
 }
 
-impl fmt::Display for LMS {
+impl fmt::Display for Lms {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "LMS({l}, {m}, {s})", l = self.l, m = self.m, s = self.s,)
     }
 }
 
-impl LMS {
+impl Lms {
     #[inline]
     pub fn new(l: Scalar, m: Scalar, s: Scalar) -> Self {
         Self::with_alpha(l, m, s, 1.0)
@@ -67,7 +67,7 @@ impl LMS {
 
     #[inline]
     pub fn with_alpha(l: Scalar, m: Scalar, s: Scalar, alpha: Scalar) -> Self {
-        LMS { l, m, s, alpha }
+        Lms { l, m, s, alpha }
     }
 }
 
