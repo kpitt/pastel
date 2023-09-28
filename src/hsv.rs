@@ -21,15 +21,15 @@ use crate::{
 };
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct HSVA {
+pub struct Hsva {
     pub h: Scalar,
     pub s: Scalar,
     pub v: Scalar,
     pub alpha: Scalar,
 }
 
-impl From<&HSVA> for Color {
-    fn from(color: &HSVA) -> Self {
+impl From<&Hsva> for Color {
+    fn from(color: &Hsva) -> Self {
         let lightness = color.v * (1.0 - color.s / 2.0);
         let saturation = if lightness > 0.0 && lightness < 1.0 {
             (color.v - lightness) / lightness.min(1.0 - lightness)
@@ -46,7 +46,7 @@ impl From<&HSVA> for Color {
     }
 }
 
-impl From<&Color> for HSVA {
+impl From<&Color> for Hsva {
     fn from(color: &Color) -> Self {
         let lightness = color.lightness;
 
@@ -57,7 +57,7 @@ impl From<&Color> for HSVA {
             0.0
         };
 
-        HSVA {
+        Hsva {
             h: color.hue.value(),
             s: saturation,
             v: value,
@@ -66,7 +66,7 @@ impl From<&Color> for HSVA {
     }
 }
 
-impl ColorSpace for HSVA {
+impl ColorSpace for Hsva {
     fn from_color(c: &Color) -> Self {
         c.to_hsva()
     }
@@ -89,13 +89,13 @@ impl ColorSpace for HSVA {
     }
 }
 
-impl fmt::Display for HSVA {
+impl fmt::Display for Hsva {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "hsv({h}, {s}, {v})", h = self.h, s = self.s, v = self.v)
     }
 }
 
-impl HSVA {
+impl Hsva {
     #[inline]
     pub fn new(h: Scalar, s: Scalar, v: Scalar) -> Self {
         Self::with_alpha(h, s, v, 1.0)
@@ -103,7 +103,7 @@ impl HSVA {
 
     #[inline]
     pub fn with_alpha(h: Scalar, s: Scalar, v: Scalar, alpha: Scalar) -> Self {
-        HSVA { h, s, v, alpha }
+        Hsva { h, s, v, alpha }
     }
 
     /// Format the color as a HSV-representation string (`hsva(123, 50.3%, 80.1%, 0.4)`). If the

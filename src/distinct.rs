@@ -106,7 +106,7 @@ impl<R: Rng> SimulatedAnnealing<R> {
     }
 
     fn modify_color_and_lab(&mut self, color: &mut Color, lab: &mut Lab) {
-        let mut strategy = random::strategies::UniformRGB {};
+        let mut strategy = random::strategies::UniformRgb {};
 
         match self.parameters.opt_mode {
             OptimizationMode::Local => {
@@ -258,7 +258,7 @@ pub fn distinct_colors(
     let mut colors = fixed_colors;
 
     for _ in num_fixed_colors..count {
-        colors.push(random::strategies::UniformRGB.generate());
+        colors.push(random::strategies::UniformRgb.generate());
     }
 
     let mut annealing = SimulatedAnnealing::new(

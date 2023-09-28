@@ -9,22 +9,22 @@ use nom::{
 
 use crate::{
     parser::{modern_alpha, number_or_percentage},
-    rgb::RGBA,
+    rgb::Rgba,
     types::Scalar,
     Color, Format,
 };
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct CMYK {
+pub struct Cmyk {
     pub c: Scalar,
     pub m: Scalar,
     pub y: Scalar,
     pub k: Scalar,
 }
 
-impl From<&Color> for CMYK {
+impl From<&Color> for Cmyk {
     fn from(color: &Color) -> Self {
-        let rgba = RGBA::<u8>::from(color);
+        let rgba = Rgba::<u8>::from(color);
         let r = (rgba.r as f64) / 255.0;
         let g = (rgba.g as f64) / 255.0;
         let b = (rgba.b as f64) / 255.0;
@@ -40,7 +40,7 @@ impl From<&Color> for CMYK {
         let out_m = (1.0 - g - out_k) / biggest;
         let out_y = (1.0 - b - out_k) / biggest;
 
-        CMYK {
+        Cmyk {
             c: if out_c.is_nan() { 0.0 } else { out_c },
             m: if out_m.is_nan() { 0.0 } else { out_m },
             y: if out_y.is_nan() { 0.0 } else { out_y },
@@ -50,18 +50,18 @@ impl From<&Color> for CMYK {
 }
 
 // from CMYK to Color so you can do -> let new_color = Color::from(&some_cmyk);
-impl From<&CMYK> for Color {
-    fn from(color: &CMYK) -> Self {
+impl From<&Cmyk> for Color {
+    fn from(color: &Cmyk) -> Self {
         #![allow(clippy::many_single_char_names)]
         let r = (1.0 - color.c) * (1.0 - color.k);
         let g = (1.0 - color.m) * (1.0 - color.k);
         let b = (1.0 - color.y) * (1.0 - color.k);
 
-        Color::from(&RGBA::new(r, g, b))
+        Color::from(&Rgba::new(r, g, b))
     }
 }
 
-impl fmt::Display for CMYK {
+impl fmt::Display for Cmyk {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
@@ -74,10 +74,10 @@ impl fmt::Display for CMYK {
     }
 }
 
-impl CMYK {
+impl Cmyk {
     #[inline]
     pub fn new(c: Scalar, m: Scalar, y: Scalar, k: Scalar) -> Self {
-        CMYK { c, m, y, k }
+        Cmyk { c, m, y, k }
     }
 
     /// Format the color as a CMYK-representation string (`cmyk(0, 50, 100, 100)`).
@@ -142,25 +142,25 @@ mod tests {
 
     #[test]
     fn to_cmyk_string() {
-        let white = CMYK::new(0.0, 0.0, 0.0, 0.0);
+        let white = Cmyk::new(0.0, 0.0, 0.0, 0.0);
         assert_eq!("cmyk(0, 0, 0, 0)", white.to_color_string(Format::Spaces));
         assert_eq!("cmyk(0,0,0,0)", white.to_color_string(Format::NoSpaces));
 
-        let black = CMYK::new(0.0, 0.0, 0.0, 1.0);
+        let black = Cmyk::new(0.0, 0.0, 0.0, 1.0);
         assert_eq!("cmyk(0, 0, 0, 100)", black.to_color_string(Format::Spaces));
         assert_eq!("cmyk(0,0,0,100)", black.to_color_string(Format::NoSpaces));
 
-        let gray = CMYK::new(0.0, 0.0, 0.0, 0.75);
+        let gray = Cmyk::new(0.0, 0.0, 0.0, 0.75);
         assert_eq!("cmyk(0, 0, 0, 75)", gray.to_color_string(Format::Spaces));
 
-        let c1 = CMYK::new(0.0, 0.0, 0.95, 0.9);
+        let c1 = Cmyk::new(0.0, 0.0, 0.95, 0.9);
         assert_eq!("cmyk(0, 0, 95, 90)", c1.to_color_string(Format::Spaces));
 
-        let c2 = CMYK::new(0.0, 0.14, 0.43, 0.47);
+        let c2 = Cmyk::new(0.0, 0.14, 0.43, 0.47);
         assert_eq!("cmyk(0, 14, 43, 47)", c2.to_color_string(Format::Spaces));
         assert_eq!("cmyk(0,14,43,47)", c2.to_color_string(Format::NoSpaces));
 
-        let c3 = CMYK::new(0.25, 0.1, 0.0, 0.5);
+        let c3 = Cmyk::new(0.25, 0.1, 0.0, 0.5);
         assert_eq!("cmyk(25, 10, 0, 50)", c3.to_color_string(Format::Spaces));
     }
 
