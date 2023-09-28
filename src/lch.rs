@@ -23,14 +23,14 @@ use crate::{
 };
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct LCh {
+pub struct Lch {
     pub l: Scalar,
     pub c: Scalar,
     pub h: Scalar,
     pub alpha: Scalar,
 }
 
-impl ColorSpace for LCh {
+impl ColorSpace for Lch {
     fn from_color(c: &Color) -> Self {
         c.to_lch()
     }
@@ -53,7 +53,7 @@ impl ColorSpace for LCh {
     }
 }
 
-impl From<&Color> for LCh {
+impl From<&Color> for Lch {
     fn from(color: &Color) -> Self {
         let Lab { l, a, b, alpha } = Lab::from(color);
 
@@ -62,12 +62,12 @@ impl From<&Color> for LCh {
         let c = Scalar::sqrt(a * a + b * b);
         let h = mod_positive(Scalar::atan2(b, a) * RAD2DEG, 360.0);
 
-        LCh::with_alpha(l, c, h, alpha)
+        Lch::with_alpha(l, c, h, alpha)
     }
 }
 
-impl From<&LCh> for Color {
-    fn from(color: &LCh) -> Self {
+impl From<&Lch> for Color {
+    fn from(color: &Lch) -> Self {
         #![allow(clippy::many_single_char_names)]
         const DEG2RAD: Scalar = std::f64::consts::PI / 180.0;
 
@@ -78,13 +78,13 @@ impl From<&LCh> for Color {
     }
 }
 
-impl fmt::Display for LCh {
+impl fmt::Display for Lch {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "LCh({l}, {c}, {h})", l = self.l, c = self.c, h = self.h,)
     }
 }
 
-impl LCh {
+impl Lch {
     #[inline]
     pub fn new(l: Scalar, c: Scalar, h: Scalar) -> Self {
         Self::with_alpha(l, c, h, 1.0)
@@ -92,7 +92,7 @@ impl LCh {
 
     #[inline]
     pub fn with_alpha(l: Scalar, c: Scalar, h: Scalar, alpha: Scalar) -> Self {
-        LCh { l, c, h, alpha }
+        Lch { l, c, h, alpha }
     }
 
     /// Format the color as a Lab-representation string (`Lab(41, 83, -93, 0.5)`). If the alpha channel
@@ -215,7 +215,7 @@ mod tests {
 
     #[test]
     fn to_color_string() {
-        let c = LCh::new(52.0, 44.0, 271.0);
+        let c = Lch::new(52.0, 44.0, 271.0);
         assert_eq!("LCh(52, 44, 271)", c.to_color_string(Format::Spaces));
         assert_eq!("LCh(52,44,271)", c.to_color_string(Format::NoSpaces));
     }

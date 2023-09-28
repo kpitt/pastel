@@ -17,14 +17,14 @@ use crate::{
 };
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct HSLA {
+pub struct Hsla {
     pub h: Scalar,
     pub s: Scalar,
     pub l: Scalar,
     pub alpha: Scalar,
 }
 
-impl ColorSpace for HSLA {
+impl ColorSpace for Hsla {
     fn from_color(c: &Color) -> Self {
         c.to_hsla()
     }
@@ -47,9 +47,9 @@ impl ColorSpace for HSLA {
     }
 }
 
-impl From<&Color> for HSLA {
+impl From<&Color> for Hsla {
     fn from(color: &Color) -> Self {
-        HSLA {
+        Hsla {
             h: color.hue.value(),
             s: color.saturation,
             l: color.lightness,
@@ -58,8 +58,8 @@ impl From<&Color> for HSLA {
     }
 }
 
-impl From<&HSLA> for Color {
-    fn from(color: &HSLA) -> Self {
+impl From<&Hsla> for Color {
+    fn from(color: &Hsla) -> Self {
         Color {
             hue: Hue::from(color.h),
             saturation: clamp(0.0, 1.0, color.s),
@@ -69,13 +69,13 @@ impl From<&HSLA> for Color {
     }
 }
 
-impl fmt::Display for HSLA {
+impl fmt::Display for Hsla {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "hsl({h}, {s}, {l})", h = self.h, s = self.s, l = self.l,)
     }
 }
 
-impl HSLA {
+impl Hsla {
     #[inline]
     pub fn new(h: Scalar, s: Scalar, l: Scalar) -> Self {
         Self::with_alpha(h, s, l, 1.0)
@@ -83,7 +83,7 @@ impl HSLA {
 
     #[inline]
     pub fn with_alpha(h: Scalar, s: Scalar, l: Scalar, alpha: Scalar) -> Self {
-        HSLA { h, s, l, alpha }
+        Hsla { h, s, l, alpha }
     }
 
     /// Format the color as a HSL-representation string (`hsla(123, 50.3%, 80.1%, 0.4)`). If the
@@ -159,7 +159,7 @@ mod tests {
 
     #[test]
     fn to_color_string() {
-        let c = HSLA {
+        let c = Hsla {
             h: 91.3,
             s: 0.541,
             l: 0.983,
@@ -172,9 +172,9 @@ mod tests {
     #[test]
     fn mixing_with_gray_preserves_hue() {
         let hue = 123.0;
-        let base = HSLA::new(hue, 0.5, 0.5);
+        let base = Hsla::new(hue, 0.5, 0.5);
 
-        let hue_after_mixing = |other| base.mix(&HSLA::from(&other), Fraction::from(0.5)).h;
+        let hue_after_mixing = |other| base.mix(&Hsla::from(&other), Fraction::from(0.5)).h;
 
         assert_eq!(hue, hue_after_mixing(Color::black()));
         assert_eq!(hue, hue_after_mixing(Color::graytone(0.2)));

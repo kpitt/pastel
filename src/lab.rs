@@ -17,7 +17,7 @@ use crate::{
         css_color_function, legacy_alpha, legacy_separator, modern_alpha, number_or_percentage,
     },
     types::Scalar,
-    xyz::XYZ,
+    xyz::Xyz,
     Color, Format, Fraction, D65_XN, D65_YN, D65_ZN,
 };
 
@@ -50,7 +50,7 @@ impl ColorSpace for Lab {
 
 impl From<&Color> for Lab {
     fn from(color: &Color) -> Self {
-        let rec = XYZ::from(color);
+        let rec = Xyz::from(color);
 
         let cut = Scalar::powf(6.0 / 29.0, 3.0);
         let f = |t| {
@@ -89,7 +89,7 @@ impl From<&Lab> for Color {
         let y = D65_YN * finv(l_);
         let z = D65_ZN * finv(l_ - color.b / 200.0);
 
-        Self::from(&XYZ::with_alpha(x, y, z, color.alpha))
+        Self::from(&Xyz::with_alpha(x, y, z, color.alpha))
     }
 }
 

@@ -80,7 +80,7 @@ pub fn run_external_colorpicker(picker: Option<&str>) -> Result<String> {
             }
 
             let color =
-                String::from_utf8(result.stdout).map_err(|_| PastelError::ColorInvalidUTF8)?;
+                String::from_utf8(result.stdout).map_err(|_| PastelError::ColorInvalidUtf8)?;
             let color = color.trim().to_string();
 
             // Check if tool requires some post processing of the output
