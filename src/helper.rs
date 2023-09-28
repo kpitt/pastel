@@ -80,27 +80,39 @@ impl Display for MaxPrecision {
     }
 }
 
-#[test]
-fn test_interpolate() {
-    assert_eq!(0.0, interpolate_angle(0.0, 90.0, Fraction::from(0.0)));
-    assert_eq!(45.0, interpolate_angle(0.0, 90.0, Fraction::from(0.5)));
-    assert_eq!(90.0, interpolate_angle(0.0, 90.0, Fraction::from(1.0)));
-    assert_eq!(90.0, interpolate_angle(0.0, 90.0, Fraction::from(1.1)));
-}
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use approx::assert_relative_eq;
 
-#[test]
-fn test_interpolate_angle() {
-    assert_eq!(15.0, interpolate_angle(0.0, 30.0, Fraction::from(0.5)));
-    assert_eq!(20.0, interpolate_angle(0.0, 100.0, Fraction::from(0.2)));
-    assert_eq!(0.0, interpolate_angle(10.0, 350.0, Fraction::from(0.5)));
-    assert_eq!(0.0, interpolate_angle(350.0, 10.0, Fraction::from(0.5)));
-}
+    #[test]
+    fn test_mod_positive() {
+        assert_relative_eq!(0.5, mod_positive(2.9, 2.4));
+        assert_relative_eq!(1.7, mod_positive(-0.3, 2.0));
+    }
 
-#[test]
-fn test_max_precision() {
-    assert_eq!(format!("{}", MaxPrecision::wrap(3, 0.5)), "0.5");
-    assert_eq!(format!("{}", MaxPrecision::wrap(3, 0.51)), "0.51");
-    assert_eq!(format!("{}", MaxPrecision::wrap(3, 0.512)), "0.512");
-    assert_eq!(format!("{}", MaxPrecision::wrap(3, 0.5124)), "0.512");
-    assert_eq!(format!("{}", MaxPrecision::wrap(3, 0.5125)), "0.513");
+    #[test]
+    fn test_interpolate() {
+        assert_eq!(0.0, interpolate(0.0, 0.5, Fraction::from(0.0)));
+        assert_eq!(0.25, interpolate(0.0, 0.5, Fraction::from(0.5)));
+        assert_eq!(0.5, interpolate(0.0, 0.5, Fraction::from(1.0)));
+        assert_eq!(0.5, interpolate(0.0, 0.5, Fraction::from(1.1)));
+    }
+
+    #[test]
+    fn test_interpolate_angle() {
+        assert_eq!(15.0, interpolate_angle(0.0, 30.0, Fraction::from(0.5)));
+        assert_eq!(20.0, interpolate_angle(0.0, 100.0, Fraction::from(0.2)));
+        assert_eq!(0.0, interpolate_angle(10.0, 350.0, Fraction::from(0.5)));
+        assert_eq!(0.0, interpolate_angle(350.0, 10.0, Fraction::from(0.5)));
+    }
+
+    #[test]
+    fn test_max_precision() {
+        assert_eq!(format!("{}", MaxPrecision::wrap(3, 0.5)), "0.5");
+        assert_eq!(format!("{}", MaxPrecision::wrap(3, 0.51)), "0.51");
+        assert_eq!(format!("{}", MaxPrecision::wrap(3, 0.512)), "0.512");
+        assert_eq!(format!("{}", MaxPrecision::wrap(3, 0.5124)), "0.512");
+        assert_eq!(format!("{}", MaxPrecision::wrap(3, 0.5125)), "0.513");
+    }
 }

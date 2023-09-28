@@ -1,3 +1,5 @@
+use nom::{character::complete::alpha1, combinator::all_consuming};
+use nom::{error::ErrorKind, Err, IResult};
 use once_cell::sync::Lazy;
 
 use crate::Color;
@@ -167,3 +169,38 @@ pub static NAMED_COLORS: Lazy<[NamedColor; 148]> = Lazy::new(|| {
         named_color("yellowgreen", 154, 205, 50),
     ]
 });
+
+pub(crate) fn parse_named_color(input: &str) -> IResult<&str, Color> {
+    let (input, color) = all_consuming(alpha1)(input.trim())?;
+    let nc = NAMED_COLORS
+        .iter()
+        .find(|nc| color.to_lowercase() == nc.name);
+
+    match nc {
+        None => Err(Err::Error(nom::error::Error::new(
+            "Couldn't find matching named color",
+            ErrorKind::Alpha,
+        ))),
+        Some(nc) => Ok((input, nc.color.clone())),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn parse_color(input: &str) -> Option<Color> {
+        parse_named_color(input).ok().map(|(_, c)| c)
+    }
+
+    #[test]
+    fn parse_named_syntax() {
+        assert_eq!(Some(Color::black()), parse_color("black"));
+        assert_eq!(Some(Color::blue()), parse_color("blue"));
+        assert_eq!(Some(Color::blue()), parse_color("Blue"));
+        assert_eq!(Some(Color::blue()), parse_color("BLUE"));
+        assert_eq!(Some(Color::from_rgb(255, 20, 147)), parse_color("deeppink"));
+        assert_eq!(None, parse_color("whatever"));
+        assert_eq!(None, parse_color("red blue"));
+    }
+}
