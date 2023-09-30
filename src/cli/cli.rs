@@ -38,7 +38,7 @@ pub fn build_cli() -> Command<'static> {
         .short('s')
         .value_name("name")
         .help("The colorspace in which to interpolate")
-        .possible_values(&["Lab", "LCh", "RGB", "HSL", "HWB"])
+        .possible_values(["Lab", "LCh", "RGB", "HSL", "HWB"])
         .ignore_case(true)
         .default_value("Lab");
 
@@ -95,7 +95,7 @@ pub fn build_cli() -> Command<'static> {
                              \n\
                              Default strategy: 'vivid'\n ",
                         )
-                        .possible_values(&["vivid", "rgb", "gray", "lch_hue"])
+                        .possible_values(["vivid", "rgb", "gray", "lch_hue"])
                         .hide_default_value(true)
                         .hide_possible_values(true)
                         .default_value("vivid"),
@@ -131,7 +131,7 @@ pub fn build_cli() -> Command<'static> {
                         .help("Distance metric to compute mutual color distances. The CIEDE2000 is \
                                more accurate, but also much slower.")
                         .takes_value(true)
-                        .possible_values(&["CIEDE2000", "CIE76"])
+                        .possible_values(["CIEDE2000", "CIE76"])
                         .value_name("name")
                         .default_value("CIE76")
                 )
@@ -210,16 +210,16 @@ pub fn build_cli() -> Command<'static> {
                         .help("Output format type. Note that the 'ansi-*-escapecode' formats print \
                                ansi escape sequences to the terminal that will not be visible \
                                unless something else is printed in addition.")
-                        .possible_values(&["rgb", "rgb-float", "hex",
-                                           "hsl", "hsl-hue", "hsl-saturation", "hsl-lightness",
-                                           "hsv", "hsv-hue", "hsv-saturation", "hsv-value",
-                                           "hwb", "hwb-hue", "hwb-whiteness", "hwb-blackness",
-                                           "lch", "lch-lightness", "lch-chroma", "lch-hue",
-                                           "lab", "lab-a", "lab-b",
-                                           "luminance", "brightness",
-                                           "ansi-8bit", "ansi-24bit",
-                                           "ansi-8bit-escapecode", "ansi-24bit-escapecode",
-                                           "cmyk", "name"])
+                        .possible_values(["rgb", "rgb-float", "hex",
+                                          "hsl", "hsl-hue", "hsl-saturation", "hsl-lightness",
+                                          "hsv", "hsv-hue", "hsv-saturation", "hsv-value",
+                                          "hwb", "hwb-hue", "hwb-whiteness", "hwb-blackness",
+                                          "lch", "lch-lightness", "lch-chroma", "lch-hue",
+                                          "lab", "lab-a", "lab-b",
+                                          "luminance", "brightness",
+                                          "ansi-8bit", "ansi-24bit",
+                                          "ansi-8bit-escapecode", "ansi-24bit-escapecode",
+                                          "cmyk", "name"])
                         .ignore_case(true)
                         .default_value("hex")
                 )
@@ -339,7 +339,7 @@ pub fn build_cli() -> Command<'static> {
                     Arg::new("type")
                         .help("The type of colorblindness that should be simulated (protanopia, \
                                deuteranopia, tritanopia)")
-                        .possible_values(&["prot", "deuter", "trit"])
+                        .possible_values(["prot", "deuter", "trit"])
                         .ignore_case(true)
                         .required(true),
                 )
@@ -354,11 +354,11 @@ pub fn build_cli() -> Command<'static> {
                 .arg(
                     Arg::new("property")
                         .help("The property that should be changed")
-                        .possible_values(&["lightness", "hue", "chroma",
-                                           "lab-a", "lab-b",
-                                           "red", "green", "blue",
-                                           "hsl-hue", "hsl-saturation", "hsl-lightness",
-                                           "hwb-hue", "hwb-whiteness", "hwb-blackness"])
+                        .possible_values(["lightness", "hue", "chroma",
+                                          "lab-a", "lab-b",
+                                          "red", "green", "blue",
+                                          "hsl-hue", "hsl-saturation", "hsl-lightness",
+                                          "hwb-hue", "hwb-whiteness", "hwb-blackness"])
                         .ignore_case(true)
                         .required(true),
                 )
@@ -489,7 +489,7 @@ pub fn build_cli() -> Command<'static> {
                 .short('m')
                 .value_name("mode")
                 .help("Specify the terminal color mode: 24bit, 8bit, off, *auto*")
-                .possible_values(&["24bit", "8bit", "off", "auto"])
+                .possible_values(["24bit", "8bit", "off", "auto"])
                 .default_value(if output_vt100::try_init().is_ok() {"auto"} else {"off"})
                 .hide_possible_values(true)
                 .hide_default_value(true)
