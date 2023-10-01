@@ -9,7 +9,7 @@ use nom::{
 
 use crate::{
     parser::{modern_alpha, number_or_percentage},
-    rgb::Rgba,
+    rgb::Srgba,
     types::Scalar,
     Color, Format,
 };
@@ -24,7 +24,7 @@ pub struct Cmyk {
 
 impl From<&Color> for Cmyk {
     fn from(color: &Color) -> Self {
-        let rgba = Rgba::<u8>::from(color);
+        let rgba = Srgba::<u8>::from(color);
         let r = (rgba.r as f64) / 255.0;
         let g = (rgba.g as f64) / 255.0;
         let b = (rgba.b as f64) / 255.0;
@@ -57,7 +57,7 @@ impl From<&Cmyk> for Color {
         let g = (1.0 - color.m) * (1.0 - color.k);
         let b = (1.0 - color.y) * (1.0 - color.k);
 
-        Color::from(&Rgba::new(r, g, b))
+        Color::from(&Srgba::new(r, g, b))
     }
 }
 
