@@ -32,7 +32,7 @@ pub use hwb::Hwba;
 pub use lab::Lab;
 pub use lch::Lch;
 pub use lms::Lms;
-pub use rgb::Rgba;
+pub use rgb::Srgba;
 pub use xyz::Xyz;
 
 use colorspace::ColorSpace;
@@ -119,27 +119,27 @@ impl Color {
     pub fn from_rgba(r: u8, g: u8, b: u8, alpha: Scalar) -> Color {
         // RGB to HSL conversion algorithm adapted from
         // https://en.wikipedia.org/wiki/HSL_and_HSV
-        Self::from(&Rgba::with_alpha(r, g, b, alpha))
+        Self::from(&Srgba::with_alpha(r, g, b, alpha))
     }
 
     /// Create a `Color` from integer RGB values between 0 and 255.
     #[inline]
     pub fn from_rgb(r: u8, g: u8, b: u8) -> Color {
-        Self::from(&Rgba::new(r, g, b))
+        Self::from(&Srgba::new(r, g, b))
     }
 
     /// Create a `Color` from RGB and alpha values between 0.0 and 1.0. Values outside this range
     /// will be clamped.
     #[inline]
     pub fn from_rgba_float(r: Scalar, g: Scalar, b: Scalar, alpha: Scalar) -> Color {
-        Self::from(&Rgba::with_alpha(r, g, b, alpha))
+        Self::from(&Srgba::with_alpha(r, g, b, alpha))
     }
 
     /// Create a `Color` from RGB values between 0.0 and 1.0. Values outside this range will be
     /// clamped.
     #[inline]
     pub fn from_rgb_float(r: Scalar, g: Scalar, b: Scalar) -> Color {
-        Self::from(&Rgba::new(r, g, b))
+        Self::from(&Srgba::new(r, g, b))
     }
 
     /// Create a `Color` from XYZ coordinates in the CIE 1931 color space. Note that a `Color`
@@ -236,15 +236,15 @@ impl Color {
     /// Convert a `Color` to its red, green, blue and alpha values. The RGB values are integers in
     /// the range from 0 to 255. The alpha channel is a number between 0.0 and 1.0.
     #[inline]
-    pub fn to_rgba(&self) -> Rgba<u8> {
-        Rgba::<u8>::from(self)
+    pub fn to_rgba(&self) -> Srgba<u8> {
+        Srgba::<u8>::from(self)
     }
 
     /// Format the color as a RGB-representation string (`rgba(255, 127, 0, 0.5)`). If the alpha channel
     /// is `1.0`, the simplified `rgb()` format will be used instead.
     #[inline]
     pub fn to_rgb_string(&self, format: Format) -> String {
-        Rgba::<u8>::from(self).to_color_string(format)
+        Srgba::<u8>::from(self).to_color_string(format)
     }
 
     /// Convert a `Color` to its cyan, magenta, yellow, and black values. The CMYK
@@ -264,21 +264,21 @@ impl Color {
     /// is `1.0`, the simplified `rgb()` format will be used instead.
     #[inline]
     pub fn to_rgb_float_string(&self, format: Format) -> String {
-        Rgba::<f64>::from(self).to_color_string(format)
+        Srgba::<f64>::from(self).to_color_string(format)
     }
 
     /// Format the color as a RGB-representation string (`#fc0070`). The output will contain 6 hex
     /// digits if the alpha channel is `1.0`, or 8 hex digits otherwise.
     #[inline]
     pub fn to_rgb_hex_string(&self, leading_hash: bool) -> String {
-        Rgba::<u8>::from(self).to_hex_string(leading_hash)
+        Srgba::<u8>::from(self).to_hex_string(leading_hash)
     }
 
     /// Convert a `Color` to its red, green, blue and alpha values. All numbers are from the range
     /// between 0.0 and 1.0.
     #[inline]
-    pub fn to_rgba_float(&self) -> Rgba<Scalar> {
-        Rgba::<f64>::from(self)
+    pub fn to_rgba_float(&self) -> Srgba<Scalar> {
+        Srgba::<f64>::from(self)
     }
 
     /// Return the color as an integer in RGB representation (`0xRRGGBB`)
@@ -879,7 +879,7 @@ mod tests {
     fn mix() {
         assert_eq!(
             Color::purple(),
-            Color::red().mix::<Rgba<f64>>(&Color::blue(), Fraction::from(0.5))
+            Color::red().mix::<Srgba<f64>>(&Color::blue(), Fraction::from(0.5))
         );
         assert_eq!(
             Color::fuchsia(),

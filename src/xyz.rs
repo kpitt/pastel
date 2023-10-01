@@ -10,7 +10,7 @@ use crate::{
     matrix::mat3_dot,
     parser::{css_color_function, number_or_percentage},
     types::{Mat3, Scalar},
-    Color, Rgba,
+    Color, Srgba,
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -30,7 +30,7 @@ impl From<&Color> for Xyz {
             0.0193, 0.1192, 0.9505,
         ];
 
-        let rec = Rgba::from(color);
+        let rec = Srgba::from(color);
         let r_g_b_ = lin_srgb([rec.r, rec.g, rec.b]);
         let [x, y, z] = mat3_dot(M, r_g_b_);
 
@@ -49,7 +49,7 @@ impl From<&Xyz> for Color {
 
         let r_g_b_ = mat3_dot(M_, [color.x, color.y, color.z]);
         let [r, g, b] = gam_srgb(r_g_b_);
-        Self::from(&Rgba::<f64> {
+        Self::from(&Srgba::<f64> {
             r,
             g,
             b,
