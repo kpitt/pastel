@@ -160,7 +160,7 @@ impl<R: Rng> SimulatedAnnealing<R> {
                 "cannot change fixed color"
             );
 
-            let mut new_colors = self.colors[random_index].clone();
+            let mut new_colors = self.colors[random_index];
 
             let mut new_lab_values = self.lab_values.clone();
 
@@ -319,7 +319,7 @@ impl DistanceResult {
         // we need to recalculate distances for nodes where the previous min dist was with
         // changed_color but it's not anymore (potentially).
         let mut to_recalc = Vec::with_capacity(lab_values.len());
-        let at_lab = lab_values[color].clone();
+        let at_lab = lab_values[color];
 
         for (i, l) in lab_values.iter().enumerate() {
             if i == color {

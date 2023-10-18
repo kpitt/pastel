@@ -22,7 +22,7 @@ use crate::{
     Color, Format, Fraction,
 };
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Lch {
     pub l: Scalar,
     pub c: Scalar,
@@ -31,15 +31,7 @@ pub struct Lch {
 }
 
 impl ColorSpace for Lch {
-    fn from_color(c: &Color) -> Self {
-        c.to_lch()
-    }
-
-    fn into_color(self) -> Color {
-        Color::from_lch(self.l, self.c, self.h, self.alpha)
-    }
-
-    fn mix(&self, other: &Self, fraction: Fraction) -> Self {
+    fn mix(self, other: Self, fraction: Fraction) -> Self {
         // make sure that the hue is preserved when mixing with gray colors
         let self_hue = if self.c < 0.1 { other.h } else { self.h };
         let other_hue = if other.c < 0.1 { self.h } else { other.h };
@@ -53,8 +45,8 @@ impl ColorSpace for Lch {
     }
 }
 
-impl From<&Color> for Lch {
-    fn from(color: &Color) -> Self {
+impl From<Color> for Lch {
+    fn from(color: Color) -> Self {
         let Lab { l, a, b, alpha } = Lab::from(color);
 
         const RAD2DEG: Scalar = 180.0 / std::f64::consts::PI;
@@ -66,15 +58,15 @@ impl From<&Color> for Lch {
     }
 }
 
-impl From<&Lch> for Color {
-    fn from(color: &Lch) -> Self {
+impl From<Lch> for Color {
+    fn from(color: Lch) -> Self {
         #![allow(clippy::many_single_char_names)]
         const DEG2RAD: Scalar = std::f64::consts::PI / 180.0;
 
         let a = color.c * Scalar::cos(color.h * DEG2RAD);
         let b = color.c * Scalar::sin(color.h * DEG2RAD);
 
-        Self::from(&Lab::with_alpha(color.l, a, b, color.alpha))
+        Self::from(Lab::with_alpha(color.l, a, b, color.alpha))
     }
 }
 
@@ -203,8 +195,7 @@ mod tests {
 
         let roundtrip = |h, s, l| {
             let color1 = Color::from_hsl(h, s, l);
-            let lch1 = color1.to_lch();
-            let color2 = Color::from_lch(lch1.l, lch1.c, lch1.h, 1.0);
+            let color2 = Color::from(Lch::from(color1));
             assert_almost_equal(&color1, &color2);
         };
 

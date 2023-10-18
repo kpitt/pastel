@@ -37,7 +37,7 @@ pub use xyz::Xyz;
 
 use colorspace::ColorSpace;
 pub use helper::Fraction;
-use helper::MaxPrecision;
+use helper::{clamp, MaxPrecision};
 use types::{Hue, Scalar};
 
 pub use color_scale::ColorScale;
@@ -51,13 +51,15 @@ pub use color_scale::ColorScale;
 ///   RGB values. This is different from comparing the HSL values. For example,
 ///   HSL has many different representations of black (arbitrary hue and
 ///   saturation values).
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 pub struct Color {
     hue: Hue,
     saturation: Scalar,
     lightness: Scalar,
     alpha: Scalar,
 }
+
+pub type MixingFn = dyn Fn(Color, Color, Fraction) -> Color;
 
 // Illuminant D65 constants used for Lab color space conversions.
 const D65_XN: Scalar = 0.950_470;
@@ -79,22 +81,22 @@ fn format_css_alpha(alpha: Scalar, format: Format) -> String {
 impl Color {
     #[inline]
     pub fn from_hsla(hue: Scalar, saturation: Scalar, lightness: Scalar, alpha: Scalar) -> Color {
-        Self::from(&Hsla::with_alpha(hue, saturation, lightness, alpha))
+        Self::from(Hsla::with_alpha(hue, saturation, lightness, alpha))
     }
 
     #[inline]
     pub fn from_hsl(hue: Scalar, saturation: Scalar, lightness: Scalar) -> Color {
-        Self::from(&Hsla::new(hue, saturation, lightness))
+        Self::from(Hsla::new(hue, saturation, lightness))
     }
 
     #[inline]
     pub fn from_hsva(hue: Scalar, saturation: Scalar, value: Scalar, alpha: Scalar) -> Color {
-        Self::from(&Hsva::with_alpha(hue, saturation, value, alpha))
+        Self::from(Hsva::with_alpha(hue, saturation, value, alpha))
     }
 
     #[inline]
     pub fn from_hsv(hue: Scalar, saturation: Scalar, value: Scalar) -> Color {
-        Self::from(&Hsva::new(hue, saturation, value))
+        Self::from(Hsva::new(hue, saturation, value))
     }
 
     /// Create a `Color` from a hue, and whiteness and blackness values with a
@@ -104,13 +106,13 @@ impl Color {
     /// - https://en.wikipedia.org/wiki/HWB_color_model
     #[inline]
     pub fn from_hwba(hue: Scalar, whiteness: Scalar, blackness: Scalar, alpha: Scalar) -> Color {
-        Self::from(&Hwba::with_alpha(hue, whiteness, blackness, alpha))
+        Self::from(Hwba::with_alpha(hue, whiteness, blackness, alpha))
     }
 
     /// Create a `Color` from a hue, and whiteness and blackness values.
     #[inline]
     pub fn from_hwb(hue: Scalar, whiteness: Scalar, blackness: Scalar) -> Color {
-        Self::from(&Hwba::new(hue, whiteness, blackness))
+        Self::from(Hwba::new(hue, whiteness, blackness))
     }
 
     /// Create a `Color` from integer RGB values between 0 and 255 and a floating
@@ -119,27 +121,27 @@ impl Color {
     pub fn from_rgba(r: u8, g: u8, b: u8, alpha: Scalar) -> Color {
         // RGB to HSL conversion algorithm adapted from
         // https://en.wikipedia.org/wiki/HSL_and_HSV
-        Self::from(&Srgba::with_alpha(r, g, b, alpha))
+        Self::from(Srgba::with_alpha(r, g, b, alpha))
     }
 
     /// Create a `Color` from integer RGB values between 0 and 255.
     #[inline]
     pub fn from_rgb(r: u8, g: u8, b: u8) -> Color {
-        Self::from(&Srgba::new(r, g, b))
+        Self::from(Srgba::new(r, g, b))
     }
 
     /// Create a `Color` from RGB and alpha values between 0.0 and 1.0. Values outside this range
     /// will be clamped.
     #[inline]
     pub fn from_rgba_float(r: Scalar, g: Scalar, b: Scalar, alpha: Scalar) -> Color {
-        Self::from(&Srgba::with_alpha(r, g, b, alpha))
+        Self::from(Srgba::with_alpha(r, g, b, alpha))
     }
 
     /// Create a `Color` from RGB values between 0.0 and 1.0. Values outside this range will be
     /// clamped.
     #[inline]
     pub fn from_rgb_float(r: Scalar, g: Scalar, b: Scalar) -> Color {
-        Self::from(&Srgba::new(r, g, b))
+        Self::from(Srgba::new(r, g, b))
     }
 
     /// Create a `Color` from XYZ coordinates in the CIE 1931 color space. Note that a `Color`
@@ -153,14 +155,14 @@ impl Color {
     /// - <https://en.wikipedia.org/wiki/SRGB>
     #[inline]
     pub fn from_xyz(x: Scalar, y: Scalar, z: Scalar, alpha: Scalar) -> Color {
-        Self::from(&Xyz::with_alpha(x, y, z, alpha))
+        Self::from(Xyz::with_alpha(x, y, z, alpha))
     }
 
     /// Create a `Color` from LMS coordinates. This is the matrix inverse of the matrix that
     /// appears in `to_lms`.
     #[inline]
     pub fn from_lms(l: Scalar, m: Scalar, s: Scalar, alpha: Scalar) -> Color {
-        Self::from(&Lms::with_alpha(l, m, s, alpha))
+        Self::from(Lms::with_alpha(l, m, s, alpha))
     }
 
     /// Create a `Color` from L, a and b coordinates coordinates in the Lab color
@@ -169,7 +171,7 @@ impl Color {
     /// See: <https://en.wikipedia.org/wiki/Lab_color_space>
     #[inline]
     pub fn from_lab(l: Scalar, a: Scalar, b: Scalar, alpha: Scalar) -> Color {
-        Self::from(&Lab::with_alpha(l, a, b, alpha))
+        Self::from(Lab::with_alpha(l, a, b, alpha))
     }
 
     /// Create a `Color` from lightness, chroma and hue coordinates in the CIE LCh color space.
@@ -179,14 +181,14 @@ impl Color {
     /// See: <https://en.wikipedia.org/wiki/Lab_color_space>
     #[inline]
     pub fn from_lch(l: Scalar, c: Scalar, h: Scalar, alpha: Scalar) -> Color {
-        Self::from(&Lch::with_alpha(l, c, h, alpha))
+        Self::from(Lch::with_alpha(l, c, h, alpha))
     }
 
     /// Create a `Color` from  the four colours of the CMYK model: Cyan, Magenta, Yellow and Black.
     /// The CMYK colours are subtractive. This means the colours get darker as you blend them together
     #[inline]
     pub fn from_cmyk(c: Scalar, m: Scalar, y: Scalar, k: Scalar) -> Color {
-        Self::from(&Cmyk::new(c, m, y, k))
+        Self::from(Cmyk::new(c, m, y, k))
     }
 
     /// Convert a `Color` to its hue, saturation, lightness and alpha values. The hue is given
@@ -194,14 +196,14 @@ impl Color {
     /// between 0.0 and 1.0.
     #[inline]
     pub fn to_hsla(&self) -> Hsla {
-        Hsla::from(self)
+        Hsla::from(*self)
     }
 
     /// Format the color as a HSL-representation string (`hsla(123, 50.3%, 80.1%, 0.4)`). If the
     /// alpha channel is `1.0`, the simplified `hsl()` format will be used instead.
     #[inline]
     pub fn to_hsl_string(&self, format: Format) -> String {
-        Hsla::from(self).to_color_string(format)
+        Hsla::from(*self).to_color_string(format)
     }
 
     /// Convert a `Color` to its hue, saturation, value and alpha values. The hue is given
@@ -209,14 +211,14 @@ impl Color {
     /// between 0.0 and 1.0.
     #[inline]
     pub fn to_hsva(&self) -> Hsva {
-        Hsva::from(self)
+        Hsva::from(*self)
     }
 
     /// Format the color as a HSV-representation string (`hsva(123, 50.3%, 80.1%, 0.4)`). If the
     /// alpha channel is `1.0`, the simplified `hsv()` format will be used instead.
     #[inline]
     pub fn to_hsv_string(&self, format: Format) -> String {
-        Hsva::from(self).to_color_string(format)
+        Hsva::from(*self).to_color_string(format)
     }
 
     /// Convert a `Color` to its hue, whiteness, blackness, and alpha values. The hue is given in
@@ -224,61 +226,61 @@ impl Color {
     /// between 0.0 and 1.0.
     #[inline]
     pub fn to_hwba(&self) -> Hwba {
-        Hwba::from(self)
+        Hwba::from(*self)
     }
 
     /// Format the color as a HWB-representation string (`hwb(123, 50.3%, 80.1%)`).
     #[inline]
     pub fn to_hwb_string(&self, format: Format) -> String {
-        Hwba::from(self).to_color_string(format)
+        Hwba::from(*self).to_color_string(format)
     }
 
     /// Convert a `Color` to its red, green, blue and alpha values. The RGB values are integers in
     /// the range from 0 to 255. The alpha channel is a number between 0.0 and 1.0.
     #[inline]
     pub fn to_rgba(&self) -> Srgba<u8> {
-        Srgba::<u8>::from(self)
+        Srgba::<u8>::from(*self)
     }
 
     /// Format the color as a RGB-representation string (`rgba(255, 127, 0, 0.5)`). If the alpha channel
     /// is `1.0`, the simplified `rgb()` format will be used instead.
     #[inline]
     pub fn to_rgb_string(&self, format: Format) -> String {
-        Srgba::<u8>::from(self).to_color_string(format)
+        Srgba::<u8>::from(*self).to_color_string(format)
     }
 
     /// Convert a `Color` to its cyan, magenta, yellow, and black values. The CMYK
     /// values are floats smaller than or equal to 1.0.
     #[inline]
     pub fn to_cmyk(&self) -> Cmyk {
-        Cmyk::from(self)
+        Cmyk::from(*self)
     }
 
     /// Format the color as a CMYK-representation string (`cmyk(0, 50, 100, 100)`).
     #[inline]
     pub fn to_cmyk_string(&self, format: Format) -> String {
-        Cmyk::from(self).to_color_string(format)
+        Cmyk::from(*self).to_color_string(format)
     }
 
     /// Format the color as a floating point RGB-representation string (`rgb(1.0, 0.5, 0)`). If the alpha channel
     /// is `1.0`, the simplified `rgb()` format will be used instead.
     #[inline]
     pub fn to_rgb_float_string(&self, format: Format) -> String {
-        Srgba::<f64>::from(self).to_color_string(format)
+        Srgba::<f64>::from(*self).to_color_string(format)
     }
 
     /// Format the color as a RGB-representation string (`#fc0070`). The output will contain 6 hex
     /// digits if the alpha channel is `1.0`, or 8 hex digits otherwise.
     #[inline]
     pub fn to_rgb_hex_string(&self, leading_hash: bool) -> String {
-        Srgba::<u8>::from(self).to_hex_string(leading_hash)
+        Srgba::<u8>::from(*self).to_hex_string(leading_hash)
     }
 
     /// Convert a `Color` to its red, green, blue and alpha values. All numbers are from the range
     /// between 0.0 and 1.0.
     #[inline]
     pub fn to_rgba_float(&self) -> Srgba<Scalar> {
-        Srgba::<f64>::from(self)
+        Srgba::<f64>::from(*self)
     }
 
     /// Return the color as an integer in RGB representation (`0xRRGGBB`)
@@ -294,7 +296,7 @@ impl Color {
     /// - <https://en.wikipedia.org/wiki/SRGB>
     #[inline]
     pub fn to_xyz(&self) -> Xyz {
-        Xyz::from(self)
+        Xyz::from(*self)
     }
 
     /// Get coordinates according to the LSM color space
@@ -303,7 +305,7 @@ impl Color {
     /// algorithm for converting from CIE XYZ
     #[inline]
     pub fn to_lms(&self) -> Lms {
-        Lms::from(self)
+        Lms::from(*self)
     }
 
     /// Get L, a and b coordinates according to the Lab color space.
@@ -311,14 +313,14 @@ impl Color {
     /// See: <https://en.wikipedia.org/wiki/Lab_color_space>
     #[inline]
     pub fn to_lab(&self) -> Lab {
-        Lab::from(self)
+        Lab::from(*self)
     }
 
     /// Format the color as a Lab-representation string (`Lab(41, 83, -93, 0.5)`). If the alpha channel
     /// is `1.0`, it won't be included in the output.
     #[inline]
     pub fn to_lab_string(&self, format: Format) -> String {
-        Lab::from(self).to_color_string(format)
+        Lab::from(*self).to_color_string(format)
     }
 
     /// Get L, C and h coordinates according to the CIE LCh color space.
@@ -326,14 +328,14 @@ impl Color {
     /// See: <https://en.wikipedia.org/wiki/Lab_color_space>
     #[inline]
     pub fn to_lch(&self) -> Lch {
-        Lch::from(self)
+        Lch::from(*self)
     }
 
     /// Format the color as a LCh-representation string (`LCh(0.3, 0.2, 0.1, 0.5)`). If the alpha channel
     /// is `1.0`, it won't be included in the output.
     #[inline]
     pub fn to_lch_string(&self, format: Format) -> String {
-        Lch::from(self).to_color_string(format)
+        Lch::from(*self).to_color_string(format)
     }
 
     /// Pure black.
@@ -422,56 +424,52 @@ impl Color {
     }
 
     /// Change the alpha value of a Color.
-    pub fn with_alpha(&self, alpha: Scalar) -> Color {
-        Self::from_hsla(self.hue.value(), self.saturation, self.lightness, alpha)
+    #[inline]
+    pub fn with_alpha(mut self, alpha: Scalar) -> Color {
+        self.alpha = alpha;
+        self
     }
 
     /// Rotate along the "hue" axis.
-    pub fn rotate_hue(&self, delta: Scalar) -> Color {
-        Self::from_hsla(
-            self.hue.value() + delta,
-            self.saturation,
-            self.lightness,
-            self.alpha,
-        )
+    #[inline]
+    pub fn rotate_hue(mut self, delta: Scalar) -> Color {
+        self.hue = self.hue.rotate(delta);
+        self
     }
 
     /// Get the complementary color (hue rotated by 180°).
-    pub fn complementary(&self) -> Color {
+    #[inline]
+    pub fn complementary(self) -> Color {
         self.rotate_hue(180.0)
     }
 
     /// Lighten a color by adding a certain amount (number between -1.0 and 1.0) to the lightness
     /// channel. If the number is negative, the color is darkened.
-    pub fn lighten(&self, f: Scalar) -> Color {
-        Self::from_hsla(
-            self.hue.value(),
-            self.saturation,
-            self.lightness + f,
-            self.alpha,
-        )
+    #[inline]
+    pub fn lighten(mut self, f: Scalar) -> Color {
+        self.lightness = clamp(0.0, 1.0, self.lightness + f);
+        self
     }
 
     /// Darken a color by subtracting a certain amount (number between -1.0 and 1.0) from the
     /// lightness channel. If the number is negative, the color is lightened.
-    pub fn darken(&self, f: Scalar) -> Color {
+    #[inline]
+    pub fn darken(self, f: Scalar) -> Color {
         self.lighten(-f)
     }
 
     /// Increase the saturation of a color by adding a certain amount (number between -1.0 and 1.0)
     /// to the saturation channel. If the number is negative, the color is desaturated.
-    pub fn saturate(&self, f: Scalar) -> Color {
-        Self::from_hsla(
-            self.hue.value(),
-            self.saturation + f,
-            self.lightness,
-            self.alpha,
-        )
+    #[inline]
+    pub fn saturate(mut self, f: Scalar) -> Color {
+        self.saturation = clamp(0.0, 1.0, self.saturation + f);
+        self
     }
 
     /// Decrease the saturation of a color by subtracting a certain amount (number between -1.0 and
     /// 1.0) from the saturation channel. If the number is negative, the color is saturated.
-    pub fn desaturate(&self, f: Scalar) -> Color {
+    #[inline]
+    pub fn desaturate(self, f: Scalar) -> Color {
         self.saturate(-f)
     }
 
@@ -503,26 +501,22 @@ impl Color {
     }
 
     /// Convert a color to a gray tone with the same perceived luminance (see `luminance`).
-    pub fn to_gray(&self) -> Color {
-        let hue = self.hue;
-        let c = self.to_lch();
+    pub fn to_gray(mut self) -> Color {
+        let gray = Color::from_lch(Lch::from(self).l, 0.0, 0.0, 1.0);
 
-        // the desaturation step is only needed to correct minor rounding errors.
-        let mut gray = Color::from_lch(c.l, 0.0, 0.0, 1.0).desaturate(1.0);
+        self.lightness = gray.lightness;
+        // By definition, saturation is always 0.0 for a pure gray.
+        self.saturation = 0.0;
 
-        // Restore the hue value (does not alter the color, but makes it able to add saturation
-        // again)
-        gray.hue = hue;
-
-        gray
+        self
     }
 
     /// The perceived brightness of the color (A number between 0.0 and 1.0).
     ///
     /// See: <https://www.w3.org/TR/AERT#color-contrast>
     pub fn brightness(&self) -> Scalar {
-        let c = self.to_rgba_float();
-        (299.0 * c.r + 587.0 * c.g + 114.0 * c.b) / 1000.0
+        let Srgba { r, g, b, .. } = Srgba::<f64>::from(*self);
+        (299.0 * r + 587.0 * g + 114.0 * b) / 1000.0
     }
 
     /// Determine whether a color is perceived as a light color (perceived brightness is larger
@@ -603,10 +597,11 @@ impl Color {
 
     /// Mix two colors by linearly interpolating between them in the specified color space.
     /// For the angle-like components (hue), the shortest path along the unit circle is chosen.
-    pub fn mix<C: ColorSpace>(self: &Color, other: &Color, fraction: Fraction) -> Color {
-        C::from_color(self)
-            .mix(&C::from_color(other), fraction)
-            .into_color()
+    pub fn mix<C: ColorSpace>(self, other: Color, fraction: Fraction) -> Color
+    where
+        C: From<Color> + Into<Color>,
+    {
+        C::from(self).mix(C::from(other), fraction).into()
     }
 
     /// Alpha composite two colors, placing the second over the first.
@@ -643,7 +638,7 @@ impl Color {
 // by default Colors will be printed into HSLA format
 impl fmt::Display for Color {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", Hsla::from(self))
+        write!(f, "{}", Hsla::from(*self))
     }
 }
 
@@ -879,15 +874,15 @@ mod tests {
     fn mix() {
         assert_eq!(
             Color::purple(),
-            Color::red().mix::<Srgba<f64>>(&Color::blue(), Fraction::from(0.5))
+            Color::red().mix::<Srgba<f64>>(Color::blue(), Fraction::from(0.5))
         );
         assert_eq!(
             Color::fuchsia(),
-            Color::red().mix::<Hsla>(&Color::blue(), Fraction::from(0.5))
+            Color::red().mix::<Hsla>(Color::blue(), Fraction::from(0.5))
         );
         assert_eq!(
             Color::fuchsia(),
-            Color::red().mix::<Hwba>(&Color::blue(), Fraction::from(0.5))
+            Color::red().mix::<Hwba>(Color::blue(), Fraction::from(0.5))
         );
     }
 
@@ -896,10 +891,10 @@ mod tests {
         let hue = 123.0;
         let input = Color::from_hsla(hue, 0.5, 0.5, 1.0);
 
-        let mix_in_hsl = |other| input.mix::<Hsla>(&other, Fraction::from(0.5));
+        let mix_in_hsl = |other| input.mix::<Hsla>(other, Fraction::from(0.5));
         assert_eq!(hue, mix_in_hsl(Color::graytone(0.5)).hue.value());
 
-        let mix_in_hwb = |other| input.mix::<Hwba>(&other, Fraction::from(0.5));
+        let mix_in_hwb = |other| input.mix::<Hwba>(other, Fraction::from(0.5));
         assert_eq!(hue, mix_in_hwb(Color::graytone(0.5)).hue.value());
     }
 

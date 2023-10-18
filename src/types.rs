@@ -28,6 +28,11 @@ impl Hue {
             mod_positive(self.unclipped, 360.0)
         }
     }
+
+    pub fn rotate(mut self, delta: Scalar) -> Self {
+        self.unclipped += delta;
+        self
+    }
 }
 
 #[cfg(test)]

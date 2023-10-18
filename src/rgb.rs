@@ -23,7 +23,7 @@ use crate::{
     Color, Format, Fraction,
 };
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Srgba<T> {
     pub r: T,
     pub g: T,
@@ -32,15 +32,7 @@ pub struct Srgba<T> {
 }
 
 impl ColorSpace for Srgba<f64> {
-    fn from_color(c: &Color) -> Self {
-        c.to_rgba_float()
-    }
-
-    fn into_color(self) -> Color {
-        Color::from_rgba_float(self.r, self.g, self.b, self.alpha)
-    }
-
-    fn mix(&self, other: &Self, fraction: Fraction) -> Self {
+    fn mix(self, other: Self, fraction: Fraction) -> Self {
         Self {
             r: interpolate(self.r, other.r, fraction),
             g: interpolate(self.g, other.g, fraction),
@@ -50,8 +42,8 @@ impl ColorSpace for Srgba<f64> {
     }
 }
 
-impl From<&Color> for Srgba<f64> {
-    fn from(color: &Color) -> Self {
+impl From<Color> for Srgba<f64> {
+    fn from(color: Color) -> Self {
         let h_s = color.hue.value() / 60.0;
         let chr = (1.0 - Scalar::abs(2.0 * color.lightness - 1.0)) * color.saturation;
         let m = color.lightness - chr / 2.0;
@@ -82,8 +74,8 @@ impl From<&Color> for Srgba<f64> {
     }
 }
 
-impl From<&Color> for Srgba<u8> {
-    fn from(color: &Color) -> Self {
+impl From<Color> for Srgba<u8> {
+    fn from(color: Color) -> Self {
         let c = Srgba::<f64>::from(color);
         // Tiny rounding errors in `f64` floating point calculations can cause effectively equal
         // values to round to different integers.  We expect `f64` rounding errors to be less than
@@ -102,8 +94,8 @@ impl From<&Color> for Srgba<u8> {
     }
 }
 
-impl From<&Srgba<u8>> for Color {
-    fn from(color: &Srgba<u8>) -> Self {
+impl From<Srgba<u8>> for Color {
+    fn from(color: Srgba<u8>) -> Self {
         let max_chroma = u8::max(u8::max(color.r, color.g), color.b);
         let min_chroma = u8::min(u8::min(color.r, color.g), color.b);
 
@@ -131,16 +123,16 @@ impl From<&Srgba<u8>> for Color {
         } else {
             chroma_s / (1.0 - Scalar::abs(2.0 * lightness - 1.0))
         };
-        Self::from(&Hsla::with_alpha(hue, saturation, lightness, color.alpha))
+        Self::from(Hsla::with_alpha(hue, saturation, lightness, color.alpha))
     }
 }
 
-impl From<&Srgba<f64>> for Color {
-    fn from(color: &Srgba<f64>) -> Self {
+impl From<Srgba<f64>> for Color {
+    fn from(color: Srgba<f64>) -> Self {
         let r = Scalar::round(clamp(0.0, 255.0, 255.0 * color.r)) as u8;
         let g = Scalar::round(clamp(0.0, 255.0, 255.0 * color.g)) as u8;
         let b = Scalar::round(clamp(0.0, 255.0, 255.0 * color.b)) as u8;
-        Self::from(&Srgba::with_alpha(r, g, b, color.alpha))
+        Self::from(Srgba::with_alpha(r, g, b, color.alpha))
     }
 }
 

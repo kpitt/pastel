@@ -1,4 +1,4 @@
-use crate::{Color, Fraction};
+use crate::{Color, Fraction, MixingFn};
 
 /// The representation of a color stop for a `ColorScale`.
 /// The position defines where the color is placed from left (0.0) to right (1.0).
@@ -55,11 +55,7 @@ impl ColorScale {
     ///
     /// Note:
     /// - No color is returned if position isn't between two color stops or the `ColorScale` is empty.
-    pub fn sample(
-        &self,
-        position: Fraction,
-        mix: &dyn Fn(&Color, &Color, Fraction) -> Color,
-    ) -> Option<Color> {
+    pub fn sample(&self, position: Fraction, mix: &MixingFn) -> Option<Color> {
         if self.color_stops.len() < 2 {
             return None;
         }
@@ -81,7 +77,7 @@ impl ColorScale {
                 let diff_position = position.value() - left_stop.position.value();
                 let local_position = Fraction::from(diff_position / diff_color_stops);
 
-                let color = mix(&left_stop.color, &right_stop.color, local_position);
+                let color = mix(left_stop.color, right_stop.color, local_position);
 
                 Some(color)
             }
@@ -164,7 +160,7 @@ mod tests {
 
         let sample_red_green = color_scale.sample(Fraction::from(0.5), &mix).unwrap();
 
-        let mix_red_green = mix(&Color::red(), &Color::green(), Fraction::from(0.5));
+        let mix_red_green = mix(Color::red(), Color::green(), Fraction::from(0.5));
 
         assert_eq!(sample_red_green, mix_red_green);
     }
@@ -187,8 +183,8 @@ mod tests {
         let sample_red_green = color_scale.sample(Fraction::from(0.25), &mix).unwrap();
         let sample_green_blue = color_scale.sample(Fraction::from(0.75), &mix).unwrap();
 
-        let mix_red_green = mix(&Color::red(), &Color::green(), Fraction::from(0.50));
-        let mix_green_blue = mix(&Color::green(), &Color::blue(), Fraction::from(0.50));
+        let mix_red_green = mix(Color::red(), Color::green(), Fraction::from(0.50));
+        let mix_green_blue = mix(Color::green(), Color::blue(), Fraction::from(0.50));
 
         assert_eq!(sample_red, Color::red());
         assert_eq!(sample_green, Color::green());

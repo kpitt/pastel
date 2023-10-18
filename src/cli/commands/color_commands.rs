@@ -74,7 +74,7 @@ color_command!(MixCommand, config, matches, color, {
 
     let mix = get_mixing_function(matches.value_of("colorspace").expect("required argument"));
 
-    mix(&base, color, fraction)
+    mix(base, *color, fraction)
 });
 
 color_command!(ColorblindCommand, config, matches, color, {
@@ -118,7 +118,7 @@ color_command!(SetCommand, config, matches, color, {
                 }
                 _ => unreachable!(),
             }
-            Color::from_rgba(rgba.r, rgba.g, rgba.b, rgba.alpha)
+            Color::from(rgba)
         }
         "hsl-hue" | "hsl-saturation" | "hsl-lightness" => {
             let mut hsla = color.to_hsla();
@@ -134,7 +134,7 @@ color_command!(SetCommand, config, matches, color, {
                 }
                 _ => unreachable!(),
             }
-            Color::from_hsla(hsla.h, hsla.s, hsla.l, hsla.alpha)
+            Color::from(hsla)
         }
         "hwb-hue" | "hwb-whiteness" | "hwb-blackness" => {
             let mut hwb = color.to_hwba();
@@ -150,7 +150,7 @@ color_command!(SetCommand, config, matches, color, {
                 }
                 _ => unreachable!(),
             }
-            Color::from_hwba(hwb.h, hwb.w, hwb.b, hwb.alpha)
+            Color::from(hwb)
         }
         "lightness" | "lab-a" | "lab-b" => {
             let mut lab = color.to_lab();
@@ -166,7 +166,7 @@ color_command!(SetCommand, config, matches, color, {
                 }
                 _ => unreachable!(),
             }
-            Color::from_lab(lab.l, lab.a, lab.b, lab.alpha)
+            Color::from(lab)
         }
         "hue" | "chroma" => {
             let mut lch = color.to_lch();
@@ -179,7 +179,7 @@ color_command!(SetCommand, config, matches, color, {
                 }
                 _ => unreachable!(),
             }
-            Color::from_lch(lch.l, lch.c, lch.h, lch.alpha)
+            Color::from(lch)
         }
         &_ => {
             unreachable!("Unknown property");

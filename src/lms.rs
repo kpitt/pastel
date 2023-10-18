@@ -10,7 +10,7 @@ use crate::{
 /// A color space whose axes correspond to the responsivity spectra of the long-, medium-, and
 /// short-wavelength cone cells in the human eye. More info
 /// [here](https://en.wikipedia.org/wiki/LMS_color_space).
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Lms {
     pub l: Scalar,
     pub m: Scalar,
@@ -18,8 +18,8 @@ pub struct Lms {
     pub alpha: Scalar,
 }
 
-impl From<&Color> for Lms {
-    fn from(color: &Color) -> Self {
+impl From<Color> for Lms {
+    fn from(color: Color) -> Self {
         #[rustfmt::skip]
         const M: Mat3 = [
              0.38971, 0.68898, -0.07868,
@@ -34,8 +34,8 @@ impl From<&Color> for Lms {
     }
 }
 
-impl From<&Lms> for Color {
-    fn from(color: &Lms) -> Self {
+impl From<Lms> for Color {
+    fn from(color: Lms) -> Self {
         #[rustfmt::skip]
         const M: Mat3 = [
             1.91020, -1.112_120, 0.201_908,
@@ -44,12 +44,7 @@ impl From<&Lms> for Color {
         ];
 
         let [x, y, z] = mat3_dot(M, [color.l, color.m, color.s]);
-        Self::from(&Xyz {
-            x,
-            y,
-            z,
-            alpha: color.alpha,
-        })
+        Self::from(Xyz::with_alpha(x, y, z, color.alpha))
     }
 }
 
@@ -80,8 +75,7 @@ mod tests {
     fn lms_conversion() {
         let roundtrip = |h, s, l| {
             let color1 = Color::from_hsl(h, s, l);
-            let lms1 = color1.to_lms();
-            let color2 = Color::from_lms(lms1.l, lms1.m, lms1.s, 1.0);
+            let color2 = Color::from(Lms::from(color1));
             assert_almost_equal(&color1, &color2);
         };
 

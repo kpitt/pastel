@@ -20,7 +20,7 @@ use crate::{
     Color, Format, Fraction,
 };
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Hsva {
     pub h: Scalar,
     pub s: Scalar,
@@ -28,8 +28,8 @@ pub struct Hsva {
     pub alpha: Scalar,
 }
 
-impl From<&Hsva> for Color {
-    fn from(color: &Hsva) -> Self {
+impl From<Hsva> for Color {
+    fn from(color: Hsva) -> Self {
         let lightness = color.v * (1.0 - color.s / 2.0);
         let saturation = if lightness > 0.0 && lightness < 1.0 {
             (color.v - lightness) / lightness.min(1.0 - lightness)
@@ -46,8 +46,8 @@ impl From<&Hsva> for Color {
     }
 }
 
-impl From<&Color> for Hsva {
-    fn from(color: &Color) -> Self {
+impl From<Color> for Hsva {
+    fn from(color: Color) -> Self {
         let lightness = color.lightness;
 
         let value = lightness + color.saturation * lightness.min(1.0 - lightness);
@@ -67,15 +67,7 @@ impl From<&Color> for Hsva {
 }
 
 impl ColorSpace for Hsva {
-    fn from_color(c: &Color) -> Self {
-        c.to_hsva()
-    }
-
-    fn into_color(self) -> Color {
-        Color::from_hsva(self.h, self.s, self.v, self.alpha)
-    }
-
-    fn mix(&self, other: &Self, fraction: Fraction) -> Self {
+    fn mix(self, other: Self, fraction: Fraction) -> Self {
         // make sure that the hue is preserved when mixing with gray colors
         let self_hue = if self.s < 0.0001 { other.h } else { self.h };
         let other_hue = if other.s < 0.0001 { self.h } else { other.h };
@@ -216,8 +208,7 @@ mod tests {
 
         let roundtrip = |h, s, l| {
             let color1 = Color::from_hsl(h, s, l);
-            let hsva1 = color1.to_hsva();
-            let color2 = Color::from_hsva(hsva1.h, hsva1.s, hsva1.v, hsva1.alpha);
+            let color2 = Color::from(Hsva::from(color1));
             assert_almost_equal(&color1, &color2);
         };
 

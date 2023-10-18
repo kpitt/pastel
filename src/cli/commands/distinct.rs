@@ -52,9 +52,9 @@ fn blue_red_yellow(f: f64) -> Color {
     let yellow = Color::from_rgb(255, 255, 0);
 
     if f < 0.5 {
-        blue.mix::<Hsla>(&red, Fraction::from(2.0 * f))
+        blue.mix::<Hsla>(red, Fraction::from(2.0 * f))
     } else {
-        red.mix::<Hsla>(&yellow, Fraction::from(2.0 * (f - 0.5)))
+        red.mix::<Hsla>(yellow, Fraction::from(2.0 * (f - 0.5)))
     }
 }
 

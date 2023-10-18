@@ -13,7 +13,7 @@ use crate::{
     Color, Srgba,
 };
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Xyz {
     pub x: Scalar,
     pub y: Scalar,
@@ -21,8 +21,8 @@ pub struct Xyz {
     pub alpha: Scalar,
 }
 
-impl From<&Color> for Xyz {
-    fn from(color: &Color) -> Self {
+impl From<Color> for Xyz {
+    fn from(color: Color) -> Self {
         #[rustfmt::skip]
         const M: Mat3 = [
             0.4124, 0.3576, 0.1805,
@@ -38,8 +38,8 @@ impl From<&Color> for Xyz {
     }
 }
 
-impl From<&Xyz> for Color {
-    fn from(color: &Xyz) -> Self {
+impl From<Xyz> for Color {
+    fn from(color: Xyz) -> Self {
         #[rustfmt::skip]
         const M_: Mat3 = [
               3.2406, -1.5372, -0.4986,
@@ -49,12 +49,7 @@ impl From<&Xyz> for Color {
 
         let r_g_b_ = mat3_dot(M_, [color.x, color.y, color.z]);
         let [r, g, b] = gam_srgb(r_g_b_);
-        Self::from(&Srgba::<f64> {
-            r,
-            g,
-            b,
-            alpha: color.alpha,
-        })
+        Self::from(Srgba::with_alpha(r, g, b, color.alpha))
     }
 }
 
@@ -115,8 +110,7 @@ mod tests {
 
         let roundtrip = |h, s, l| {
             let color1 = Color::from_hsl(h, s, l);
-            let xyz1 = color1.to_xyz();
-            let color2 = Color::from_xyz(xyz1.x, xyz1.y, xyz1.z, 1.0);
+            let color2 = Color::from(Xyz::from(color1));
             assert_almost_equal(&color1, &color2);
         };
 

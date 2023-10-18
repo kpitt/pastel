@@ -16,7 +16,7 @@ use crate::{
     Color, Format, Fraction,
 };
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Hsla {
     pub h: Scalar,
     pub s: Scalar,
@@ -25,15 +25,7 @@ pub struct Hsla {
 }
 
 impl ColorSpace for Hsla {
-    fn from_color(c: &Color) -> Self {
-        c.to_hsla()
-    }
-
-    fn into_color(self) -> Color {
-        Color::from_hsla(self.h, self.s, self.l, self.alpha)
-    }
-
-    fn mix(&self, other: &Self, fraction: Fraction) -> Self {
+    fn mix(self, other: Self, fraction: Fraction) -> Self {
         // make sure that the hue is preserved when mixing with gray colors
         let self_hue = if self.s < 0.0001 { other.h } else { self.h };
         let other_hue = if other.s < 0.0001 { self.h } else { other.h };
@@ -47,8 +39,8 @@ impl ColorSpace for Hsla {
     }
 }
 
-impl From<&Color> for Hsla {
-    fn from(color: &Color) -> Self {
+impl From<Color> for Hsla {
+    fn from(color: Color) -> Self {
         Hsla {
             h: color.hue.value(),
             s: color.saturation,
@@ -58,8 +50,8 @@ impl From<&Color> for Hsla {
     }
 }
 
-impl From<&Hsla> for Color {
-    fn from(color: &Hsla) -> Self {
+impl From<Hsla> for Color {
+    fn from(color: Hsla) -> Self {
         Color {
             hue: Hue::from(color.h),
             saturation: clamp(0.0, 1.0, color.s),
@@ -174,7 +166,7 @@ mod tests {
         let hue = 123.0;
         let base = Hsla::new(hue, 0.5, 0.5);
 
-        let hue_after_mixing = |other| base.mix(&Hsla::from(&other), Fraction::from(0.5)).h;
+        let hue_after_mixing = |other| base.mix(Hsla::from(other), Fraction::from(0.5)).h;
 
         assert_eq!(hue, hue_after_mixing(Color::black()));
         assert_eq!(hue, hue_after_mixing(Color::graytone(0.2)));

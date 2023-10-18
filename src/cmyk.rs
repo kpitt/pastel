@@ -22,8 +22,8 @@ pub struct Cmyk {
     pub k: Scalar,
 }
 
-impl From<&Color> for Cmyk {
-    fn from(color: &Color) -> Self {
+impl From<Color> for Cmyk {
+    fn from(color: Color) -> Self {
         let rgba = Srgba::<u8>::from(color);
         let r = (rgba.r as f64) / 255.0;
         let g = (rgba.g as f64) / 255.0;
@@ -49,15 +49,14 @@ impl From<&Color> for Cmyk {
     }
 }
 
-// from CMYK to Color so you can do -> let new_color = Color::from(&some_cmyk);
-impl From<&Cmyk> for Color {
-    fn from(color: &Cmyk) -> Self {
+impl From<Cmyk> for Color {
+    fn from(color: Cmyk) -> Self {
         #![allow(clippy::many_single_char_names)]
         let r = (1.0 - color.c) * (1.0 - color.k);
         let g = (1.0 - color.m) * (1.0 - color.k);
         let b = (1.0 - color.y) * (1.0 - color.k);
 
-        Color::from(&Srgba::new(r, g, b))
+        Srgba::new(r, g, b).into()
     }
 }
 

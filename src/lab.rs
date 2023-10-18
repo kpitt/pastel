@@ -21,7 +21,7 @@ use crate::{
     Color, Format, Fraction, D65_XN, D65_YN, D65_ZN,
 };
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Lab {
     pub l: Scalar,
     pub a: Scalar,
@@ -30,15 +30,7 @@ pub struct Lab {
 }
 
 impl ColorSpace for Lab {
-    fn from_color(c: &Color) -> Self {
-        c.to_lab()
-    }
-
-    fn into_color(self) -> Color {
-        Color::from_lab(self.l, self.a, self.b, self.alpha)
-    }
-
-    fn mix(&self, other: &Self, fraction: Fraction) -> Self {
+    fn mix(self, other: Self, fraction: Fraction) -> Self {
         Self {
             l: interpolate(self.l, other.l, fraction),
             a: interpolate(self.a, other.a, fraction),
@@ -48,8 +40,8 @@ impl ColorSpace for Lab {
     }
 }
 
-impl From<&Color> for Lab {
-    fn from(color: &Color) -> Self {
+impl From<Color> for Lab {
+    fn from(color: Color) -> Self {
         let rec = Xyz::from(color);
 
         let cut = Scalar::powf(6.0 / 29.0, 3.0);
@@ -71,8 +63,8 @@ impl From<&Color> for Lab {
     }
 }
 
-impl From<&Lab> for Color {
-    fn from(color: &Lab) -> Self {
+impl From<Lab> for Color {
+    fn from(color: Lab) -> Self {
         #![allow(clippy::many_single_char_names)]
         const DELTA: Scalar = 6.0 / 29.0;
 
@@ -89,7 +81,7 @@ impl From<&Lab> for Color {
         let y = D65_YN * finv(l_);
         let z = D65_ZN * finv(l_ - color.b / 200.0);
 
-        Self::from(&Xyz::with_alpha(x, y, z, color.alpha))
+        Self::from(Xyz::with_alpha(x, y, z, color.alpha))
     }
 }
 
@@ -223,8 +215,7 @@ mod tests {
 
         let roundtrip = |h, s, l| {
             let color1 = Color::from_hsl(h, s, l);
-            let lab1 = color1.to_lab();
-            let color2 = Color::from_lab(lab1.l, lab1.a, lab1.b, 1.0);
+            let color2 = Color::from(Lab::from(color1));
             assert_almost_equal(&color1, &color2);
         };
 
