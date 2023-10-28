@@ -765,7 +765,12 @@ mod tests {
             max_relative = 0.01
         );
 
-        assert_eq!(Color::graytone(0.3), Color::graytone(0.3).to_gray());
+        let gray = Color::graytone(0.3);
+        assert_relative_eq!(
+            gray.lightness,
+            gray.to_gray().lightness,
+            max_relative = 0.01
+        );
     }
 
     #[test]

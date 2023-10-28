@@ -10,7 +10,7 @@ use nom::{
 use crate::{
     colorspace::ColorSpace,
     format_css_alpha,
-    helper::{clamp, interpolate, interpolate_angle, MaxPrecision},
+    helper::{interpolate, interpolate_angle, MaxPrecision},
     hsv::Hsva,
     parser::{hue_angle, modern_alpha, percentage},
     types::Scalar,
@@ -60,15 +60,14 @@ impl From<Color> for Hwba {
 
 impl From<Hwba> for Color {
     fn from(color: Hwba) -> Self {
-        if color.w + color.b >= 1.0 {
-            let gray = color.w / (color.w + color.b);
-            Self::from_rgba_float(gray, gray, gray, color.alpha)
+        let Hwba { h, w, b, alpha } = color;
+        if w + b >= 1.0 {
+            let gray = w / (w + b);
+            Self::from_rgba_float(gray, gray, gray, alpha)
         } else {
-            let w = clamp(0.0, 1.0, color.w);
-            let b = clamp(0.0, 1.0, color.b);
             let v = 1.0 - b;
             let s = 1.0 - (w / v);
-            Self::from(Hsva::with_alpha(color.h, s, v, color.alpha))
+            Self::from(Hsva::with_alpha(h, s, v, alpha))
         }
     }
 }

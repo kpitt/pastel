@@ -13,7 +13,7 @@ use nom::{
 use crate::{
     colorspace::ColorSpace,
     convert::gam_srgb,
-    helper::{clamp, interpolate, mod_positive, MaxPrecision},
+    helper::{interpolate, mod_positive, MaxPrecision},
     hsl::Hsla,
     parser::{
         css_color_function, legacy_alpha, legacy_separator, modern_alpha, number_or_percentage,
@@ -96,43 +96,44 @@ impl From<Color> for Srgba<u8> {
 
 impl From<Srgba<u8>> for Color {
     fn from(color: Srgba<u8>) -> Self {
-        let max_chroma = u8::max(u8::max(color.r, color.g), color.b);
-        let min_chroma = u8::min(u8::min(color.r, color.g), color.b);
-
-        let chroma = max_chroma - min_chroma;
-        let chroma_s = Scalar::from(chroma) / 255.0;
-
-        let r_s = Scalar::from(color.r) / 255.0;
-        let g_s = Scalar::from(color.g) / 255.0;
-        let b_s = Scalar::from(color.b) / 255.0;
-
-        let hue = 60.0
-            * (if chroma == 0 {
-                0.0
-            } else if color.r == max_chroma {
-                mod_positive((g_s - b_s) / chroma_s, 6.0)
-            } else if color.g == max_chroma {
-                (b_s - r_s) / chroma_s + 2.0
-            } else {
-                (r_s - g_s) / chroma_s + 4.0
-            });
-
-        let lightness = (Scalar::from(max_chroma) + Scalar::from(min_chroma)) / (255.0 * 2.0);
-        let saturation = if chroma == 0 {
-            0.0
-        } else {
-            chroma_s / (1.0 - Scalar::abs(2.0 * lightness - 1.0))
-        };
-        Self::from(Hsla::with_alpha(hue, saturation, lightness, color.alpha))
+        let Srgba { r, g, b, alpha } = color;
+        Self::from(Srgba::with_alpha(
+            (r as f64) / 255.0,
+            (g as f64) / 255.0,
+            (b as f64) / 255.0,
+            alpha,
+        ))
     }
 }
 
 impl From<Srgba<f64>> for Color {
     fn from(color: Srgba<f64>) -> Self {
-        let r = Scalar::round(clamp(0.0, 255.0, 255.0 * color.r)) as u8;
-        let g = Scalar::round(clamp(0.0, 255.0, 255.0 * color.g)) as u8;
-        let b = Scalar::round(clamp(0.0, 255.0, 255.0 * color.b)) as u8;
-        Self::from(Srgba::with_alpha(r, g, b, color.alpha))
+        const EPS: f64 = f64::EPSILON * 2.0;
+
+        let Srgba { r, g, b, alpha } = color;
+        let max_chroma = f64::max(f64::max(r, g), b);
+        let min_chroma = f64::min(f64::min(r, g), b);
+
+        let chroma = max_chroma - min_chroma;
+
+        let hue = 60.0
+            * (if chroma.abs() < EPS {
+                0.0
+            } else if r == max_chroma {
+                mod_positive((g - b) / chroma, 6.0)
+            } else if g == max_chroma {
+                (b - r) / chroma + 2.0
+            } else {
+                (r - g) / chroma + 4.0
+            });
+
+        let lightness = (max_chroma + min_chroma) / 2.0;
+        let saturation = if chroma.abs() < EPS {
+            0.0
+        } else {
+            chroma / (1.0 - Scalar::abs(2.0 * lightness - 1.0))
+        };
+        Self::from(Hsla::with_alpha(hue, saturation, lightness, alpha))
     }
 }
 
@@ -413,6 +414,7 @@ fn parse_srgb_linear_color_space(input: &str) -> IResult<&str, Color> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_helper::assert_rgb_almost_equal;
 
     #[test]
     fn rgb_to_hsl_conversion() {
@@ -460,6 +462,25 @@ mod tests {
         for degree in 0..360 {
             roundtrip(Scalar::from(degree), 0.5, 0.8);
         }
+    }
+
+    #[test]
+    fn roundtrip_out_of_gamut_srgb() {
+        // Display-P3 primaries and secondaries are out-of-gamut in sRGB, but
+        // these colors should still round-trip through `Color`.
+        let roundtrip = |r, g, b| {
+            let rgb1 = Srgba::new(r, g, b);
+            let rgb2 = Srgba::from(Color::from(rgb1));
+            assert_rgb_almost_equal(&rgb1, &rgb2);
+        };
+
+        roundtrip(1.0931, -0.2267, -0.1501); // red primary
+        roundtrip(-0.5116, 1.0183, -0.3107); // green primary
+        roundtrip(0.0, 0.0, 1.042); // blue primary
+
+        roundtrip(1.0, 1.0, -0.3463); // yellow secondary
+        roundtrip(-0.5116, 1.0183, 1.0086); // cyan secondary
+        roundtrip(1.0931, -0.2267, 1.0338); // magenta secondary
     }
 
     #[test]

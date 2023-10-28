@@ -39,8 +39,8 @@ impl From<Hsva> for Color {
 
         Color {
             hue: Hue::from(color.h),
-            saturation: clamp(0.0, 1.0, saturation),
-            lightness: clamp(0.0, 1.0, lightness),
+            saturation,
+            lightness,
             alpha: clamp(0.0, 1.0, color.alpha),
         }
     }

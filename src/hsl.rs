@@ -54,8 +54,8 @@ impl From<Hsla> for Color {
     fn from(color: Hsla) -> Self {
         Color {
             hue: Hue::from(color.h),
-            saturation: clamp(0.0, 1.0, color.s),
-            lightness: clamp(0.0, 1.0, color.l),
+            saturation: color.s,
+            lightness: color.l,
             alpha: clamp(0.0, 1.0, color.alpha),
         }
     }
