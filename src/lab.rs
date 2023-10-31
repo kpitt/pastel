@@ -48,8 +48,9 @@ impl ColorSpace for Lab {
     }
 }
 
-impl From<&Color> for Lab {
-    fn from(color: &Color) -> Self {
+impl From<Color> for Lab {
+    fn from(color: Color) -> Self {
+        let alpha = color.alpha;
         let rec = Xyz::from(color);
 
         let cut = Scalar::powf(6.0 / 29.0, 3.0);
@@ -67,12 +68,12 @@ impl From<&Color> for Lab {
         let a = 500.0 * (f(rec.x / D65_XN) - fy);
         let b = 200.0 * (fy - f(rec.z / D65_ZN));
 
-        Lab::with_alpha(l, a, b, color.alpha)
+        Lab::with_alpha(l, a, b, alpha)
     }
 }
 
-impl From<&Lab> for Color {
-    fn from(color: &Lab) -> Self {
+impl From<Lab> for Color {
+    fn from(color: Lab) -> Self {
         #![allow(clippy::many_single_char_names)]
         const DELTA: Scalar = 6.0 / 29.0;
 
@@ -89,7 +90,7 @@ impl From<&Lab> for Color {
         let y = D65_YN * finv(l_);
         let z = D65_ZN * finv(l_ - color.b / 200.0);
 
-        Self::from(&Xyz::with_alpha(x, y, z, color.alpha))
+        Self::from(Xyz::with_alpha(x, y, z, color.alpha))
     }
 }
 

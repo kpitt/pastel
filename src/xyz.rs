@@ -21,8 +21,8 @@ pub struct Xyz {
     pub alpha: Scalar,
 }
 
-impl From<&Color> for Xyz {
-    fn from(color: &Color) -> Self {
+impl From<Color> for Xyz {
+    fn from(color: Color) -> Self {
         #[rustfmt::skip]
         const M: Mat3 = [
             0.4124, 0.3576, 0.1805,
@@ -30,16 +30,17 @@ impl From<&Color> for Xyz {
             0.0193, 0.1192, 0.9505,
         ];
 
+        let alpha = color.alpha;
         let rec = Srgba::from(color);
         let r_g_b_ = lin_srgb([rec.r, rec.g, rec.b]);
         let [x, y, z] = mat3_dot(M, r_g_b_);
 
-        Xyz::with_alpha(x, y, z, color.alpha)
+        Xyz::with_alpha(x, y, z, alpha)
     }
 }
 
-impl From<&Xyz> for Color {
-    fn from(color: &Xyz) -> Self {
+impl From<Xyz> for Color {
+    fn from(color: Xyz) -> Self {
         #[rustfmt::skip]
         const M_: Mat3 = [
               3.2406, -1.5372, -0.4986,
@@ -49,7 +50,7 @@ impl From<&Xyz> for Color {
 
         let r_g_b_ = mat3_dot(M_, [color.x, color.y, color.z]);
         let [r, g, b] = gam_srgb(r_g_b_);
-        Self::from(&Srgba::with_alpha(r, g, b, color.alpha))
+        Self::from(Srgba::with_alpha(r, g, b, color.alpha))
     }
 }
 

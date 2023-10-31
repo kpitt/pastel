@@ -56,8 +56,8 @@ impl ColorSpace for Hwba {
     }
 }
 
-impl From<&Color> for Hwba {
-    fn from(color: &Color) -> Self {
+impl From<Color> for Hwba {
+    fn from(color: Color) -> Self {
         let Hsva { h, s, v, alpha } = Hsva::from(color);
 
         let w = (1.0 - s) * v;
@@ -66,8 +66,8 @@ impl From<&Color> for Hwba {
     }
 }
 
-impl From<&Hwba> for Color {
-    fn from(color: &Hwba) -> Self {
+impl From<Hwba> for Color {
+    fn from(color: Hwba) -> Self {
         if color.w + color.b >= 1.0 {
             let gray = color.w / (color.w + color.b);
             Self::from_rgba_float(gray, gray, gray, color.alpha)
@@ -76,7 +76,7 @@ impl From<&Hwba> for Color {
             let b = clamp(0.0, 1.0, color.b);
             let v = 1.0 - b;
             let s = 1.0 - (w / v);
-            Self::from(&Hsva::with_alpha(color.h, s, v, color.alpha))
+            Self::from(Hsva::with_alpha(color.h, s, v, color.alpha))
         }
     }
 }
@@ -213,7 +213,7 @@ mod tests {
         let hue = 123.0;
         let base = Hwba::new(hue, 0.25, 0.25);
 
-        let hue_after_mixing = |other| base.mix(&Hwba::from(&other), Fraction::from(0.5)).h;
+        let hue_after_mixing = |other| base.mix(&Hwba::from(other), Fraction::from(0.5)).h;
 
         assert_eq!(hue, hue_after_mixing(Color::black()));
         assert_eq!(hue, hue_after_mixing(Color::graytone(0.2)));

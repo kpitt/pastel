@@ -47,8 +47,8 @@ impl ColorSpace for Hsla {
     }
 }
 
-impl From<&Color> for Hsla {
-    fn from(color: &Color) -> Self {
+impl From<Color> for Hsla {
+    fn from(color: Color) -> Self {
         Hsla {
             h: color.hue.value(),
             s: color.saturation,
@@ -58,8 +58,8 @@ impl From<&Color> for Hsla {
     }
 }
 
-impl From<&Hsla> for Color {
-    fn from(color: &Hsla) -> Self {
+impl From<Hsla> for Color {
+    fn from(color: Hsla) -> Self {
         Color {
             hue: Hue::from(color.h),
             saturation: clamp(0.0, 1.0, color.s),
@@ -174,7 +174,7 @@ mod tests {
         let hue = 123.0;
         let base = Hsla::new(hue, 0.5, 0.5);
 
-        let hue_after_mixing = |other| base.mix(&Hsla::from(&other), Fraction::from(0.5)).h;
+        let hue_after_mixing = |other| base.mix(&Hsla::from(other), Fraction::from(0.5)).h;
 
         assert_eq!(hue, hue_after_mixing(Color::black()));
         assert_eq!(hue, hue_after_mixing(Color::graytone(0.2)));

@@ -28,8 +28,8 @@ pub struct Hsva {
     pub alpha: Scalar,
 }
 
-impl From<&Hsva> for Color {
-    fn from(color: &Hsva) -> Self {
+impl From<Hsva> for Color {
+    fn from(color: Hsva) -> Self {
         let lightness = color.v * (1.0 - color.s / 2.0);
         let saturation = if lightness > 0.0 && lightness < 1.0 {
             (color.v - lightness) / lightness.min(1.0 - lightness)
@@ -46,8 +46,8 @@ impl From<&Hsva> for Color {
     }
 }
 
-impl From<&Color> for Hsva {
-    fn from(color: &Color) -> Self {
+impl From<Color> for Hsva {
+    fn from(color: Color) -> Self {
         let lightness = color.lightness;
 
         let value = lightness + color.saturation * lightness.min(1.0 - lightness);

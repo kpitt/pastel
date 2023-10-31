@@ -53,8 +53,8 @@ impl ColorSpace for Lch {
     }
 }
 
-impl From<&Color> for Lch {
-    fn from(color: &Color) -> Self {
+impl From<Color> for Lch {
+    fn from(color: Color) -> Self {
         let Lab { l, a, b, alpha } = Lab::from(color);
 
         const RAD2DEG: Scalar = 180.0 / std::f64::consts::PI;
@@ -66,15 +66,15 @@ impl From<&Color> for Lch {
     }
 }
 
-impl From<&Lch> for Color {
-    fn from(color: &Lch) -> Self {
+impl From<Lch> for Color {
+    fn from(color: Lch) -> Self {
         #![allow(clippy::many_single_char_names)]
         const DEG2RAD: Scalar = std::f64::consts::PI / 180.0;
 
         let a = color.c * Scalar::cos(color.h * DEG2RAD);
         let b = color.c * Scalar::sin(color.h * DEG2RAD);
 
-        Self::from(&Lab::with_alpha(color.l, a, b, color.alpha))
+        Self::from(Lab::with_alpha(color.l, a, b, color.alpha))
     }
 }
 
