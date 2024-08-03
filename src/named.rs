@@ -181,7 +181,7 @@ pub(crate) fn parse_named_color(input: &str) -> IResult<&str, Color> {
             "Couldn't find matching named color",
             ErrorKind::Alpha,
         ))),
-        Some(nc) => Ok((input, nc.color.clone())),
+        Some(nc) => Ok((input, nc.color)),
     }
 }
 

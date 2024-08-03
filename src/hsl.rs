@@ -16,7 +16,7 @@ use crate::{
     Color, Format, Fraction,
 };
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub struct Hsla {
     pub h: Scalar,
     pub s: Scalar,

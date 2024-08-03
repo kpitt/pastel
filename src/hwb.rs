@@ -17,7 +17,7 @@ use crate::{
     Color, Format, Fraction,
 };
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub struct Hwba {
     pub h: Scalar,
     pub w: Scalar,

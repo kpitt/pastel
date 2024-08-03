@@ -20,7 +20,7 @@ use crate::{
     Color, Format, Fraction,
 };
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub struct Hsva {
     pub h: Scalar,
     pub s: Scalar,

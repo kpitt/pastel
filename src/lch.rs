@@ -22,7 +22,7 @@ use crate::{
     Color, Format, Fraction,
 };
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub struct Lch {
     pub l: Scalar,
     pub c: Scalar,

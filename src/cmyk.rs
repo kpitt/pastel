@@ -14,7 +14,7 @@ use crate::{
     Color, Format,
 };
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub struct Cmyk {
     pub c: Scalar,
     pub m: Scalar,

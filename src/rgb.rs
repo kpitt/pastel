@@ -23,7 +23,7 @@ use crate::{
     Color, Format, Fraction,
 };
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub struct Srgba<T> {
     pub r: T,
     pub g: T,

@@ -51,7 +51,7 @@ pub use color_scale::ColorScale;
 ///   RGB values. This is different from comparing the HSL values. For example,
 ///   HSL has many different representations of black (arbitrary hue and
 ///   saturation values).
-#[derive(Clone)]
+#[derive(Copy, Clone)]
 pub struct Color {
     hue: Hue,
     saturation: Scalar,

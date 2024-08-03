@@ -131,12 +131,12 @@ pub struct Style {
 
 impl Style {
     pub fn foreground(&mut self, color: &Color) -> &mut Self {
-        self.foreground = Some(color.clone());
+        self.foreground = Some(*color);
         self
     }
 
     pub fn on<C: Borrow<Color>>(&mut self, color: C) -> &mut Self {
-        self.background = Some(color.borrow().clone());
+        self.background = Some(*color.borrow());
         self
     }
 
@@ -218,7 +218,7 @@ impl From<Color> for Style {
 
 impl From<&Color> for Style {
     fn from(color: &Color) -> Style {
-        color.clone().into()
+        (*color).into()
     }
 }
 
@@ -240,7 +240,7 @@ pub trait ToAnsiStyle {
 
 impl ToAnsiStyle for Color {
     fn ansi_style(&self) -> Style {
-        self.clone().into()
+        (*self).into()
     }
 }
 

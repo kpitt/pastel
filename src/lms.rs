@@ -10,7 +10,7 @@ use crate::{
 /// A color space whose axes correspond to the responsivity spectra of the long-, medium-, and
 /// short-wavelength cone cells in the human eye. More info
 /// [here](https://en.wikipedia.org/wiki/LMS_color_space).
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub struct Lms {
     pub l: Scalar,
     pub m: Scalar,

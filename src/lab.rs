@@ -21,7 +21,7 @@ use crate::{
     Color, Format, Fraction, D65_XN, D65_YN, D65_ZN,
 };
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub struct Lab {
     pub l: Scalar,
     pub a: Scalar,

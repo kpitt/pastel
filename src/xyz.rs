@@ -13,7 +13,7 @@ use crate::{
     Color, Srgba,
 };
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub struct Xyz {
     pub x: Scalar,
     pub y: Scalar,
