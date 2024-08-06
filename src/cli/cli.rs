@@ -59,9 +59,11 @@ pub fn build_cli() -> Command {
                 .alias("show")
                 .alias("display")
                 .about("Display information about the given color")
-                .long_about("Show and display some information about the given color(s).\n\n\
-                Example:\n  \
-                  pastel color 556270 4ecdc4 c7f484 ff6b6b c44d58")
+                .long_about(color_print::cstr!(
+                    "Show and display some information about the given color(s).\n\n\
+                     <green,bold>Example:</>\
+                     \n  <cyan,bold>pastel color 556270 4ecdc4 c7f484 ff6b6b c44d58</>"
+                ))
                 .arg(color_arg.clone()),
         )
         .subcommand(
@@ -79,9 +81,11 @@ pub fn build_cli() -> Command {
         .subcommand(
             Command::new("random")
                 .about("Generate a list of random colors")
-                .long_about("Generate a list of random colors.\n\n\
-                Example:\n  \
-                  pastel random -n 20 --strategy lch_hue")
+                .long_about(color_print::cstr!(
+                    "Generate a list of random colors.\n\n\
+                     <green,bold>Example:</>\
+                     \n  <cyan,bold>pastel random -n 20 --strategy lch_hue</>"
+                ))
                 .arg(
                     Arg::new("strategy")
                         .long("strategy")
@@ -151,9 +155,11 @@ pub fn build_cli() -> Command {
         .subcommand(
             Command::new("sort-by")
                 .about("Sort colors by the given property")
-                .long_about("Sort a list of colors by the given property.\n\n\
-                Example:\n  \
-                  pastel random -n 20 | pastel sort-by hue | pastel format hex")
+                .long_about(color_print::cstr!(
+                    "Sort a list of colors by the given property.\n\n\
+                     <green,bold>Example:</>\
+                     \n  <cyan,bold>pastel random -n 20 | pastel sort-by hue | pastel format hex</>"
+                ))
                 .alias("sort")
                 .arg(
                     Arg::new("sort-order")
@@ -203,9 +209,11 @@ pub fn build_cli() -> Command {
         .subcommand(
             Command::new("format")
                 .about("Convert a color to the given format")
-                .long_about("Convert the given color(s) to a specific format.\n\n\
-                Example:\n  \
-                  pastel random -n 20 | pastel format rgb")
+                .long_about(color_print::cstr!(
+                    "Convert the given color(s) to a specific format.\n\n\
+                     <green,bold>Example:</>\
+                     \n  <cyan,bold>pastel random -n 20 | pastel format rgb</>"
+                ))
                 .arg(
                     Arg::new("type")
                         .help("Output format type. Note that the 'ansi-*-escapecode' formats print \
@@ -279,11 +287,13 @@ pub fn build_cli() -> Command {
         .subcommand(
             Command::new("gradient")
                 .about("Generate an interpolating sequence of colors")
-                .long_about("Generate a sequence of colors that interpolates between the specified colors.\n\
-                            The interpolation is performed in the specified color space.\n\n\
-                            Example:\n  \
-                              pastel gradient --colorspace=HSL ffffcc fd8d3c\n  \
-                              pastel gradient 555ee4 white d84341 -n 15")
+                .long_about(color_print::cstr!(
+                    "Generate a sequence of colors that interpolates between the specified colors.\n\
+                     The interpolation is performed in the specified color space.\n\n\
+                     <green,bold>Example:</>\
+                     \n  <cyan,bold>pastel gradient --colorspace=HSL ffffcc fd8d3c</>\
+                     \n  <cyan,bold>pastel gradient 555ee4 white d84341 -n 15</>"
+                ))
                 .arg(
                     Arg::new("color")
                         .value_name("color")
@@ -306,10 +316,11 @@ pub fn build_cli() -> Command {
         .subcommand(
             Command::new("mix")
                 .about("Mix two colors in the given colorspace")
-                .long_about(
+                .long_about(color_print::cstr!(
                     "Create new colors by interpolating between two colors in the given colorspace.\n\n\
-                     Example:\n  \
-                       pastel mix --colorspace=RGB red blue")
+                     <green,bold>Example:</>\
+                     \n  <cyan,bold>pastel mix --colorspace=RGB red blue</>"
+                ))
                 .arg(
                     colorspace_arg.clone()
                 )
@@ -332,11 +343,12 @@ pub fn build_cli() -> Command {
         .subcommand(
             Command::new("colorblind")
                 .about("Simulate a color under a certain colorblindness profile")
-                .long_about(
+                .long_about(color_print::cstr!(
                     "Convert the given color to how it would look to a person with protanopia, \
-                    deuteranopia, or tritanopia \n\n\
-                     Example:\n  \
-                       pastel distinct 3 | pastel colorblind deuter")
+                     deuteranopia, or tritanopia.\n\n\
+                     <green,bold>Example:</>\
+                     \n  <cyan,bold>pastel distinct 3 | pastel colorblind deuter</>"
+                ))
                 .arg(
                     Arg::new("type")
                         .help("The type of colorblindness that should be simulated (protanopia, \
@@ -350,9 +362,11 @@ pub fn build_cli() -> Command {
         .subcommand(
             Command::new("set")
                 .about("Set a color property to a specific value")
-                .long_about("Set the given property to a specific value\n\
-                Example:\n  \
-                  pastel random | pastel set luminance 0.9")
+                .long_about(color_print::cstr!(
+                    "Set the given property to a specific value.\n\n\
+                     <green,bold>Example:</>\
+                     \n  <cyan,bold>pastel random | pastel set luminance 0.9</>"
+                ))
                 .arg(
                     Arg::new("property")
                         .help("The property that should be changed")
