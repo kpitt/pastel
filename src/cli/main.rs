@@ -64,11 +64,12 @@ fn run() -> Result<ExitCode> {
 
     let interactive_mode = atty::is(Stream::Stdout);
 
-    let color_mode = if global_matches.is_present("force-color") {
+    let color_mode = if global_matches.get_flag("force-color") {
         Some(ansi::Mode::TrueColor)
     } else {
         match global_matches
-            .value_of("color-mode")
+            .get_one::<String>("color-mode")
+            .map(String::as_str)
             .expect("required argument")
         {
             "24bit" => Some(ansi::Mode::TrueColor),
@@ -104,14 +105,16 @@ fn run() -> Result<ExitCode> {
         colorcheck_width: 8,
         interactive_mode,
         brush: Brush::from_mode(color_mode),
-        colorpicker: global_matches.value_of("color-picker"),
+        colorpicker: global_matches
+            .get_one::<String>("color-picker")
+            .map(String::as_str),
     };
 
     if let Some((subcommand, matches)) = global_matches.subcommand() {
         let command = Command::from_string(subcommand);
         command.execute(matches, &config)?;
     } else {
-        unreachable!("Subcommand is required");
+        unreachable!("Command is required");
     }
 
     Ok(0)

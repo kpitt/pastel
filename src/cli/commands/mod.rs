@@ -64,7 +64,7 @@ impl Command {
             "paint" => Command::Generic(Box::new(PaintCommand)),
             "format" => Command::WithColor(Box::new(FormatCommand)),
             "colorcheck" => Command::Generic(Box::new(ColorCheckCommand)),
-            _ => unreachable!("Unknown subcommand"),
+            _ => unreachable!("Unknown command"),
         }
     }
 
@@ -76,7 +76,9 @@ impl Command {
         match self {
             Command::Generic(cmd) => cmd.run(&mut out, matches, config),
             Command::WithColor(cmd) => {
-                for color in ColorArgIterator::from_args(config, matches.values_of("color"))? {
+                for color in
+                    ColorArgIterator::from_args(config, matches.get_many::<String>("color"))?
+                {
                     cmd.run(&mut out, matches, config, &color?)?;
                 }
 

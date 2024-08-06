@@ -24,12 +24,12 @@ rand = "0.8"
 regex = "1.5"
 
 [dependencies.clap]
-version = "3"
-features = ["suggestions", "color", "wrap_help", "cargo"]
+version = "4.5"
+features = ["wrap_help", "cargo"]
 
 [build-dependencies]
-clap = { version = "3", features = ["cargo"] }
-clap_complete = "3"
+clap = { version = "4.5", features = ["cargo"] }
+clap_complete = "4.5"
 once_cell = "1.9.0"
 output_vt100 = "0.1"
 

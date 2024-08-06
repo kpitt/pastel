@@ -1,4 +1,4 @@
-use clap::{crate_description, crate_name, crate_version, AppSettings, Arg, Command};
+use clap::{builder, crate_description, crate_name, crate_version, Arg, ArgAction, Command};
 
 // Only include `colorpicker_tools` for normal builds (not when compiling `build.rs` where
 // the module machinery does not work)
@@ -8,7 +8,7 @@ use crate::colorpicker_tools::COLOR_PICKER_TOOL_NAMES;
 const SORT_OPTIONS: &[&str] = &["brightness", "luminance", "hue", "chroma", "random"];
 const DEFAULT_SORT_ORDER: &str = "hue";
 
-pub fn build_cli() -> Command<'static> {
+pub fn build_cli() -> Command {
     let color_arg = Arg::new("color")
         .help(
             "Colors can be specified in many different formats, such as #RRGGBB, RRGGBB, \
@@ -30,22 +30,22 @@ pub fn build_cli() -> Command<'static> {
              \n  - 'rgba(119, 136, 153, 0.5)'\
              \n  - 'hsla(210, 14.3%, 53.3%, 50%)'",
         )
-        .required(false)
-        .multiple_occurrences(true);
+        .action(ArgAction::Append)
+        .num_args(0..)
+        .trailing_var_arg(true);
 
     let colorspace_arg = Arg::new("colorspace")
         .long("colorspace")
         .short('s')
         .value_name("name")
         .help("The colorspace in which to interpolate")
-        .possible_values(&["Lab", "LCh", "RGB", "HSL", "HWB"])
+        .value_parser(["Lab", "LCh", "RGB", "HSL", "HWB"])
         .ignore_case(true)
         .default_value("Lab");
 
     Command::new(crate_name!())
         .version(crate_version!())
         .about(crate_description!())
-        .global_setting(AppSettings::DeriveDisplayOrder)
         .color(clap::ColorChoice::Auto)
         .allow_negative_numbers(true)
         .dont_collapse_args_in_usage(true)
@@ -72,7 +72,7 @@ pub fn build_cli() -> Command<'static> {
                         .short('s')
                         .long("sort")
                         .help("Sort order")
-                        .possible_values(SORT_OPTIONS)
+                        .value_parser(builder::PossibleValuesParser::new(SORT_OPTIONS))
                         .default_value(DEFAULT_SORT_ORDER),
                 ),
         )
@@ -95,7 +95,7 @@ pub fn build_cli() -> Command<'static> {
                              \n\
                              Default strategy: 'vivid'\n ",
                         )
-                        .possible_values(&["vivid", "rgb", "gray", "lch_hue"])
+                        .value_parser(["vivid", "rgb", "gray", "lch_hue"])
                         .hide_default_value(true)
                         .hide_possible_values(true)
                         .default_value("vivid"),
@@ -105,7 +105,6 @@ pub fn build_cli() -> Command<'static> {
                         .long("number")
                         .short('n')
                         .help("Number of colors to generate")
-                        .takes_value(true)
                         .default_value("10")
                         .value_name("count"),
                 ),
@@ -120,7 +119,6 @@ pub fn build_cli() -> Command<'static> {
                 .arg(
                     Arg::new("number")
                         .help("Number of distinct colors in the set")
-                        .takes_value(true)
                         .default_value("10")
                         .value_name("count"),
                 )
@@ -130,14 +128,14 @@ pub fn build_cli() -> Command<'static> {
                         .short('m')
                         .help("Distance metric to compute mutual color distances. The CIEDE2000 is \
                                more accurate, but also much slower.")
-                        .takes_value(true)
-                        .possible_values(&["CIEDE2000", "CIE76"])
+                        .value_parser(["CIEDE2000", "CIE76"])
                         .value_name("name")
                         .default_value("CIE76")
                 )
                 .arg(
                     Arg::new("print-minimal-distance")
                         .long("print-minimal-distance")
+                        .action(ArgAction::SetTrue)
                         .help("Only show the optimized minimal distance")
                         .hide(true)
                 )
@@ -145,6 +143,7 @@ pub fn build_cli() -> Command<'static> {
                     Arg::new("verbose")
                         .long("verbose")
                         .short('v')
+                        .action(ArgAction::SetTrue)
                         .help("Print simulation output to STDERR")
                 ).
                 arg(color_arg.clone()),
@@ -159,19 +158,21 @@ pub fn build_cli() -> Command<'static> {
                 .arg(
                     Arg::new("sort-order")
                         .help("Sort order")
-                        .possible_values(SORT_OPTIONS)
+                        .value_parser(builder::PossibleValuesParser::new(SORT_OPTIONS))
                         .default_value(DEFAULT_SORT_ORDER)
                 )
                 .arg(
                     Arg::new("reverse")
                         .long("reverse")
                         .short('r')
+                        .action(ArgAction::SetTrue)
                         .help("Reverse the sort order"),
                 )
                 .arg(
                     Arg::new("unique")
                         .long("unique")
                         .short('u')
+                        .action(ArgAction::SetTrue)
                         .help("Remove duplicate colors (equality is determined via RGB values)"),
                 )
                 .arg(color_arg.clone()),
@@ -210,16 +211,16 @@ pub fn build_cli() -> Command<'static> {
                         .help("Output format type. Note that the 'ansi-*-escapecode' formats print \
                                ansi escape sequences to the terminal that will not be visible \
                                unless something else is printed in addition.")
-                        .possible_values(&["rgb", "rgb-float", "hex",
-                                           "hsl", "hsl-hue", "hsl-saturation", "hsl-lightness",
-                                           "hsv", "hsv-hue", "hsv-saturation", "hsv-value",
-                                           "hwb", "hwb-hue", "hwb-whiteness", "hwb-blackness",
-                                           "lch", "lch-lightness", "lch-chroma", "lch-hue",
-                                           "lab", "lab-a", "lab-b",
-                                           "luminance", "brightness",
-                                           "ansi-8bit", "ansi-24bit",
-                                           "ansi-8bit-escapecode", "ansi-24bit-escapecode",
-                                           "cmyk", "name"])
+                        .value_parser(["rgb", "rgb-float", "hex",
+                                       "hsl", "hsl-hue", "hsl-saturation", "hsl-lightness",
+                                       "hsv", "hsv-hue", "hsv-saturation", "hsv-value",
+                                       "hwb", "hwb-hue", "hwb-whiteness", "hwb-blackness",
+                                       "lch", "lch-lightness", "lch-chroma", "lch-hue",
+                                       "lab", "lab-a", "lab-b",
+                                       "luminance", "brightness",
+                                       "ansi-8bit", "ansi-24bit",
+                                       "ansi-8bit-escapecode", "ansi-24bit-escapecode",
+                                       "cmyk", "name"])
                         .ignore_case(true)
                         .default_value("hex")
                 )
@@ -237,38 +238,41 @@ pub fn build_cli() -> Command<'static> {
                     Arg::new("text")
                         .help("The text to be printed in color. If no argument is given, \
                                the input is read from STDIN.")
-                        .multiple_occurrences(true)
+                        .action(ArgAction::Append)
                 )
                 .arg(
                     Arg::new("on")
                         .short('o')
                         .long("on")
                         .help("Use the specified background color")
-                        .takes_value(true)
                         .value_name("bg-color"),
                 )
                 .arg(
                     Arg::new("bold")
                         .short('b')
                         .long("bold")
+                        .action(ArgAction::SetTrue)
                         .help("Print the text in bold face"),
                 )
                 .arg(
                     Arg::new("italic")
                         .short('i')
                         .long("italic")
+                        .action(ArgAction::SetTrue)
                         .help("Print the text in italic font"),
                 )
                 .arg(
                     Arg::new("underline")
                         .short('u')
                         .long("underline")
+                        .action(ArgAction::SetTrue)
                         .help("Draw a line below the text"),
                 )
                 .arg(
                     Arg::new("no-newline")
                         .short('n')
                         .long("no-newline")
+                        .action(ArgAction::SetTrue)
                         .help("Do not print a trailing newline character"),
                 ),
         )
@@ -284,7 +288,7 @@ pub fn build_cli() -> Command<'static> {
                     Arg::new("color")
                         .value_name("color")
                         .help("Color stops in the color gradient")
-                        .multiple_occurrences(true)
+                        .action(ArgAction::Append)
                         .required(true),
                 )
                 .arg(
@@ -292,7 +296,6 @@ pub fn build_cli() -> Command<'static> {
                         .long("number")
                         .short('n')
                         .help("Number of colors to generate")
-                        .takes_value(true)
                         .default_value("10")
                         .value_name("count"),
                 )
@@ -316,7 +319,6 @@ pub fn build_cli() -> Command<'static> {
                         .short('f')
                         .help("The number between 0.0 and 1.0 determining how much to \
                               mix in from the base color.")
-                        .takes_value(true)
                         .default_value("0.5"),
                 )
                 .arg(
@@ -339,7 +341,7 @@ pub fn build_cli() -> Command<'static> {
                     Arg::new("type")
                         .help("The type of colorblindness that should be simulated (protanopia, \
                                deuteranopia, tritanopia)")
-                        .possible_values(&["prot", "deuter", "trit"])
+                        .value_parser(["prot", "deuter", "trit"])
                         .ignore_case(true)
                         .required(true),
                 )
@@ -354,11 +356,11 @@ pub fn build_cli() -> Command<'static> {
                 .arg(
                     Arg::new("property")
                         .help("The property that should be changed")
-                        .possible_values(&["lightness", "hue", "chroma",
-                                           "lab-a", "lab-b",
-                                           "red", "green", "blue",
-                                           "hsl-hue", "hsl-saturation", "hsl-lightness",
-                                           "hwb-hue", "hwb-whiteness", "hwb-blackness"])
+                        .value_parser(["lightness", "hue", "chroma",
+                                       "lab-a", "lab-b",
+                                       "red", "green", "blue",
+                                       "hsl-hue", "hsl-saturation", "hsl-lightness",
+                                       "hwb-hue", "hwb-whiteness", "hwb-blackness"])
                         .ignore_case(true)
                         .required(true),
                 )
@@ -489,7 +491,7 @@ pub fn build_cli() -> Command<'static> {
                 .short('m')
                 .value_name("mode")
                 .help("Specify the terminal color mode: 24bit, 8bit, off, *auto*")
-                .possible_values(&["24bit", "8bit", "off", "auto"])
+                .value_parser(["24bit", "8bit", "off", "auto"])
                 .default_value(if output_vt100::try_init().is_ok() {"auto"} else {"off"})
                 .hide_possible_values(true)
                 .hide_default_value(true)
@@ -498,13 +500,13 @@ pub fn build_cli() -> Command<'static> {
             Arg::new("force-color")
                 .short('f')
                 .long("force-color")
-                .help("Alias for --mode=24bit")
+                .action(ArgAction::SetTrue)
+                .help("Alias for --color-mode=24bit")
         )
         .arg(
             Arg::new("color-picker")
                 .long("color-picker")
-                .takes_value(true)
-                .possible_values(COLOR_PICKER_TOOL_NAMES.iter())
+                .value_parser(builder::PossibleValuesParser::new(COLOR_PICKER_TOOL_NAMES.iter()))
                 .ignore_case(true)
                 .help("Use a specific tool to pick the colors")
         )

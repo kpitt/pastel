@@ -20,7 +20,7 @@
 ``` bash
 pastel
 ```
-To get more information about a specific subcommand (say `mix`), you can call `pastel mix -h` or `pastel help mix`.
+To get more information about a specific command (say `mix`), you can call `pastel mix -h` or `pastel help mix`.
 
 ### Composition
 
