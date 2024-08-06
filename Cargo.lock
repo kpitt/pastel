@@ -494,6 +494,7 @@ dependencies = [
 name = "pastel"
 version = "0.9.0"
 dependencies = [
+ "anstyle",
  "approx",
  "assert_cmd",
  "atty",

@@ -11,11 +11,14 @@ mod config;
 mod error;
 mod hdcanvas;
 mod output;
+mod util;
 mod utility;
 
 use commands::Command;
 use config::Config;
 use error::{PastelError, Result};
+
+use crate::util::style;
 
 use pastel::ansi::{self, Brush, Mode};
 use pastel::Color;
@@ -59,7 +62,18 @@ fn print_pastel_warning() {
 }
 
 fn run() -> Result<ExitCode> {
-    let app = cli::build_cli();
+    let styles = {
+        clap::builder::styling::Styles::styled()
+            .header(style::HEADER)
+            .usage(style::USAGE)
+            .literal(style::LITERAL)
+            .placeholder(style::PLACEHOLDER)
+            .error(style::ERROR)
+            .valid(style::VALID)
+            .invalid(style::INVALID)
+    };
+
+    let app = cli::build_cli().styles(styles);
     let global_matches = app.get_matches();
 
     let interactive_mode = atty::is(Stream::Stdout);

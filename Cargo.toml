@@ -13,6 +13,7 @@ build = "build.rs"
 exclude = ["doc/pastel.gif"]
 
 [dependencies]
+anstyle = "1.0.8"
 # library dependencies
 atty = "0.2"
 nom = "7.0.0"
