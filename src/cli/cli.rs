@@ -9,14 +9,18 @@ const SORT_OPTIONS: &[&str] = &["brightness", "luminance", "hue", "chroma", "ran
 const DEFAULT_SORT_ORDER: &str = "hue";
 
 pub fn build_cli() -> Command {
+    let color_arg_help =
+        "Colors can be specified in many different formats, such as '#RRGGBB', RRGGBB, \
+        '#RGB', 'rgb(…, …, …)', 'hsl(…, …, …)', 'gray(…)', or simply by the name of the \
+        color. The identifier '-' can be used to read a single color from standard input. \
+        Also, the special identifier 'pick' can be used to run an external color picker \
+        to choose a color. If no color argument is specified, colors will be read from \
+        standard input.";
     let color_arg = Arg::new("color")
-        .help(
-            "Colors can be specified in many different formats, such as #RRGGBB, RRGGBB, \
-             #RGB, 'rgb(…, …, …)', 'hsl(…, …, …)', 'gray(…)' or simply by the name of the \
-             color. The identifier '-' can be used to read a single color from standard input. \
-             Also, the special identifier 'pick' can be used to run an external color picker \
-             to choose a color. If no color argument is specified, colors will be read from \
-             standard input.\n\
+        .help(color_arg_help)
+        .long_help(format!(
+            "{color_arg_help}\n\
+             \n\
              Examples (all of these specify the same color):\
              \n  - lightslategray\
              \n  - '#778899'\
@@ -25,11 +29,12 @@ pub fn build_cli() -> Command {
              \n  - 'rgb(119, 136, 153)'\
              \n  - '119,136,153'\
              \n  - 'hsl(210, 14.3%, 53.3%)'\n\
+             \n\
              Alpha transparency is also supported:\
              \n  - '#77889980'\
              \n  - 'rgba(119, 136, 153, 0.5)'\
              \n  - 'hsla(210, 14.3%, 53.3%, 50%)'",
-        )
+        ))
         .action(ArgAction::Append)
         .num_args(0..)
         .trailing_var_arg(true);
@@ -38,7 +43,7 @@ pub fn build_cli() -> Command {
         .long("colorspace")
         .short('s')
         .value_name("name")
-        .help("The colorspace in which to interpolate")
+        .help("Colorspace in which to interpolate")
         .value_parser(["Lab", "LCh", "RGB", "HSL", "HWB"])
         .ignore_case(true)
         .default_value("Lab");
@@ -90,15 +95,17 @@ pub fn build_cli() -> Command {
                     Arg::new("strategy")
                         .long("strategy")
                         .short('s')
-                        .help(
-                            "Randomization strategy:\n   \
-                             vivid:    random hue, limited saturation and lightness values\n   \
-                             rgb:      samples uniformly in RGB space\n   \
-                             gray:     random gray tone (uniform)\n   \
-                             lch_hue:  random hue, fixed lightness and chroma\n\
+                        .help("Randomization strategy: vivid, rgb, gray, lch_hue \
+                            [default: vivid]")
+                        .long_help(color_print::cstr!(
+                            "Randomization strategy:\
+                             \n  vivid:    random hue, limited saturation and lightness values\
+                             \n  rgb:      samples uniformly in RGB space\
+                             \n  gray:     random gray tone (uniform)\
+                             \n  lch_hue:  random hue, fixed lightness and chroma\n\
                              \n\
-                             Default strategy: 'vivid'\n ",
-                        )
+                             [default: vivid]"
+                        ))
                         .value_parser(["vivid", "rgb", "gray", "lch_hue"])
                         .hide_default_value(true)
                         .hide_possible_values(true)
@@ -130,8 +137,9 @@ pub fn build_cli() -> Command {
                     Arg::new("metric")
                         .long("metric")
                         .short('m')
-                        .help("Distance metric to compute mutual color distances. The CIEDE2000 is \
-                               more accurate, but also much slower.")
+                        .help("Distance metric for color distances")
+                        .long_help("Distance metric to use for computing mutual color distances. \
+                            The CIEDE2000 metric is more accurate, but also much slower.")
                         .value_parser(["CIEDE2000", "CIE76"])
                         .value_name("name")
                         .default_value("CIE76")
@@ -328,8 +336,7 @@ pub fn build_cli() -> Command {
                     Arg::new("fraction")
                         .long("fraction")
                         .short('f')
-                        .help("The number between 0.0 and 1.0 determining how much to \
-                              mix in from the base color.")
+                        .help("Fraction of base color to mix in [between 0.0 and 1.0]")
                         .default_value("0.5"),
                 )
                 .arg(
@@ -395,7 +402,7 @@ pub fn build_cli() -> Command {
                 .about("Increase color saturation by a specified amount")
                 .arg(
                     Arg::new("amount")
-                        .help("Amount of saturation to add (number between 0.0 and 1.0)")
+                        .help("Amount of saturation to add [between 0.0 and 1.0]")
                         .required(true),
                 )
                 .arg(color_arg.clone()),
@@ -410,7 +417,7 @@ pub fn build_cli() -> Command {
                 .about("Decrease color saturation by a specified amount")
                 .arg(
                     Arg::new("amount")
-                        .help("Amount of saturation to subtract (number between 0.0 and 1.0)")
+                        .help("Amount of saturation to subtract [between 0.0 and 1.0]")
                         .required(true),
                 )
                 .arg(color_arg.clone()),
@@ -424,7 +431,7 @@ pub fn build_cli() -> Command {
                 .about("Lighten color by a specified amount")
                 .arg(
                     Arg::new("amount")
-                        .help("Amount of lightness to add (number between 0.0 and 1.0)")
+                        .help("Amount of lightness to add [between 0.0 and 1.0]")
                         .required(true),
                 )
                 .arg(color_arg.clone()),
@@ -438,7 +445,7 @@ pub fn build_cli() -> Command {
                 .about("Darken color by a specified amount")
                 .arg(
                     Arg::new("amount")
-                        .help("Amount of lightness to subtract (number between 0.0 and 1.0)")
+                        .help("Amount of lightness to subtract [between 0.0 and 1.0]")
                         .required(true),
                 )
                 .arg(color_arg.clone()),
@@ -453,7 +460,7 @@ pub fn build_cli() -> Command {
                 )
                 .arg(
                     Arg::new("degrees")
-                        .help("angle by which to rotate (in degrees, can be negative)")
+                        .help("Angle by which to rotate (in degrees, can be negative)")
                         .required(true),
                 )
                 .arg(color_arg.clone()),
@@ -472,7 +479,7 @@ pub fn build_cli() -> Command {
                 .long_about("Create a gray tone from a given lightness value.")
                 .arg(
                     Arg::new("lightness")
-                        .help("Lightness of the created gray tone (number between 0.0 and 1.0)")
+                        .help("Lightness of the gray tone [between 0.0 and 1.0]")
                         .required(true),
                 ),
         )
@@ -497,7 +504,7 @@ pub fn build_cli() -> Command {
         )
         .subcommand(
             Command::new("colorcheck")
-                .about("Check if your terminal emulator supports 24-bit colors."),
+                .about("Check if your terminal emulator supports 24-bit colors"),
         )
         .arg(
             Arg::new("color-mode")
