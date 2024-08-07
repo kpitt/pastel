@@ -11,29 +11,32 @@ const DEFAULT_SORT_ORDER: &str = "hue";
 pub fn build_cli() -> Command {
     let color_arg_help =
         "Colors can be specified in many different formats, such as '#RRGGBB', RRGGBB, \
-        '#RGB', 'rgb(…, …, …)', 'hsl(…, …, …)', 'gray(…)', or simply by the name of the \
-        color. The identifier '-' can be used to read a single color from standard input. \
-        Also, the special identifier 'pick' can be used to run an external color picker \
-        to choose a color. If no color argument is specified, colors will be read from \
-        standard input.";
+         '#RGB', 'rgb(…, …, …)', 'hsl(…, …, …)', 'gray(…)', or simply by the name of the \
+         color. The identifier '-' can be used to read a single color from standard input. \
+         Also, the special identifier 'pick' can be used to run an external color picker \
+         to choose a color. If no color argument is specified, colors will be read from \
+         standard input.";
+    let color_arg_long_help = color_print::cstr!(
+        "Examples (all of these specify the same color):\
+         \n  - <cyan>lightslategray</>\
+         \n  - <cyan>'#778899'</>\
+         \n  - <cyan>778899</>\
+         \n  - <cyan>789</>\
+         \n  - <cyan>'rgb(119, 136, 153)'</>\
+         \n  - <cyan>'119,136,153'</>\
+         \n  - <cyan>'hsl(210, 14.3%, 53.3%)'</>\n\
+         \n\
+         Alpha transparency is also supported:\
+         \n  - <cyan>'#77889980'</>\
+         \n  - <cyan>'rgba(119, 136, 153, 0.5)'</>\
+         \n  - <cyan>'hsla(210, 14.3%, 53.3%, 50%)'</>"
+    );
     let color_arg = Arg::new("color")
         .help(color_arg_help)
         .long_help(format!(
             "{color_arg_help}\n\
              \n\
-             Examples (all of these specify the same color):\
-             \n  - lightslategray\
-             \n  - '#778899'\
-             \n  - 778899\
-             \n  - 789\
-             \n  - 'rgb(119, 136, 153)'\
-             \n  - '119,136,153'\
-             \n  - 'hsl(210, 14.3%, 53.3%)'\n\
-             \n\
-             Alpha transparency is also supported:\
-             \n  - '#77889980'\
-             \n  - 'rgba(119, 136, 153, 0.5)'\
-             \n  - 'hsla(210, 14.3%, 53.3%, 50%)'",
+             {color_arg_long_help}"
         ))
         .action(ArgAction::Append)
         .num_args(0..)
@@ -193,21 +196,27 @@ pub fn build_cli() -> Command {
         )
         .subcommand(
             Command::new("pick")
-                .about("Interactively pick a color from the screen (pipette)")
-                .long_about("Print a spectrum of colors to choose from. This command requires an \
-                external color picker tool to be installed.\n\
-                \n\
-                Supported tools:\n  \
-                  - gpick (https://github.com/thezbyg/gpick)\n  \
-                  - xcolor (https://github.com/Soft/xcolor)\n  \
-                  - wcolor (https://github.com/Elvyria/wcolor)\n  \
-                  - grabc (https://www.muquit.com/muquit/software/grabc/grabc.html)\n  \
-                  - colorpicker (https://github.com/Jack12816/colorpicker)\n  \
-                  - chameleon (https://github.com/seebye/chameleon)\n  \
-                  - KColorChooser (https://kde.org/applications/graphics/org.kde.kcolorchooser)\n  \
-                  - zenity (https://wiki.gnome.org/Projects/Zenity)\n  \
-                  - yad (https://github.com/v1cont/yad)\n  \
-                  - macOS built-in color picker")
+                .about("Interactively choose a color using an external color picker tool")
+                .long_about(color_print::cstr!(
+                    "Use an external color picker tool to interactively choose a color. \
+                     Prints a spectrum of colors that can be used to choose a color if \
+                     the color picker tool provides a pipette (eyedropper) function.\n\
+                     \n\
+                     This command requires a supported external tool:\
+                     \n  - <bold>gpick</> (<cyan>https://github.com/thezbyg/gpick</>)\
+                     \n  - <bold>xcolor</> (<cyan>https://github.com/Soft/xcolor</>)\
+                     \n  - <bold>wcolor</> (<cyan>https://github.com/Elvyria/wcolor</>)\
+                     \n  - <bold>grabc</> (<cyan>https://www.muquit.com/muquit/software/grabc/grabc.html</>)\
+                     \n  - <bold>colorpicker</> (<cyan>https://github.com/Jack12816/colorpicker</>)\
+                     \n  - <bold>chameleon</> (<cyan>https://github.com/seebye/chameleon</>)\
+                     \n  - <bold>KColorChooser</> (<cyan>https://kde.org/applications/graphics/org.kde.kcolorchooser</>)\
+                     \n  - <bold>zenity</> (<cyan>https://wiki.gnome.org/Projects/Zenity</>)\
+                     \n  - <bold>yad</> (<cyan>https://github.com/v1cont/yad</>)\
+                     \n  - <bold>macOS</> (built-in color picker)\n\
+                     \n\
+                     Use the global '<cyan,bold>--color-picker</>' option to select a specific color picker tool. \
+                     Run `<cyan,bold>pastel help</>` for more detailed information."
+                ))
                 .arg(
                     Arg::new("count")
                         .help("Number of colors to pick")
@@ -468,9 +477,11 @@ pub fn build_cli() -> Command {
         .subcommand(
             Command::new("complement")
                 .about("Get the complementary color (hue rotated by 180°)")
-                .long_about(
-                    "Compute the complementary color by rotating the HSL hue channel by 180°.",
-                )
+                .long_about(color_print::cstr!(
+                    "Compute the complementary color by rotating the HSL hue channel by 180°.\n\
+                     \n\
+                     This command is equivalent to `<cyan,bold>pastel rotate 180</> <cyan>[color]...</>`."
+                ))
                 .arg(color_arg.clone()),
         )
         .subcommand(
@@ -486,12 +497,12 @@ pub fn build_cli() -> Command {
         .subcommand(
             Command::new("to-gray")
                 .about("Completely desaturate a color (preserving luminance)")
-                .long_about(
+                .long_about(color_print::cstr!(
                     "Completely desaturate the given color while preserving the luminance.\n\
                      \n\
-                     For a definition of 'luminance', see:\n\n  \
-                     https://www.w3.org/TR/2008/REC-WCAG20-20081211/#relativeluminancedef",
-                )
+                     For a definition of 'luminance', see:\
+                     \n  <cyan>https://www.w3.org/TR/2008/REC-WCAG20-20081211/#relativeluminancedef</>"
+                ))
                 .arg(color_arg.clone()),
         )
         .subcommand(
