@@ -38,6 +38,7 @@ pub fn build_cli() -> Command {
              \n\
              {color_arg_long_help}"
         ))
+        .value_name("COLOR")
         .action(ArgAction::Append)
         .num_args(0..)
         .trailing_var_arg(true);
@@ -45,7 +46,7 @@ pub fn build_cli() -> Command {
     let colorspace_arg = Arg::new("colorspace")
         .long("colorspace")
         .short('s')
-        .value_name("name")
+        .value_name("NAME")
         .help("Colorspace in which to interpolate")
         .value_parser(["Lab", "LCh", "RGB", "HSL", "HWB"])
         .ignore_case(true)
@@ -83,7 +84,8 @@ pub fn build_cli() -> Command {
                         .long("sort")
                         .help("Sort order")
                         .value_parser(builder::PossibleValuesParser::new(SORT_OPTIONS))
-                        .default_value(DEFAULT_SORT_ORDER),
+                        .default_value(DEFAULT_SORT_ORDER)
+                        .value_name("ORDER")
                 ),
         )
         .subcommand(
@@ -108,7 +110,8 @@ pub fn build_cli() -> Command {
                         )
                         .value_parser(["vivid", "rgb", "gray", "lch_hue"])
                         .hide_possible_values(true)
-                        .default_value("vivid"),
+                        .default_value("vivid")
+                        .value_name("STRATEGY")
                 )
                 .arg(
                     Arg::new("number")
@@ -116,7 +119,7 @@ pub fn build_cli() -> Command {
                         .short('n')
                         .help("Number of colors to generate")
                         .default_value("10")
-                        .value_name("count"),
+                        .value_name("COUNT"),
                 ),
         )
         .subcommand(
@@ -130,7 +133,7 @@ pub fn build_cli() -> Command {
                     Arg::new("number")
                         .help("Number of distinct colors in the set")
                         .default_value("10")
-                        .value_name("count"),
+                        .value_name("COUNT"),
                 )
                 .arg(
                     Arg::new("metric")
@@ -140,7 +143,7 @@ pub fn build_cli() -> Command {
                         .long_help("Distance metric to use for computing mutual color distances. \
                             The CIEDE2000 metric is more accurate, but also much slower.")
                         .value_parser(["CIEDE2000", "CIE76"])
-                        .value_name("name")
+                        .value_name("METRIC")
                         .default_value("CIE76")
                 )
                 .arg(
@@ -173,6 +176,7 @@ pub fn build_cli() -> Command {
                         .help("Sort order")
                         .value_parser(builder::PossibleValuesParser::new(SORT_OPTIONS))
                         .default_value(DEFAULT_SORT_ORDER)
+                        .value_name("ORDER")
                 )
                 .arg(
                     Arg::new("reverse")
@@ -217,6 +221,7 @@ pub fn build_cli() -> Command {
                     Arg::new("count")
                         .help("Number of colors to pick")
                         .default_value("1")
+                        .value_name("COUNT")
                 )
         )
         .subcommand(
@@ -244,6 +249,7 @@ pub fn build_cli() -> Command {
                                        "cmyk", "name"])
                         .ignore_case(true)
                         .default_value("hex")
+                        .value_name("FORMAT")
                 )
                 .arg(color_arg.clone()),
         )
@@ -253,12 +259,14 @@ pub fn build_cli() -> Command {
                 .arg(
                     Arg::new("color")
                         .help("The foreground color. Use '-' to read the color from STDIN.")
+                        .value_name("COLOR")
                         .required(true),
                 )
                 .arg(
                     Arg::new("text")
                         .help("The text to be printed in color. If no argument is given, \
                                the input is read from STDIN.")
+                        .value_name("TEXT")
                         .action(ArgAction::Append)
                 )
                 .arg(
@@ -266,7 +274,7 @@ pub fn build_cli() -> Command {
                         .short('o')
                         .long("on")
                         .help("Use the specified background color")
-                        .value_name("bg-color"),
+                        .value_name("COLOR"),
                 )
                 .arg(
                     Arg::new("bold")
@@ -309,7 +317,7 @@ pub fn build_cli() -> Command {
                 ))
                 .arg(
                     Arg::new("color")
-                        .value_name("color")
+                        .value_name("COLOR")
                         .help("Color stops in the color gradient")
                         .action(ArgAction::Append)
                         .required(true),
@@ -320,7 +328,7 @@ pub fn build_cli() -> Command {
                         .short('n')
                         .help("Number of colors to generate")
                         .default_value("10")
-                        .value_name("count"),
+                        .value_name("COUNT"),
                 )
                 .arg(
                     colorspace_arg.clone()
@@ -342,11 +350,12 @@ pub fn build_cli() -> Command {
                         .long("fraction")
                         .short('f')
                         .help("Fraction of base color to mix in [between 0.0 and 1.0]")
-                        .default_value("0.5"),
+                        .default_value("0.5")
+                        .value_name("FRACTION")
                 )
                 .arg(
                     Arg::new("base")
-                        .value_name("color")
+                        .value_name("BASE")
                         .help("The base color which will be mixed with the other colors")
                         .required(true),
                 )
@@ -366,6 +375,7 @@ pub fn build_cli() -> Command {
                         .help("The type of colorblindness that should be simulated (protanopia, \
                                deuteranopia, tritanopia)")
                         .value_parser(["prot", "deuter", "trit"])
+                        .value_name("TYPE")
                         .ignore_case(true)
                         .required(true),
                 )
@@ -387,12 +397,14 @@ pub fn build_cli() -> Command {
                                        "red", "green", "blue",
                                        "hsl-hue", "hsl-saturation", "hsl-lightness",
                                        "hwb-hue", "hwb-whiteness", "hwb-blackness"])
+                        .value_name("PROPERTY")
                         .ignore_case(true)
                         .required(true),
                 )
                 .arg(
                     Arg::new("value")
                         .help("The new numerical value of the property")
+                        .value_name("VALUE")
                         .required(true),
                 )
                 .arg(color_arg.clone()),
@@ -408,6 +420,7 @@ pub fn build_cli() -> Command {
                 .arg(
                     Arg::new("amount")
                         .help("Amount of saturation to add [between 0.0 and 1.0]")
+                        .value_name("AMOUNT")
                         .required(true),
                 )
                 .arg(color_arg.clone()),
@@ -423,6 +436,7 @@ pub fn build_cli() -> Command {
                 .arg(
                     Arg::new("amount")
                         .help("Amount of saturation to subtract [between 0.0 and 1.0]")
+                        .value_name("AMOUNT")
                         .required(true),
                 )
                 .arg(color_arg.clone()),
@@ -437,6 +451,7 @@ pub fn build_cli() -> Command {
                 .arg(
                     Arg::new("amount")
                         .help("Amount of lightness to add [between 0.0 and 1.0]")
+                        .value_name("AMOUNT")
                         .required(true),
                 )
                 .arg(color_arg.clone()),
@@ -451,6 +466,7 @@ pub fn build_cli() -> Command {
                 .arg(
                     Arg::new("amount")
                         .help("Amount of lightness to subtract [between 0.0 and 1.0]")
+                        .value_name("AMOUNT")
                         .required(true),
                 )
                 .arg(color_arg.clone()),
@@ -466,6 +482,7 @@ pub fn build_cli() -> Command {
                 .arg(
                     Arg::new("degrees")
                         .help("Angle by which to rotate (in degrees, can be negative)")
+                        .value_name("ANGLE")
                         .required(true),
                 )
                 .arg(color_arg.clone()),
@@ -476,7 +493,7 @@ pub fn build_cli() -> Command {
                 .long_about(color_print::cstr!(
                     "Compute the complementary color by rotating the HSL hue channel by 180°.\n\
                      \n\
-                     This command is equivalent to `<cyan,bold>pastel rotate 180</> <cyan>[color]...</>`."
+                     This command is equivalent to `<cyan,bold>pastel rotate 180</> <cyan>[COLOR]...</>`."
                 ))
                 .arg(color_arg.clone()),
         )
@@ -487,6 +504,7 @@ pub fn build_cli() -> Command {
                 .arg(
                     Arg::new("lightness")
                         .help("Lightness of the gray tone [between 0.0 and 1.0]")
+                        .value_name("LIGHTNESS")
                         .required(true),
                 ),
         )
@@ -517,7 +535,7 @@ pub fn build_cli() -> Command {
             Arg::new("color-mode")
                 .long("color-mode")
                 .short('m')
-                .value_name("mode")
+                .value_name("MODE")
                 .help("Specify the terminal color mode: 24bit, 8bit, off, *auto*")
                 .value_parser(["24bit", "8bit", "off", "auto"])
                 .default_value(if output_vt100::try_init().is_ok() {"auto"} else {"off"})
@@ -535,6 +553,7 @@ pub fn build_cli() -> Command {
             Arg::new("color-picker")
                 .long("color-picker")
                 .value_parser(builder::PossibleValuesParser::new(COLOR_PICKER_TOOL_NAMES.iter()))
+                .value_name("TOOL")
                 .ignore_case(true)
                 .help("Use a specific tool to pick the colors")
         )
