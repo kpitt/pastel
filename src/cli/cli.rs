@@ -1,9 +1,6 @@
 use clap::{builder, crate_description, crate_name, crate_version, Arg, ArgAction, Command};
 
-// Only include `colorpicker_tools` for normal builds (not when compiling `build.rs` where
-// the module machinery does not work)
-#[cfg(pastel_normal_build)]
-use crate::colorpicker_tools::COLOR_PICKER_TOOL_NAMES;
+use crate::{colorpicker_tools::COLOR_PICKER_TOOL_NAMES, commands::completions};
 
 const SORT_OPTIONS: &[&str] = &["brightness", "luminance", "hue", "chroma", "random"];
 const DEFAULT_SORT_ORDER: &str = "hue";
@@ -531,6 +528,7 @@ pub fn build_cli() -> Command {
             Command::new("colorcheck")
                 .about("Check if your terminal emulator supports 24-bit colors"),
         )
+        .subcommand(completions::cli())
         .arg(
             Arg::new("color-mode")
                 .long("color-mode")

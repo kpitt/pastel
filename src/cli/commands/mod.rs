@@ -5,6 +5,7 @@ use clap::ArgMatches;
 
 mod color_commands;
 mod colorcheck;
+pub mod completions;
 mod distinct;
 mod format;
 mod gradient;
@@ -22,6 +23,7 @@ mod traits;
 use traits::{ColorCommand, GenericCommand};
 
 use colorcheck::ColorCheckCommand;
+use completions::CompletionsCommand;
 use distinct::DistinctCommand;
 use format::FormatCommand;
 use gradient::GradientCommand;
@@ -64,6 +66,7 @@ impl Command {
             "paint" => Command::Generic(Box::new(PaintCommand)),
             "format" => Command::WithColor(Box::new(FormatCommand)),
             "colorcheck" => Command::Generic(Box::new(ColorCheckCommand)),
+            "completions" => Command::Generic(Box::new(CompletionsCommand)),
             _ => unreachable!("Unknown command"),
         }
     }
