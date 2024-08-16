@@ -6,12 +6,7 @@ pub struct PickCommand;
 
 impl GenericCommand for PickCommand {
     fn run(&self, out: &mut Output, matches: &ArgMatches, config: &Config) -> Result<()> {
-        let count = matches
-            .get_one::<String>("count")
-            .expect("required argument");
-        let count = count
-            .parse::<usize>()
-            .map_err(|_| PastelError::CouldNotParseNumber(count.into()))?;
+        let count = *matches.get_one::<u32>("count").expect("required argument");
 
         print_colorspectrum(config)?;
 

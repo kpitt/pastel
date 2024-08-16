@@ -9,9 +9,6 @@ pub enum PastelError {
     ColorArgRequired,
     CouldNotParseNumber(String),
     StdoutClosed,
-    GradientNumberMustBeLargerThanOne,
-    GradientColorCountMustBeLargerThanOne,
-    DistinctColorCountMustBeLargerThanOne,
     DistinctColorFixedColorsCannotBeMoreThanCount,
     ColorPickerExecutionError(String),
     NoColorPickerFound,
@@ -33,18 +30,9 @@ impl PastelError {
                     .into()
             }
             PastelError::CouldNotParseNumber(number) => {
-                format!("Could not parse number '{}'", number)
+                format!("could not parse number '{}'", number)
             }
             PastelError::StdoutClosed => "Output pipe has been closed".into(),
-            PastelError::GradientNumberMustBeLargerThanOne => {
-                "The specified color count must be larger than one".into()
-            }
-            PastelError::GradientColorCountMustBeLargerThanOne => {
-                "The number of color arguments must be larger than one".into()
-            }
-            PastelError::DistinctColorCountMustBeLargerThanOne => {
-                "The number of colors must be larger than one".into()
-            }
             PastelError::DistinctColorFixedColorsCannotBeMoreThanCount => {
                 "The number of fixed colors must be smaller than the total number of colors".into()
             }
@@ -73,5 +61,13 @@ impl From<ansi::UnknownColorModeError> for PastelError {
         PastelError::UnknownColorMode(err.0)
     }
 }
+
+impl std::fmt::Display for PastelError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.message())
+    }
+}
+
+impl std::error::Error for PastelError {}
 
 pub type Result<T> = std::result::Result<T, PastelError>;

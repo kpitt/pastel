@@ -8,15 +8,7 @@ pub struct GradientCommand;
 
 impl GenericCommand for GradientCommand {
     fn run(&self, out: &mut Output, matches: &ArgMatches, config: &Config) -> Result<()> {
-        let count = matches
-            .get_one::<String>("number")
-            .expect("required argument");
-        let count = count
-            .parse::<usize>()
-            .map_err(|_| PastelError::CouldNotParseNumber(count.into()))?;
-        if count < 2 {
-            return Err(PastelError::GradientNumberMustBeLargerThanOne);
-        }
+        let count = *matches.get_one::<u32>("number").expect("required argument");
 
         let mut print_spectrum = PrintSpectrum::Yes;
 
@@ -32,10 +24,6 @@ impl GenericCommand for GradientCommand {
             .map(|color| ColorArgIterator::from_color_arg(config, color, &mut print_spectrum));
 
         let color_count = colors.len();
-        if color_count < 2 {
-            return Err(PastelError::GradientColorCountMustBeLargerThanOne);
-        }
-
         let mut color_scale = ColorScale::empty();
 
         for (i, color) in colors.enumerate() {

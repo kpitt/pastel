@@ -12,12 +12,7 @@ impl GenericCommand for RandomCommand {
             .map(String::as_str)
             .expect("required argument");
 
-        let count = matches
-            .get_one::<String>("number")
-            .expect("required argument");
-        let count = count
-            .parse::<usize>()
-            .map_err(|_| PastelError::CouldNotParseNumber(count.into()))?;
+        let count = *matches.get_one::<u32>("number").expect("required argument");
 
         let mut strategy: Box<dyn RandomizationStrategy> = match strategy_arg {
             "vivid" => Box::new(strategies::Vivid),

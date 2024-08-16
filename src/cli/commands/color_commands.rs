@@ -28,27 +28,27 @@ macro_rules! color_command {
 }
 
 color_command!(SaturateCommand, _config, matches, color, {
-    let amount = number_arg(matches, "amount")?;
+    let amount = required_float_arg(matches, "amount");
     color.saturate(amount)
 });
 
 color_command!(DesaturateCommand, _config, matches, color, {
-    let amount = number_arg(matches, "amount")?;
+    let amount = required_float_arg(matches, "amount");
     color.desaturate(amount)
 });
 
 color_command!(LightenCommand, _config, matches, color, {
-    let amount = number_arg(matches, "amount")?;
+    let amount = required_float_arg(matches, "amount");
     color.lighten(amount)
 });
 
 color_command!(DarkenCommand, _config, matches, color, {
-    let amount = number_arg(matches, "amount")?;
+    let amount = required_float_arg(matches, "amount");
     color.darken(amount)
 });
 
 color_command!(RotateCommand, _config, matches, color, {
-    let degrees = number_arg(matches, "degrees")?;
+    let degrees = required_float_arg(matches, "degrees");
     color.rotate_hue(degrees)
 });
 
@@ -72,7 +72,7 @@ color_command!(MixCommand, config, matches, color, {
             .expect("required argument"),
         &mut print_spectrum,
     )?;
-    let fraction = Fraction::from(1.0 - number_arg(matches, "fraction")?);
+    let fraction = Fraction::from(1.0 - required_float_arg(matches, "fraction"));
 
     let mix = get_mixing_function(
         matches
@@ -110,7 +110,7 @@ color_command!(SetCommand, config, matches, color, {
         .to_lowercase();
     let property = property.as_ref();
 
-    let value = number_arg(matches, "value")?;
+    let value = required_float_arg(matches, "value");
 
     match property {
         "red" | "green" | "blue" => {

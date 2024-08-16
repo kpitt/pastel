@@ -132,16 +132,8 @@ impl GenericCommand for DistinctCommand {
         let brush_stderr = Brush::from_environment(Stream::Stderr)?;
         let verbose_output = matches.get_flag("verbose");
 
-        let count = matches
-            .get_one::<String>("number")
-            .expect("required argument");
-        let count = count
-            .parse::<usize>()
-            .map_err(|_| PastelError::CouldNotParseNumber(count.into()))?;
-
-        if count < 2 {
-            return Err(PastelError::DistinctColorCountMustBeLargerThanOne);
-        }
+        let count = *matches.get_one::<u32>("number").expect("required argument");
+        let count = count as usize;
 
         let distance_metric = match matches
             .get_one::<String>("metric")

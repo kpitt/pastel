@@ -1,9 +1,22 @@
-use clap::{builder, crate_description, crate_name, crate_version, Arg, ArgAction, Command};
+use clap::{
+    builder::PossibleValuesParser, crate_description, crate_name, crate_version, value_parser, Arg,
+    ArgAction, Command,
+};
 
-use crate::{colorpicker_tools::COLOR_PICKER_TOOL_NAMES, commands::completions};
+use crate::{
+    colorpicker_tools::COLOR_PICKER_TOOL_NAMES,
+    commands::completions,
+    error::{PastelError, Result},
+};
 
 const SORT_OPTIONS: &[&str] = &["brightness", "luminance", "hue", "chroma", "random"];
 const DEFAULT_SORT_ORDER: &str = "hue";
+
+fn parse_float(value_str: &str) -> Result<f64> {
+    value_str
+        .parse::<f64>()
+        .map_err(|_| PastelError::CouldNotParseNumber(value_str.into()))
+}
 
 pub fn build_cli() -> Command {
     let color_arg_help =
@@ -80,7 +93,7 @@ pub fn build_cli() -> Command {
                         .short('s')
                         .long("sort")
                         .help("Sort order")
-                        .value_parser(builder::PossibleValuesParser::new(SORT_OPTIONS))
+                        .value_parser(PossibleValuesParser::new(SORT_OPTIONS))
                         .default_value(DEFAULT_SORT_ORDER)
                         .value_name("ORDER")
                 ),
@@ -116,7 +129,8 @@ pub fn build_cli() -> Command {
                         .short('n')
                         .help("Number of colors to generate")
                         .default_value("10")
-                        .value_name("COUNT"),
+                        .value_name("COUNT")
+                        .value_parser(value_parser!(u32).range(1..1000))
                 ),
         )
         .subcommand(
@@ -128,9 +142,10 @@ pub fn build_cli() -> Command {
                              (simulated annealing) should work fine for up to 10-20 colors.")
                 .arg(
                     Arg::new("number")
-                        .help("Number of distinct colors in the set")
+                        .help("Number of distinct colors in the set (at least 2)")
                         .default_value("10")
-                        .value_name("COUNT"),
+                        .value_name("COUNT")
+                        .value_parser(value_parser!(u32).range(2..1000))
                 )
                 .arg(
                     Arg::new("metric")
@@ -171,7 +186,7 @@ pub fn build_cli() -> Command {
                 .arg(
                     Arg::new("sort-order")
                         .help("Sort order")
-                        .value_parser(builder::PossibleValuesParser::new(SORT_OPTIONS))
+                        .value_parser(PossibleValuesParser::new(SORT_OPTIONS))
                         .default_value(DEFAULT_SORT_ORDER)
                         .value_name("ORDER")
                 )
@@ -219,6 +234,7 @@ pub fn build_cli() -> Command {
                         .help("Number of colors to pick")
                         .default_value("1")
                         .value_name("COUNT")
+                        .value_parser(value_parser!(u32).range(1..100))
                 )
         )
         .subcommand(
@@ -317,15 +333,17 @@ pub fn build_cli() -> Command {
                         .value_name("COLOR")
                         .help("Color stops in the color gradient")
                         .action(ArgAction::Append)
-                        .required(true),
+                        .num_args(2..)
+                        .required(true)
                 )
                 .arg(
                     Arg::new("number")
                         .long("number")
                         .short('n')
-                        .help("Number of colors to generate")
+                        .help("Number of colors to generate (at least 2)")
                         .default_value("10")
-                        .value_name("COUNT"),
+                        .value_name("COUNT")
+                        .value_parser(value_parser!(u32).range(2..1000))
                 )
                 .arg(
                     colorspace_arg.clone()
@@ -348,6 +366,7 @@ pub fn build_cli() -> Command {
                         .short('f')
                         .help("Fraction of base color to mix in [between 0.0 and 1.0]")
                         .default_value("0.5")
+                        .value_parser(parse_float)
                         .value_name("FRACTION")
                 )
                 .arg(
@@ -402,6 +421,7 @@ pub fn build_cli() -> Command {
                     Arg::new("value")
                         .help("The new numerical value of the property")
                         .value_name("VALUE")
+                        .value_parser(parse_float)
                         .required(true),
                 )
                 .arg(color_arg.clone()),
@@ -418,7 +438,8 @@ pub fn build_cli() -> Command {
                     Arg::new("amount")
                         .help("Amount of saturation to add [between 0.0 and 1.0]")
                         .value_name("AMOUNT")
-                        .required(true),
+                        .value_parser(parse_float)
+                        .required(true)
                 )
                 .arg(color_arg.clone()),
         )
@@ -434,7 +455,8 @@ pub fn build_cli() -> Command {
                     Arg::new("amount")
                         .help("Amount of saturation to subtract [between 0.0 and 1.0]")
                         .value_name("AMOUNT")
-                        .required(true),
+                        .value_parser(parse_float)
+                        .required(true)
                 )
                 .arg(color_arg.clone()),
         )
@@ -449,7 +471,8 @@ pub fn build_cli() -> Command {
                     Arg::new("amount")
                         .help("Amount of lightness to add [between 0.0 and 1.0]")
                         .value_name("AMOUNT")
-                        .required(true),
+                        .value_parser(parse_float)
+                        .required(true)
                 )
                 .arg(color_arg.clone()),
         )
@@ -464,7 +487,8 @@ pub fn build_cli() -> Command {
                     Arg::new("amount")
                         .help("Amount of lightness to subtract [between 0.0 and 1.0]")
                         .value_name("AMOUNT")
-                        .required(true),
+                        .value_parser(parse_float)
+                        .required(true)
                 )
                 .arg(color_arg.clone()),
         )
@@ -480,6 +504,7 @@ pub fn build_cli() -> Command {
                     Arg::new("degrees")
                         .help("Angle by which to rotate (in degrees, can be negative)")
                         .value_name("ANGLE")
+                        .value_parser(parse_float)
                         .required(true),
                 )
                 .arg(color_arg.clone()),
@@ -502,7 +527,8 @@ pub fn build_cli() -> Command {
                     Arg::new("lightness")
                         .help("Lightness of the gray tone [between 0.0 and 1.0]")
                         .value_name("LIGHTNESS")
-                        .required(true),
+                        .value_parser(parse_float)
+                        .required(true)
                 ),
         )
         .subcommand(
@@ -550,7 +576,7 @@ pub fn build_cli() -> Command {
         .arg(
             Arg::new("color-picker")
                 .long("color-picker")
-                .value_parser(builder::PossibleValuesParser::new(COLOR_PICKER_TOOL_NAMES.iter()))
+                .value_parser(PossibleValuesParser::new(COLOR_PICKER_TOOL_NAMES.iter()))
                 .value_name("TOOL")
                 .ignore_case(true)
                 .help("Use a specific tool to pick the colors")

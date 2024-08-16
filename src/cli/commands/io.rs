@@ -9,11 +9,8 @@ use crate::{PastelError, Result};
 use pastel::parser::parse_color;
 use pastel::Color;
 
-pub fn number_arg(matches: &ArgMatches, name: &str) -> Result<f64> {
-    let value_str = matches.get_one::<String>(name).expect("required argument");
-    value_str
-        .parse::<f64>()
-        .map_err(|_| PastelError::CouldNotParseNumber(value_str.into()))
+pub fn required_float_arg(matches: &ArgMatches, name: &str) -> f64 {
+    *matches.get_one::<f64>(name).expect("required argument")
 }
 
 #[derive(Debug, Clone, PartialEq)]
