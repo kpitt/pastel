@@ -135,15 +135,9 @@ impl GenericCommand for DistinctCommand {
         let count = *matches.get_one::<u32>("number").expect("required argument");
         let count = count as usize;
 
-        let distance_metric = match matches
-            .get_one::<String>("metric")
-            .map(String::as_str)
-            .expect("required argument")
-        {
-            "CIE76" => DistanceMetric::CIE76,
-            "CIEDE2000" => DistanceMetric::CIEDE2000,
-            _ => unreachable!("Unknown distance metric"),
-        };
+        let distance_metric = *matches
+            .get_one::<DistanceMetric>("metric")
+            .expect("required argument");
 
         let fixed_colors = match matches.get_many("color") {
             None => vec![],

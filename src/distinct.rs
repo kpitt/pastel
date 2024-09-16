@@ -1,5 +1,6 @@
 use core::f64 as scalar;
 
+use clap::{builder::PossibleValue, ValueEnum};
 use rand::prelude::*;
 
 use crate::delta_e;
@@ -52,6 +53,19 @@ pub enum OptimizationMode {
 pub enum DistanceMetric {
     CIE76,
     CIEDE2000,
+}
+
+impl ValueEnum for DistanceMetric {
+    fn value_variants<'a>() -> &'a [Self] {
+        &[Self::CIEDE2000, Self::CIE76]
+    }
+
+    fn to_possible_value(&self) -> Option<PossibleValue> {
+        Some(match self {
+            Self::CIE76 => PossibleValue::new("CIE76"),
+            Self::CIEDE2000 => PossibleValue::new("CIEDE2000"),
+        })
+    }
 }
 
 pub struct SimulationParameters {

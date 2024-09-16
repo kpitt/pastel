@@ -85,20 +85,9 @@ color_command!(MixCommand, config, matches, color, {
 
 color_command!(ColorblindCommand, config, matches, color, {
     // The type of colorblindness selected (protanopia, deuteranopia, tritanopia)
-    let cb_ty = matches
-        .get_one::<String>("type")
-        .expect("required argument")
-        .to_lowercase();
-
-    // Convert the string to the corresponding enum variant
-    let cb_ty = match cb_ty.as_ref() {
-        "prot" => ColorblindnessType::Protanopia,
-        "deuter" => ColorblindnessType::Deuteranopia,
-        "trit" => ColorblindnessType::Tritanopia,
-        &_ => {
-            unreachable!("Unknown property");
-        }
-    };
+    let cb_ty = *matches
+        .get_one::<ColorblindnessType>("type")
+        .expect("required argument");
 
     color.simulate_colorblindness(cb_ty)
 });

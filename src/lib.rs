@@ -25,6 +25,8 @@ mod test_helper;
 
 use std::{fmt, str::FromStr};
 
+use clap::{builder::PossibleValue, ValueEnum};
+
 pub use cmyk::CMYK;
 pub use hsl::HSLA;
 pub use hsv::HSVA;
@@ -669,6 +671,7 @@ impl FromStr for Color {
 
 /// A representation of the different kinds of colorblindness. More info
 /// [here](https://en.wikipedia.org/wiki/Color_blindness).
+#[derive(Debug, Clone, Copy)]
 pub enum ColorblindnessType {
     /// Protanopic people lack red cones
     Protanopia,
@@ -676,6 +679,20 @@ pub enum ColorblindnessType {
     Deuteranopia,
     /// Tritanopic people lack blue cones
     Tritanopia,
+}
+
+impl ValueEnum for ColorblindnessType {
+    fn value_variants<'a>() -> &'a [Self] {
+        &[Self::Protanopia, Self::Deuteranopia, Self::Tritanopia]
+    }
+
+    fn to_possible_value(&self) -> Option<PossibleValue> {
+        Some(match self {
+            Self::Protanopia => PossibleValue::new("prot"),
+            Self::Deuteranopia => PossibleValue::new("deuter"),
+            Self::Tritanopia => PossibleValue::new("trit"),
+        })
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]

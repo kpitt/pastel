@@ -15,7 +15,7 @@ mod util;
 mod utility;
 
 use commands::Command;
-use config::Config;
+use config::{ColorMode, Config};
 use error::{PastelError, Result};
 
 use crate::util::style;
@@ -82,14 +82,13 @@ fn run() -> Result<ExitCode> {
         Some(ansi::Mode::TrueColor)
     } else {
         match global_matches
-            .get_one::<String>("color-mode")
-            .map(String::as_str)
+            .get_one::<ColorMode>("color-mode")
             .expect("required argument")
         {
-            "24bit" => Some(ansi::Mode::TrueColor),
-            "8bit" => Some(ansi::Mode::Ansi8Bit),
-            "off" => None,
-            "auto" => {
+            ColorMode::TrueColor => Some(ansi::Mode::TrueColor),
+            ColorMode::Ansi8Bit => Some(ansi::Mode::Ansi8Bit),
+            ColorMode::Off => None,
+            ColorMode::Auto => {
                 if interactive_mode {
                     let env_color_mode = std::env::var("PASTEL_COLOR_MODE").ok();
                     match env_color_mode.as_deref() {
@@ -109,7 +108,6 @@ fn run() -> Result<ExitCode> {
                     None
                 }
             }
-            _ => unreachable!("Unknown --color-mode argument"),
         }
     };
 

@@ -2,10 +2,12 @@ use clap::{
     builder::PossibleValuesParser, crate_description, crate_name, crate_version, value_parser, Arg,
     ArgAction, Command,
 };
+use pastel::{distinct::DistanceMetric, ColorblindnessType};
 
 use crate::{
     colorpicker_tools::COLOR_PICKER_TOOL_NAMES,
     commands::completions,
+    config::ColorMode,
     error::{PastelError, Result},
 };
 
@@ -154,8 +156,9 @@ pub fn build_cli() -> Command {
                         .help("Distance metric for color distances")
                         .long_help("Distance metric to use for computing mutual color distances. \
                             The CIEDE2000 metric is more accurate, but also much slower.")
-                        .value_parser(["CIEDE2000", "CIE76"])
                         .value_name("METRIC")
+                        .value_parser(value_parser!(DistanceMetric))
+                        .ignore_case(true)
                         .default_value("CIE76")
                 )
                 .arg(
@@ -390,7 +393,7 @@ pub fn build_cli() -> Command {
                     Arg::new("type")
                         .help("The type of colorblindness that should be simulated (protanopia, \
                                deuteranopia, tritanopia)")
-                        .value_parser(["prot", "deuter", "trit"])
+                        .value_parser(value_parser!(ColorblindnessType))
                         .value_name("TYPE")
                         .ignore_case(true)
                         .required(true),
@@ -561,7 +564,7 @@ pub fn build_cli() -> Command {
                 .short('m')
                 .value_name("MODE")
                 .help("Specify the terminal color mode: 24bit, 8bit, off, *auto*")
-                .value_parser(["24bit", "8bit", "off", "auto"])
+                .value_parser(value_parser!(ColorMode))
                 .default_value(if output_vt100::try_init().is_ok() {"auto"} else {"off"})
                 .hide_possible_values(true)
                 .hide_default_value(true)
